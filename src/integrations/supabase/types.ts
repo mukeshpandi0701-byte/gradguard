@@ -103,6 +103,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          phone_number: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
         }
@@ -111,6 +112,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
@@ -119,6 +121,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
@@ -129,11 +132,13 @@ export type Database = {
           attendance_percentage: number | null
           attended_hours: number
           created_at: string
+          email: string | null
           fee_paid_percentage: number | null
           id: string
           internal_marks: number
           paid_fees: number
           pending_fees: number | null
+          phone_number: string | null
           roll_number: string | null
           student_name: string
           total_fees: number
@@ -145,11 +150,13 @@ export type Database = {
           attendance_percentage?: number | null
           attended_hours?: number
           created_at?: string
+          email?: string | null
           fee_paid_percentage?: number | null
           id?: string
           internal_marks?: number
           paid_fees?: number
           pending_fees?: number | null
+          phone_number?: string | null
           roll_number?: string | null
           student_name: string
           total_fees?: number
@@ -161,11 +168,13 @@ export type Database = {
           attendance_percentage?: number | null
           attended_hours?: number
           created_at?: string
+          email?: string | null
           fee_paid_percentage?: number | null
           id?: string
           internal_marks?: number
           paid_fees?: number
           pending_fees?: number | null
+          phone_number?: string | null
           roll_number?: string | null
           student_name?: string
           total_fees?: number

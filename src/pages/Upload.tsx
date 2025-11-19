@@ -63,6 +63,8 @@ const Upload = () => {
         total_fees: student.totalFees,
         paid_fees: student.paidFees,
         internal_marks: student.internalMarks,
+        email: student.email,
+        phone_number: student.phoneNumber,
       }));
 
       const { error } = await supabase

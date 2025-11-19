@@ -5,9 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, RefreshCw, AlertCircle } from "lucide-react";
+import { ArrowLeft, RefreshCw, AlertCircle, Trash2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { initializeModel, predictDropout } from "@/lib/mlModel";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Student {
   id: string;
@@ -63,7 +74,7 @@ const Students = () => {
     }
 
     setPredicting(true);
-    toast.loading("Running predictions...");
+    const loadingToast = toast.loading("Running predictions...");
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -146,14 +157,31 @@ const Students = () => {
       if (error) throw error;
 
       setStudents(studentsWithPredictions);
-      toast.dismiss();
+      toast.dismiss(loadingToast);
       toast.success("Predictions completed successfully!");
     } catch (error: any) {
-      toast.dismiss();
+      toast.dismiss(loadingToast);
       toast.error(error.message || "Failed to run predictions");
       console.error(error);
     } finally {
       setPredicting(false);
+    }
+  };
+
+  const handleDeleteStudent = async (studentId: string) => {
+    try {
+      const { error } = await supabase
+        .from("students")
+        .delete()
+        .eq("id", studentId);
+
+      if (error) throw error;
+
+      setStudents(students.filter(s => s.id !== studentId));
+      toast.success("Student deleted successfully");
+    } catch (error: any) {
+      toast.error("Failed to delete student");
+      console.error(error);
     }
   };
 
@@ -236,6 +264,7 @@ const Students = () => {
                       <TableHead>Pending Fees</TableHead>
                       <TableHead>Risk Level</TableHead>
                       <TableHead>ML Probability</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -252,6 +281,29 @@ const Students = () => {
                         </TableCell>
                         <TableCell>
                           {student.mlProbability ? `${(student.mlProbability * 100).toFixed(1)}%` : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Student</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete {student.student_name}? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteStudent(student.id)}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </TableCell>
                       </TableRow>
                     ))}
