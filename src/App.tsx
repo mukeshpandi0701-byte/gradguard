@@ -11,6 +11,8 @@ import Upload from "./pages/Upload";
 import Students from "./pages/Students";
 import Criteria from "./pages/Criteria";
 import Profile from "./pages/Profile";
+import Reports from "./pages/Reports";
+import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/students" element={<Students />} />
           <Route path="/criteria" element={<Criteria />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/notifications" element={<Notifications />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
