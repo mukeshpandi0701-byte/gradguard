@@ -57,9 +57,16 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         try {
+          // Format phone number to international format if not already formatted
+          let formattedPhone = student.phone_number;
+          if (!formattedPhone.startsWith('+')) {
+            // Assuming Indian numbers - adjust country code as needed
+            formattedPhone = `+91${formattedPhone}`;
+          }
+
           const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
           const formData = new URLSearchParams({
-            To: student.phone_number,
+            To: formattedPhone,
             From: twilioPhoneNumber,
             Body: `Hi ${student.student_name}, ${message}`,
           });
