@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Upload as UploadIcon, FileUp, Check, ArrowLeft } from "lucide-react";
+import { Upload as UploadIcon, FileUp, Check } from "lucide-react";
 import { parseCSV, ParsedStudent } from "@/lib/csvParser";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
 const Upload = () => {
   const navigate = useNavigate();
@@ -86,20 +87,11 @@ const Upload = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <header className="border-b bg-card shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Upload Student Data</h1>
-          <p className="text-muted-foreground">
+    <DashboardLayout>
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold">Upload Student Data</h2>
+          <p className="text-muted-foreground mt-2">
             Upload a CSV file with student information. The system will automatically detect columns.
           </p>
         </div>
@@ -197,8 +189,8 @@ const Upload = () => {
             </CardContent>
           </Card>
         )}
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 
