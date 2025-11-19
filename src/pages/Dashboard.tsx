@@ -5,7 +5,7 @@ import { Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { GraduationCap, Users, Upload, Settings, BarChart3, LogOut, AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
+import { GraduationCap, Users, Upload, Settings, BarChart3, LogOut, AlertCircle, CheckCircle2, AlertTriangle, Bell } from "lucide-react";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -209,6 +209,21 @@ const Dashboard = () => {
               <CardTitle>Reports & Analytics</CardTitle>
               <CardDescription>
                 View comprehensive analytics and export reports
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="shadow-card hover:shadow-elevated transition-all cursor-pointer group"
+            onClick={() => navigate("/notifications")}
+          >
+            <CardHeader>
+              <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4 group-hover:bg-accent/20 transition-colors">
+                <Bell className="w-6 h-6 text-accent" />
+              </div>
+              <CardTitle>Send Notifications</CardTitle>
+              <CardDescription>
+                Send SMS and email alerts to students
               </CardDescription>
             </CardHeader>
           </Card>
