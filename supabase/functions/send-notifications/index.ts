@@ -21,6 +21,34 @@ const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
 const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
 const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
+// Normalize phone numbers to E.164 format (Indian numbers by default)
+const normalizePhoneNumber = (rawPhone: string | null): string | null => {
+  if (!rawPhone) return null;
+
+  // Remove spaces, parentheses, hyphens
+  let digits = rawPhone.replace(/[\s()-]/g, "");
+
+  // If it starts with '+', assume it's already in E.164 format
+  if (digits.startsWith("+")) {
+    return digits;
+  }
+
+  // Remove leading country code patterns like '91' or leading '0'
+  if (digits.startsWith("91")) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  // At this point we expect a 10-digit Indian mobile number
+  if (digits.length !== 10) {
+    console.error("Invalid phone number after normalization:", rawPhone, "->", digits);
+    return null;
+  }
+
+  return `+91${digits}`;
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,11 +85,13 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         try {
-          // Format phone number to international format if not already formatted
-          let formattedPhone = student.phone_number;
-          if (!formattedPhone.startsWith('+')) {
-            // Assuming Indian numbers - adjust country code as needed
-            formattedPhone = `+91${formattedPhone}`;
+          // Normalize phone number to international format
+          const formattedPhone = normalizePhoneNumber(student.phone_number);
+
+          if (!formattedPhone) {
+            results.sms.failed++;
+            results.sms.errors.push(`${student.student_name}: Invalid phone number format (${student.phone_number || "missing"})`);
+            continue;
           }
 
           const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
