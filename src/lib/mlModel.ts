@@ -40,30 +40,57 @@ class DropoutModel {
   }
 
   private async trainModel() {
-    // Generate synthetic training data
-    const numSamples = 500;
+    // Generate more realistic synthetic training data with gradual risk patterns
+    const numSamples = 1000;
     const inputs: number[][] = [];
     const labels: number[] = [];
 
     for (let i = 0; i < numSamples; i++) {
       const attendance = Math.random() * 100;
       const feePaid = Math.random() * 100;
-      const pending = Math.random() * 20000;
+      const pending = Math.random() * 30000;
       const marks = Math.random() * 100;
 
-      inputs.push([attendance, feePaid, pending / 100, marks]);
+      // Normalize inputs
+      inputs.push([
+        attendance / 100, 
+        feePaid / 100, 
+        Math.min(pending / 30000, 1), 
+        marks / 100
+      ]);
 
-      // Label: 1 (dropout risk) if low attendance, low marks, or high pending fees
-      const isRisk = attendance < 70 || marks < 40 || pending > 10000 ? 1 : 0;
-      labels.push(isRisk);
+      // Create a more nuanced risk score based on multiple factors
+      let riskScore = 0;
+      
+      // Attendance contribution (0-0.4)
+      if (attendance < 60) riskScore += 0.4;
+      else if (attendance < 75) riskScore += 0.25;
+      else if (attendance < 85) riskScore += 0.1;
+      
+      // Marks contribution (0-0.35)
+      if (marks < 35) riskScore += 0.35;
+      else if (marks < 50) riskScore += 0.22;
+      else if (marks < 65) riskScore += 0.1;
+      
+      // Fee contribution (0-0.25)
+      if (pending > 15000) riskScore += 0.25;
+      else if (pending > 8000) riskScore += 0.15;
+      else if (pending > 3000) riskScore += 0.05;
+
+      // Add some randomness to make it more realistic
+      riskScore += (Math.random() - 0.5) * 0.1;
+      riskScore = Math.max(0, Math.min(1, riskScore));
+
+      labels.push(riskScore);
     }
 
     const xs = tf.tensor2d(inputs);
     const ys = tf.tensor2d(labels, [numSamples, 1]);
 
     await this.model!.fit(xs, ys, {
-      epochs: 50,
+      epochs: 100,
       batchSize: 32,
+      shuffle: true,
       verbose: 0,
     });
 
@@ -74,10 +101,10 @@ class DropoutModel {
   predict(input: PredictionInput): number {
     const inputTensor = tf.tensor2d([
       [
-        input.attendancePercentage,
-        input.feePaidPercentage,
-        input.pendingFees / 100,
-        input.internalMarks,
+        input.attendancePercentage / 100,
+        input.feePaidPercentage / 100,
+        Math.min(input.pendingFees / 30000, 1),
+        input.internalMarks / 100,
       ],
     ]);
 
@@ -87,7 +114,7 @@ class DropoutModel {
     inputTensor.dispose();
     prediction.dispose();
 
-    return probability;
+    return Math.max(0, Math.min(1, probability));
   }
 }
 
