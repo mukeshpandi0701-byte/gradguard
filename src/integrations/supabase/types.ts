@@ -62,6 +62,74 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_logs: {
+        Row: {
+          bounced_at: string | null
+          clicked_at: string | null
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          failed_at: string | null
+          id: string
+          message: string
+          opened_at: string | null
+          resend_email_id: string | null
+          sent_at: string
+          status: string
+          student_email: string
+          student_id: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bounced_at?: string | null
+          clicked_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          message: string
+          opened_at?: string | null
+          resend_email_id?: string | null
+          sent_at?: string
+          status?: string
+          student_email: string
+          student_id: string
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bounced_at?: string | null
+          clicked_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          message?: string
+          opened_at?: string | null
+          resend_email_id?: string | null
+          sent_at?: string
+          status?: string
+          student_email?: string
+          student_id?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_settings: {
         Row: {
           created_at: string

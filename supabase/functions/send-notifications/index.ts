@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: students, error: fetchError } = await supabase
       .from("students")
       .select(`
+        id,
         student_name, 
         email,
         attendance_percentage,
@@ -106,101 +108,86 @@ const handler = async (req: Request): Promise<Response> => {
         const insights = studentData.predictions?.[0]?.insights || "";
         const suggestions = studentData.predictions?.[0]?.suggestions || "";
 
+        // Generate PDF report
+        const pdf = new jsPDF();
+        pdf.setFontSize(20);
+        pdf.text("Student Progress Report", 20, 20);
+        
+        pdf.setFontSize(12);
+        pdf.text(`Student Name: ${student.student_name}`, 20, 40);
+        pdf.text(`Risk Level: ${riskLevel.toUpperCase()}`, 20, 50);
+        pdf.text(`Dropout Probability: ${mlProbability}%`, 20, 60);
+        
+        pdf.setFontSize(14);
+        pdf.text("Performance Metrics:", 20, 80);
+        pdf.setFontSize(11);
+        pdf.text(`Attendance: ${attendancePercentage}%`, 30, 90);
+        pdf.text(`Internal Marks: ${internalMarks}`, 30, 100);
+        pdf.text(`Fee Paid: ${feePaidPercentage}%`, 30, 110);
+        pdf.text(`Pending Fees: ₹${pendingFees}`, 30, 120);
+        
+        if (insights) {
+          pdf.setFontSize(14);
+          pdf.text("Insights:", 20, 140);
+          pdf.setFontSize(10);
+          const insightLines = pdf.splitTextToSize(insights, 170);
+          pdf.text(insightLines, 30, 150);
+        }
+        
+        if (suggestions) {
+          pdf.setFontSize(14);
+          pdf.text("Recommendations:", 20, 180);
+          pdf.setFontSize(10);
+          const suggestionLines = pdf.splitTextToSize(suggestions, 170);
+          pdf.text(suggestionLines, 30, 190);
+        }
+        
+        const pdfBuffer = pdf.output("arraybuffer");
+        const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+
         try {
           // Prepare email recipients - CC tutor if email exists
           const emailTo = [student.email];
           const emailCc = tutorEmail ? [tutorEmail] : undefined;
 
-          await resend.emails.send({
+          const emailResponse = await resend.emails.send({
             from: `${senderName} <onboarding@resend.dev>`,
             to: emailTo,
             cc: emailCc,
             subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
+            attachments: [
+              {
+                filename: `${student.student_name.replace(/\s+/g, '_')}_report.pdf`,
+                content: pdfBase64,
+              },
+            ],
             html: `
               <!DOCTYPE html>
               <html>
-                <head>
-                  <meta charset="utf-8">
-                  <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-                    .container { max-width: 600px; margin: 0 auto; }
-                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-                    .content { background: #f9f9f9; padding: 30px; }
-                    .risk-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin: 15px 0; background: ${riskBg}; color: ${riskColor}; }
-                    .message { white-space: pre-wrap; margin: 20px 0; padding: 20px; background: white; border-left: 4px solid #667eea; border-radius: 5px; }
-                    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; background: #f0f0f0; }
-                    h1 { margin: 0; font-size: 24px; }
-                    h2 { color: #333; margin-top: 0; }
-                  </style>
-                </head>
-                <body>
-                  <div class="container">
-                    <div class="header">
-                      <h1>Student Dropout Prevention System</h1>
-                      <p style="margin: 5px 0 0 0;">Academic Update Notification</p>
-                    </div>
-                    <div class="content">
-                      <h2>Dear ${student.student_name},</h2>
-                      <p>Your current academic risk level: 
-                        <span class="risk-badge">${riskLevel.toUpperCase()} RISK</span>
-                      </p>
-                      
-                      <!-- Student Performance Summary -->
-                      <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
-                        <h3 style="color: #667eea; margin-top: 0;">Performance Summary</h3>
-                        <table style="width: 100%; border-collapse: collapse;">
-                          <tr style="border-bottom: 1px solid #e5e7eb;">
-                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Attendance</td>
-                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">${attendancePercentage}%</td>
-                          </tr>
-                          <tr style="border-bottom: 1px solid #e5e7eb;">
-                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Internal Marks</td>
-                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">${internalMarks}</td>
-                          </tr>
-                          <tr style="border-bottom: 1px solid #e5e7eb;">
-                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Fee Paid</td>
-                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">${feePaidPercentage}%</td>
-                          </tr>
-                          <tr style="border-bottom: 1px solid #e5e7eb;">
-                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Pending Fees</td>
-                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">₹${pendingFees}</td>
-                          </tr>
-                          <tr>
-                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Dropout Probability</td>
-                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">${mlProbability}%</td>
-                          </tr>
-                        </table>
-                      </div>
-
-                      ${insights ? `
-                        <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
-                          <h3 style="color: #1e40af; margin-top: 0;">📊 Insights</h3>
-                          <p style="margin: 0; color: #1e3a8a;">${insights}</p>
-                        </div>
-                      ` : ''}
-
-                      ${suggestions ? `
-                        <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
-                          <h3 style="color: #047857; margin-top: 0;">💡 Recommendations</h3>
-                          <p style="margin: 0; color: #065f46;">${suggestions}</p>
-                        </div>
-                      ` : ''}
-                      
-                      <div class="message">${message}</div>
-                      <p style="margin-top: 20px;">If you have any questions or need support, please don't hesitate to reach out to your tutor.</p>
-                      <p>Best regards,<br/><strong>${senderName}</strong></p>
-                    </div>
-                    <div class="footer">
-                      <p style="margin: 5px 0;">This is an automated message from the Student Dropout Prevention System</p>
-                      <p style="margin: 5px 0;">Reply to: ${profile?.email || "your tutor"}</p>
-                    </div>
-                  </div>
-                </body>
+...
               </html>
             `,
           });
+          
+          // Log notification to database
+          const { error: logError } = await supabase
+            .from("notification_logs")
+            .insert({
+              user_id: user.id,
+              student_id: (student as any).id,
+              student_email: student.email,
+              subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
+              message: message,
+              status: "sent",
+              resend_email_id: emailResponse?.data?.id || null,
+            });
+          
+          if (logError) {
+            console.error(`Failed to log notification for ${student.student_name}:`, logError);
+          }
+          
           results.email.success++;
-          console.log(`✓ Email sent to ${student.student_name} (${student.email}), Risk: ${riskLevel}`);
+          console.log(`✓ Email sent to ${student.student_name} (${student.email}), Risk: ${riskLevel}, Email ID: ${emailResponse?.data?.id}`);
         } catch (error: any) {
           results.email.failed++;
           results.email.errors.push(`${student.student_name}: ${error.message}`);
