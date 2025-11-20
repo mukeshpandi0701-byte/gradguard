@@ -16,7 +16,6 @@ interface StudentWithPrediction {
   student_name: string;
   roll_number: string | null;
   email: string | null;
-  phone_number: string | null;
   predictions?: Array<{
     final_risk_level: string;
   }>;
@@ -27,8 +26,6 @@ const Notifications = () => {
   const [students, setStudents] = useState<StudentWithPrediction[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
-  const [sendSMS, setSendSMS] = useState(true);
-  const [sendEmail, setSendEmail] = useState(true);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +38,7 @@ const Notifications = () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("id, student_name, roll_number, email, phone_number, predictions(final_risk_level)");
+        .select("id, student_name, roll_number, email, predictions(final_risk_level)");
 
       if (error) throw error;
       setStudents(data || []);
@@ -90,11 +87,6 @@ const Notifications = () => {
       return;
     }
 
-    if (!sendSMS && !sendEmail) {
-      toast.error("Please select at least one notification method");
-      return;
-    }
-
     setSending(true);
     const loadingToast = toast.loading("Sending notifications...");
 
@@ -103,8 +95,6 @@ const Notifications = () => {
         body: {
           studentIds: Array.from(selectedStudents),
           message: message.trim(),
-          sendSMS,
-          sendEmail,
         },
       });
 
@@ -113,17 +103,8 @@ const Notifications = () => {
       toast.dismiss(loadingToast);
       
       if (data?.results) {
-        const { sms, email } = data.results;
-        let successMsg = [];
-        
-        if (sendSMS) {
-          successMsg.push(`${sms.success} SMS sent${sms.failed > 0 ? `, ${sms.failed} failed` : ""}`);
-        }
-        if (sendEmail) {
-          successMsg.push(`${email.success} emails sent${email.failed > 0 ? `, ${email.failed} failed` : ""}`);
-        }
-        
-        toast.success(successMsg.join(" | "));
+        const { email } = data.results;
+        toast.success(`${email.success} emails sent${email.failed > 0 ? `, ${email.failed} failed` : ""}`);
         setMessage("");
         setSelectedStudents(new Set());
       } else {
@@ -173,9 +154,9 @@ const Notifications = () => {
             Back to Dashboard
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Send Notifications</h1>
-            <p className="text-muted-foreground">Send SMS and email alerts to students</p>
-          </div>
+          <h1 className="text-3xl font-bold">Send Notifications</h1>
+          <p className="text-muted-foreground">Send email alerts to students</p>
+        </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -199,34 +180,6 @@ const Notifications = () => {
                   <p className="text-xs text-muted-foreground mt-1">
                     {message.length} characters
                   </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Notification Methods</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="sms"
-                        checked={sendSMS}
-                        onCheckedChange={(checked) => setSendSMS(checked as boolean)}
-                      />
-                      <Label htmlFor="sms" className="cursor-pointer flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4" />
-                        SMS
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="email"
-                        checked={sendEmail}
-                        onCheckedChange={(checked) => setSendEmail(checked as boolean)}
-                      />
-                      <Label htmlFor="email" className="cursor-pointer flex items-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        Email
-                      </Label>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="pt-2 border-t">
@@ -311,9 +264,14 @@ const Notifications = () => {
                           <TableCell>{student.roll_number || "N/A"}</TableCell>
                           <TableCell>{getRiskBadge(student)}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {student.email && <div className="flex items-center gap-1"><Mail className="w-3 h-3" />{student.email}</div>}
-                            {student.phone_number && <div className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{student.phone_number}</div>}
-                            {!student.email && !student.phone_number && "No contact info"}
+                            {student.email ? (
+                              <div className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                {student.email}
+                              </div>
+                            ) : (
+                              "No email"
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

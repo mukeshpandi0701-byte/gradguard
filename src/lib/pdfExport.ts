@@ -1,5 +1,4 @@
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 export interface StudentReportData {
   student_name: string;
@@ -8,119 +7,218 @@ export interface StudentReportData {
   internal_marks: number;
   fee_paid_percentage: number;
   pending_fees: number;
-  riskLevel?: string;
-  mlProbability?: number;
+  riskLevel: string;
+  mlProbability: number;
   email?: string;
-  phone_number?: string;
+  suggestions?: string;
+  insights?: string;
 }
 
-export const generatePDF = async (
+export const generateStudentReportPDF = async (
   students: StudentReportData[],
-  chartElement?: HTMLElement | null,
   title: string = "Student Dropout Risk Report"
 ) => {
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  let yPosition = 20;
+  const margin = 15;
+  const contentWidth = pageWidth - (margin * 2);
 
-  // Title
-  pdf.setFontSize(20);
-  pdf.setFont("helvetica", "bold");
-  pdf.text(title, pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 15;
+  students.forEach((student, index) => {
+    if (index > 0) {
+      pdf.addPage();
+    }
 
-  // Date
-  pdf.setFontSize(10);
-  pdf.setFont("helvetica", "normal");
-  pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 15;
+    let yPosition = margin;
 
-  // Add chart if provided
-  if (chartElement) {
-    try {
-      const canvas = await html2canvas(chartElement, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const imgWidth = pageWidth - 40;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    // Header
+    pdf.setFillColor(59, 130, 246); // Blue background
+    pdf.rect(0, 0, pageWidth, 40, 'F');
+    
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(22);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Student Dropout Risk Report", pageWidth / 2, 20, { align: "center" });
+    
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 30, { align: "center" });
+    
+    yPosition = 50;
+    pdf.setTextColor(0, 0, 0);
 
-      if (yPosition + imgHeight > pageHeight - 20) {
+    // Student Information Section
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Student Information", margin, yPosition);
+    yPosition += 10;
+
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    
+    // Name and Roll Number
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Name:", margin, yPosition);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(student.student_name, margin + 25, yPosition);
+    yPosition += 7;
+
+    if (student.roll_number) {
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Roll Number:", margin, yPosition);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(student.roll_number, margin + 35, yPosition);
+      yPosition += 7;
+    }
+
+    if (student.email) {
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Email:", margin, yPosition);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(student.email, margin + 20, yPosition);
+      yPosition += 10;
+    } else {
+      yPosition += 3;
+    }
+
+    // Performance Metrics Section
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Performance Metrics", margin, yPosition);
+    yPosition += 10;
+
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+
+    // Draw metrics boxes
+    const boxHeight = 20;
+    const boxWidth = (contentWidth - 10) / 2;
+
+    // Attendance box
+    pdf.setFillColor(240, 240, 240);
+    pdf.roundedRect(margin, yPosition, boxWidth, boxHeight, 3, 3, 'F');
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Attendance", margin + 5, yPosition + 7);
+    pdf.setFontSize(16);
+    const attendanceColor = student.attendance_percentage >= 75 ? [34, 197, 94] : student.attendance_percentage >= 60 ? [251, 191, 36] : [239, 68, 68];
+    pdf.setTextColor(attendanceColor[0], attendanceColor[1], attendanceColor[2]);
+    pdf.text(`${student.attendance_percentage.toFixed(1)}%`, margin + 5, yPosition + 16);
+    pdf.setTextColor(0, 0, 0);
+
+    // Internal Marks box
+    pdf.setFillColor(240, 240, 240);
+    pdf.roundedRect(margin + boxWidth + 10, yPosition, boxWidth, boxHeight, 3, 3, 'F');
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.text("Internal Marks", margin + boxWidth + 15, yPosition + 7);
+    pdf.setFontSize(16);
+    const marksColor = student.internal_marks >= 40 ? [34, 197, 94] : student.internal_marks >= 25 ? [251, 191, 36] : [239, 68, 68];
+    pdf.setTextColor(marksColor[0], marksColor[1], marksColor[2]);
+    pdf.text(`${student.internal_marks.toFixed(0)}/100`, margin + boxWidth + 15, yPosition + 16);
+    pdf.setTextColor(0, 0, 0);
+
+    yPosition += boxHeight + 8;
+
+    // Fees Paid box
+    pdf.setFillColor(240, 240, 240);
+    pdf.roundedRect(margin, yPosition, boxWidth, boxHeight, 3, 3, 'F');
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.text("Fees Paid", margin + 5, yPosition + 7);
+    pdf.setFontSize(16);
+    const feesColor = student.fee_paid_percentage >= 80 ? [34, 197, 94] : student.fee_paid_percentage >= 50 ? [251, 191, 36] : [239, 68, 68];
+    pdf.setTextColor(feesColor[0], feesColor[1], feesColor[2]);
+    pdf.text(`${student.fee_paid_percentage.toFixed(1)}%`, margin + 5, yPosition + 16);
+    pdf.setTextColor(0, 0, 0);
+
+    // Pending Fees box
+    pdf.setFillColor(240, 240, 240);
+    pdf.roundedRect(margin + boxWidth + 10, yPosition, boxWidth, boxHeight, 3, 3, 'F');
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.text("Pending Fees", margin + boxWidth + 15, yPosition + 7);
+    pdf.setFontSize(16);
+    const pendingColor = student.pending_fees <= 5000 ? [34, 197, 94] : student.pending_fees <= 10000 ? [251, 191, 36] : [239, 68, 68];
+    pdf.setTextColor(pendingColor[0], pendingColor[1], pendingColor[2]);
+    pdf.text(`₹${student.pending_fees.toFixed(0)}`, margin + boxWidth + 15, yPosition + 16);
+    pdf.setTextColor(0, 0, 0);
+
+    yPosition += boxHeight + 12;
+
+    // Risk Assessment Section
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Risk Assessment", margin, yPosition);
+    yPosition += 10;
+
+    // Risk Level
+    const riskColors = {
+      low: { bg: [220, 252, 231], text: [22, 101, 52], label: "LOW RISK" },
+      medium: { bg: [254, 249, 195], text: [161, 98, 7], label: "MEDIUM RISK" },
+      high: { bg: [254, 226, 226], text: [153, 27, 27], label: "HIGH RISK" }
+    };
+    
+    const riskLevel = student.riskLevel.toLowerCase() as keyof typeof riskColors;
+    const risk = riskColors[riskLevel] || riskColors.medium;
+
+    pdf.setFillColor(risk.bg[0], risk.bg[1], risk.bg[2]);
+    pdf.roundedRect(margin, yPosition, 50, 12, 2, 2, 'F');
+    pdf.setTextColor(risk.text[0], risk.text[1], risk.text[2]);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(risk.label, margin + 25, yPosition + 8, { align: "center" });
+    
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`ML Probability: ${(student.mlProbability * 100).toFixed(1)}%`, margin + 60, yPosition + 8);
+
+    yPosition += 20;
+
+    // Insights Section
+    if (student.insights) {
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Key Insights", margin, yPosition);
+      yPosition += 8;
+
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      const insights = pdf.splitTextToSize(student.insights, contentWidth);
+      pdf.text(insights, margin, yPosition);
+      yPosition += insights.length * 5 + 5;
+    }
+
+    // Suggestions Section
+    if (student.suggestions) {
+      if (yPosition > pageHeight - 60) {
         pdf.addPage();
-        yPosition = 20;
+        yPosition = margin;
       }
 
-      pdf.addImage(imgData, "PNG", 20, yPosition, imgWidth, imgHeight);
-      yPosition += imgHeight + 15;
-    } catch (error) {
-      console.error("Failed to add chart to PDF:", error);
-    }
-  }
-
-  // Add student table
-  if (yPosition > pageHeight - 60) {
-    pdf.addPage();
-    yPosition = 20;
-  }
-
-  pdf.setFontSize(14);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Student Risk Analysis", 20, yPosition);
-  yPosition += 10;
-
-  // Table headers
-  pdf.setFontSize(9);
-  pdf.setFont("helvetica", "bold");
-  const headers = ["Name", "Roll No", "Attend%", "Marks", "Risk", "Prob%"];
-  const colWidths = [45, 25, 20, 20, 25, 25];
-  let xPosition = 20;
-
-  headers.forEach((header, i) => {
-    pdf.text(header, xPosition, yPosition);
-    xPosition += colWidths[i];
-  });
-  yPosition += 7;
-
-  // Table rows
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(8);
-
-  students.forEach((student) => {
-    if (yPosition > pageHeight - 20) {
-      pdf.addPage();
-      yPosition = 20;
-      
-      // Repeat headers on new page
+      pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
-      xPosition = 20;
-      headers.forEach((header, i) => {
-        pdf.text(header, xPosition, yPosition);
-        xPosition += colWidths[i];
-      });
-      yPosition += 7;
+      pdf.text("Recommendations", margin, yPosition);
+      yPosition += 8;
+
+      pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
+      const suggestions = pdf.splitTextToSize(student.suggestions, contentWidth);
+      pdf.text(suggestions, margin, yPosition);
     }
 
-    xPosition = 20;
-    const rowData = [
-      student.student_name.substring(0, 20),
-      student.roll_number || "—",
-      `${student.attendance_percentage.toFixed(1)}%`,
-      student.internal_marks.toString(),
-      student.riskLevel?.toUpperCase() || "—",
-      student.mlProbability ? `${(student.mlProbability * 100).toFixed(1)}%` : "—",
-    ];
-
-    rowData.forEach((data, i) => {
-      pdf.text(data, xPosition, yPosition);
-      xPosition += colWidths[i];
-    });
-    yPosition += 6;
+    // Footer
+    pdf.setFontSize(8);
+    pdf.setTextColor(128, 128, 128);
+    pdf.text(
+      `Page ${index + 1} of ${students.length} | Confidential Student Report`,
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: "center" }
+    );
+    pdf.setTextColor(0, 0, 0);
   });
 
   // Save PDF
-  const filename = `dropout-risk-report-${new Date().toISOString().split("T")[0]}.pdf`;
+  const filename = `student-reports-${new Date().toISOString().split("T")[0]}.pdf`;
   pdf.save(filename);
 };

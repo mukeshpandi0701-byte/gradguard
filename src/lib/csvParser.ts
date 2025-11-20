@@ -9,7 +9,6 @@ export interface ParsedStudent {
   paidFees: number;
   internalMarks: number;
   email?: string;
-  phoneNumber?: string;
 }
 
 // Fuzzy matching for column names
@@ -60,7 +59,6 @@ export const parseCSV = (file: File): Promise<{ data: ParsedStudent[]; preview: 
           const paidFeesIdx = detectColumn(headers, ["paid fees", "paid_fees", "fees paid", "amount paid"]);
           const marksIdx = detectColumn(headers, ["marks", "internal", "score", "grade"]);
           const emailIdx = detectColumn(headers, ["email", "e-mail", "mail", "email id"]);
-          const phoneIdx = detectColumn(headers, ["phone", "mobile", "contact", "phone number", "mobile number"]);
           
           const parsedData: ParsedStudent[] = results.data.map((row: any) => ({
             studentName: row[headers[nameIdx]] || "Unknown",
@@ -71,7 +69,6 @@ export const parseCSV = (file: File): Promise<{ data: ParsedStudent[]; preview: 
             paidFees: cleanNumeric(row[headers[paidFeesIdx]]),
             internalMarks: cleanNumeric(row[headers[marksIdx]]),
             email: emailIdx >= 0 ? row[headers[emailIdx]] : undefined,
-            phoneNumber: phoneIdx >= 0 ? row[headers[phoneIdx]] : undefined,
           }));
           
           // Filter out rows with all zeros (likely invalid data)
