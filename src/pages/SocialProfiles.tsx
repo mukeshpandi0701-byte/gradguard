@@ -192,23 +192,41 @@ const SocialProfiles = () => {
     }
   };
 
+  const getIndividualStatus = (lastActivity: string | null): string => {
+    if (!lastActivity) return "Inactive";
+    
+    const now = new Date();
+    const activityDate = new Date(lastActivity);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    
+    if (activityDate > thirtyDaysAgo) return "Active";
+    if (activityDate > ninetyDaysAgo) return "Moderate";
+    return "Inactive";
+  };
+
   const handleExportPDF = () => {
     const socialData: SocialActivityData[] = students.map((student) => {
       const activity = activities.get(student.id);
       
       const githubActivity = activity?.github
-        ? `${activity.github.totalCommits} commits, ${activity.github.publicRepos} repos`
-        : "No data";
+        ? `${activity.github.totalCommits} commits, ${activity.github.publicRepos} repos, Last: ${new Date(activity.github.lastActivity).toLocaleDateString()}`
+        : "No data available";
       
       const linkedinActivity = activity?.linkedin
-        ? `${activity.linkedin.connectionCount} connections, ${activity.linkedin.recentPosts} posts`
-        : "No data";
+        ? `${activity.linkedin.connectionCount} connections, ${activity.linkedin.recentPosts} posts, Last: ${new Date(activity.linkedin.lastActivity).toLocaleDateString()}`
+        : "No data available";
+
+      const githubStatus = getIndividualStatus(activity?.github?.lastActivity || null);
+      const linkedinStatus = getIndividualStatus(activity?.linkedin?.lastActivity || null);
 
       return {
         student_name: student.student_name,
         roll_number: student.roll_number,
         github_activity: githubActivity,
+        github_status: githubStatus,
         linkedin_activity: linkedinActivity,
+        linkedin_status: linkedinStatus,
         status: getActivityStatus(activity),
       };
     });
