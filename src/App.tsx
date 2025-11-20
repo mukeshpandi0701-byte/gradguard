@@ -38,7 +38,6 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/students-export" element={<StudentsWithSelection />} />
-          <Route path="/students-export" element={<StudentsWithSelection />} />
           <Route path="/students/:id" element={<StudentDetail />} />
           <Route path="/students/:id/profile" element={<StudentProfile />} />
           <Route path="/social-profiles" element={<SocialProfiles />} />
