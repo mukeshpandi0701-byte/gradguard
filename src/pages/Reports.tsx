@@ -223,7 +223,7 @@ const Reports = () => {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={barData} barCategoryGap="25%">
+                <BarChart data={barData} barGap={8}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="category" />
                   <YAxis />
