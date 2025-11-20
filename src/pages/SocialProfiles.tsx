@@ -153,11 +153,29 @@ const SocialProfiles = () => {
   const getActivityStatus = (activity: StudentActivity | undefined): "active" | "moderate" | "inactive" => {
     if (!activity) return "inactive";
 
-    const githubActive = activity.github && activity.github.totalCommits > 5;
-    const linkedinActive = activity.linkedin && activity.linkedin.recentPosts > 2;
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
+    // Check GitHub activity recency
+    const githubLastActivity = activity.github?.lastActivity 
+      ? new Date(activity.github.lastActivity)
+      : null;
+    
+    const githubActive = githubLastActivity && githubLastActivity > thirtyDaysAgo;
+    const githubModerate = githubLastActivity && githubLastActivity > ninetyDaysAgo;
+
+    // Check LinkedIn activity recency
+    const linkedinLastActivity = activity.linkedin?.lastActivity 
+      ? new Date(activity.linkedin.lastActivity)
+      : null;
+    
+    const linkedinActive = linkedinLastActivity && linkedinLastActivity > thirtyDaysAgo;
+    const linkedinModerate = linkedinLastActivity && linkedinLastActivity > ninetyDaysAgo;
+
+    // Determine overall status based on most recent activity
     if (githubActive || linkedinActive) return "active";
-    if (activity.github || activity.linkedin) return "moderate";
+    if (githubModerate || linkedinModerate) return "moderate";
     return "inactive";
   };
 
