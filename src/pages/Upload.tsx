@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Upload as UploadIcon, FileUp, Check } from "lucide-react";
+import { Upload as UploadIcon, FileUp, Check, Info } from "lucide-react";
 import { parseCSV, ParsedStudent } from "@/lib/csvParser";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -134,9 +134,73 @@ const Upload = () => {
 
         <Card className="shadow-elevated mb-6">
           <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Info className="w-5 h-5 text-primary" />
+              CSV Format Guide
+            </CardTitle>
+            <CardDescription>
+              Follow this format to ensure successful data upload
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <h4 className="font-semibold mb-3">Required CSV Columns:</h4>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-24">Column</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Column Name</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">1</TableCell>
+                    <TableCell>Roll Number</TableCell>
+                    <TableCell className="font-mono text-primary">Roll No</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">2</TableCell>
+                    <TableCell>Name</TableCell>
+                    <TableCell className="font-mono text-primary">Name</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">3</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell className="font-mono text-primary">Email</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">4</TableCell>
+                    <TableCell>Attended hours</TableCell>
+                    <TableCell className="font-mono text-primary">Attended hours</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">5</TableCell>
+                    <TableCell>Internal Score</TableCell>
+                    <TableCell className="font-mono text-primary">Internal Score</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">6</TableCell>
+                    <TableCell>Fees Paid</TableCell>
+                    <TableCell className="font-mono text-primary">Fees Paid</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+            
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h4 className="font-semibold mb-2">File Naming Convention:</h4>
+              <p className="text-sm text-muted-foreground mb-2">Name your CSV file with the department name</p>
+              <p className="font-mono text-primary">Example: II-CSE-B.csv</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-elevated mb-6">
+          <CardHeader>
             <CardTitle>Upload CSV File</CardTitle>
             <CardDescription>
-              CSV should contain: Roll Number, Student Name, Email, Attended Hours, Fees Paid, Internal Score. Maximum values are set in Criteria Settings.
+              Upload your formatted CSV file following the guide above
             </CardDescription>
           </CardHeader>
           <CardContent>
