@@ -1,8 +1,10 @@
-import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown } from "lucide-react";
+import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, Share2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { useState, useEffect } from "react";
 
 import {
   Sidebar,
@@ -21,7 +23,8 @@ import {
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Upload CSV", url: "/upload", icon: Upload },
-  { title: "Student Analysis", url: "/students", icon: Users },
+  { title: "Students", url: "/students", icon: Users },
+  { title: "Social Profiles", url: "/social-profiles", icon: Share2 },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
   { title: "Dropout Criteria", url: "/criteria", icon: FileText },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },
@@ -36,6 +39,46 @@ const settingsItems = [
 export function AppSidebar() {
   const { open } = useSidebar();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [students, setStudents] = useState<Array<{ id: string; student_name: string; roll_number: string | null }>>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Array<{ id: string; student_name: string; roll_number: string | null }>>([]);
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredStudents([]);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = students.filter(
+        (student) =>
+          student.student_name.toLowerCase().includes(query) ||
+          (student.roll_number && student.roll_number.toLowerCase().includes(query))
+      );
+      setFilteredStudents(filtered.slice(0, 5)); // Show max 5 results
+    }
+  }, [searchQuery, students]);
+
+  const fetchStudents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("students")
+        .select("id, student_name, roll_number")
+        .order("roll_number", { ascending: true, nullsFirst: false });
+
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (error) {
+      console.error("Failed to fetch students:", error);
+    }
+  };
+
+  const handleStudentClick = (studentId: string) => {
+    navigate(`/students/${studentId}`);
+    setSearchQuery("");
+  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -64,6 +107,34 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        <div className="px-3 py-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search students..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          {filteredStudents.length > 0 && (
+            <div className="mt-2 rounded-md border border-border bg-card p-2 space-y-1">
+              {filteredStudents.map((student) => (
+                <button
+                  key={student.id}
+                  onClick={() => handleStudentClick(student.id)}
+                  className="w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-sm"
+                >
+                  <div className="font-medium">{student.student_name}</div>
+                  {student.roll_number && (
+                    <div className="text-xs text-muted-foreground">{student.roll_number}</div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <SidebarGroup>
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>

@@ -17,6 +17,7 @@ import NotificationSettings from "./pages/NotificationSettings";
 import StudentsWithSelection from "./pages/StudentsWithSelection";
 import StudentDetail from "./pages/StudentDetail";
 import StudentProfile from "./pages/StudentProfile";
+import SocialProfiles from "./pages/SocialProfiles";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/students-export" element={<StudentsWithSelection />} />
           <Route path="/students/:id" element={<StudentDetail />} />
           <Route path="/students/:id/profile" element={<StudentProfile />} />
+          <Route path="/social-profiles" element={<SocialProfiles />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/notification-settings" element={<NotificationSettings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
