@@ -286,7 +286,7 @@ export const generateStudentReportPDF = async (
     pdf.setFontSize(16);
     const attendanceColor = student.attendance_percentage >= 75 ? [34, 197, 94] : student.attendance_percentage >= 60 ? [251, 191, 36] : [239, 68, 68];
     pdf.setTextColor(attendanceColor[0], attendanceColor[1], attendanceColor[2]);
-    pdf.text(`${student.attendance_percentage.toFixed(1)}%`, margin + 5, yPosition + 16);
+    pdf.text(student.attendance_percentage.toFixed(1) + "%", margin + 5, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
     // Internal Marks box
@@ -312,7 +312,7 @@ export const generateStudentReportPDF = async (
     pdf.setFontSize(16);
     const feesColor = student.fee_paid_percentage >= 80 ? [34, 197, 94] : student.fee_paid_percentage >= 50 ? [251, 191, 36] : [239, 68, 68];
     pdf.setTextColor(feesColor[0], feesColor[1], feesColor[2]);
-    pdf.text(`${student.fee_paid_percentage.toFixed(1)}%`, margin + 5, yPosition + 16);
+    pdf.text(student.fee_paid_percentage.toFixed(1) + "%", margin + 5, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
     // Pending Fees box
@@ -354,7 +354,7 @@ export const generateStudentReportPDF = async (
     
     pdf.setTextColor(0, 0, 0);
     pdf.setFont("helvetica", "normal");
-    pdf.text(`ML Probability: ${(student.mlProbability * 100).toFixed(1)}%`, margin + 60, yPosition + 8);
+    pdf.text("ML Probability: " + (student.mlProbability * 100).toFixed(1) + "%", margin + 60, yPosition + 8);
 
     yPosition += 20;
 
