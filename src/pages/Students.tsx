@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RefreshCw, AlertCircle, Trash2, Eye } from "lucide-react";
+import { RefreshCw, AlertCircle, Trash2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { initializeModel, predictDropout } from "@/lib/mlModel";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-interface Student {
+type Student = {
   id: string;
   student_name: string;
   roll_number: string | null;
@@ -32,12 +32,12 @@ interface Student {
   internal_marks: number;
   riskLevel?: "low" | "medium" | "high";
   mlProbability?: number;
-}
+};
 
-interface StudentWithPrediction extends Student {
+type StudentWithPrediction = Student & {
   riskLevel: "low" | "medium" | "high";
   mlProbability: number;
-}
+};
 
 const Students = () => {
   const navigate = useNavigate();
@@ -83,14 +83,12 @@ const Students = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Fetch criteria
       let { data: criteria } = await supabase
         .from("dropout_criteria")
         .select("*")
         .eq("user_id", user.id)
         .single();
 
-      // Create default criteria if none exist
       if (!criteria) {
         const { data: newCriteria, error } = await supabase
           .from("dropout_criteria")
@@ -110,7 +108,11 @@ const Students = () => {
         criteria = newCriteria;
       }
 
-      // Run predictions for all students
+      await supabase
+        .from("predictions")
+        .delete()
+        .eq("user_id", user.id);
+
       const predictionsToInsert = [];
       const studentsWithPredictions = students.map(student => {
         const prediction = predictDropout(
@@ -131,33 +133,27 @@ const Students = () => {
         );
 
         predictionsToInsert.push({
-          student_id: student.id,
           user_id: user.id,
+          student_id: student.id,
           ml_probability: prediction.mlProbability,
           rule_based_score: prediction.ruleBasedScore,
           final_risk_level: prediction.finalRiskLevel,
+          suggestions: prediction.suggestions,
           insights: prediction.insights,
-          suggestions: prediction.suggestions.join("; "),
         });
 
         return {
           ...student,
           riskLevel: prediction.finalRiskLevel,
           mlProbability: prediction.mlProbability,
-        };
+        } as StudentWithPrediction;
       });
 
-      // Delete old predictions and insert new ones
-      await supabase
-        .from("predictions")
-        .delete()
-        .eq("user_id", user.id);
-
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from("predictions")
         .insert(predictionsToInsert);
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       setStudents(studentsWithPredictions);
       toast.dismiss(loadingToast);
@@ -171,16 +167,16 @@ const Students = () => {
     }
   };
 
-  const handleDeleteStudent = async (studentId: string) => {
+  const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase
         .from("students")
         .delete()
-        .eq("id", studentId);
+        .eq("id", id);
 
       if (error) throw error;
 
-      setStudents(students.filter(s => s.id !== studentId));
+      setStudents(students.filter(s => s.id !== id));
       toast.success("Student deleted successfully");
     } catch (error: any) {
       toast.error("Failed to delete student");
@@ -188,20 +184,17 @@ const Students = () => {
     }
   };
 
-  const getRiskBadge = (level: "low" | "medium" | "high") => {
+  const getRiskBadge = (level?: string) => {
+    if (!level) return <Badge variant="secondary">No Data</Badge>;
+    
     const variants = {
       low: "default",
       medium: "secondary",
       high: "destructive",
-    };
-    const colors = {
-      low: "bg-success text-success-foreground",
-      medium: "bg-warning text-warning-foreground",
-      high: "bg-destructive text-destructive-foreground",
-    };
-    
+    } as const;
+
     return (
-      <Badge className={colors[level]}>
+      <Badge variant={variants[level as keyof typeof variants]}>
         {level.toUpperCase()}
       </Badge>
     );
@@ -257,60 +250,64 @@ const Students = () => {
             </CardHeader>
             <CardContent>
               <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Roll No</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Attendance</TableHead>
-                      <TableHead>Marks</TableHead>
-                      <TableHead>Fees Paid</TableHead>
-                      <TableHead>Risk Level</TableHead>
-                      <TableHead>Actions</TableHead>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Roll No</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Attendance</TableHead>
+                    <TableHead>Marks</TableHead>
+                    <TableHead>Fees Paid</TableHead>
+                    <TableHead>Risk Level</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {students.map((student) => (
+                    <TableRow key={student.id}>
+                      <TableCell className="font-medium">
+                        {student.roll_number || "—"}
+                      </TableCell>
+                      <TableCell>{student.student_name}</TableCell>
+                      <TableCell>{student.email || "—"}</TableCell>
+                      <TableCell>
+                        {student.attendance_percentage?.toFixed(1)}%
+                      </TableCell>
+                      <TableCell>{student.internal_marks}</TableCell>
+                      <TableCell>
+                        {student.fee_paid_percentage?.toFixed(1)}%
+                      </TableCell>
+                      <TableCell>{getRiskBadge(student.riskLevel)}</TableCell>
+                      <TableCell>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Student</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete {student.student_name}? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(student.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.student_name}</TableCell>
-                        <TableCell>{student.roll_number || "—"}</TableCell>
-                        <TableCell>{student.attendance_percentage?.toFixed(1)}%</TableCell>
-                        <TableCell>{student.internal_marks}</TableCell>
-                        <TableCell>{student.fee_paid_percentage?.toFixed(1)}%</TableCell>
-                        <TableCell>₹{student.pending_fees}</TableCell>
-                        <TableCell>
-                          {student.riskLevel ? getRiskBadge(student.riskLevel) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {student.mlProbability ? `${(student.mlProbability * 100).toFixed(1)}%` : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Student</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete {student.student_name}? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteStudent(student.id)}>
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         )}

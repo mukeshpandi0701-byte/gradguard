@@ -4,11 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, Download, FileText } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface PredictionData {
   final_risk_level: string;
@@ -137,27 +136,26 @@ const Reports = () => {
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold">Reports & Analytics</h2>
-            <p className="text-muted-foreground mt-2">
-              Comprehensive dropout risk analysis
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              💡 For individual student PDFs, visit <a href="/students-export" className="text-primary hover:underline font-medium">Export Student PDFs</a>
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Reports & Analytics</h1>
+              <p className="text-muted-foreground">Comprehensive dropout risk analysis</p>
+            </div>
           </div>
           <Button onClick={handleExportPDF} disabled={exporting}>
             <Download className="w-4 h-4 mr-2" />
-            Export Analytics PDF
+            Export PDF
           </Button>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
@@ -295,7 +293,7 @@ const Reports = () => {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 
