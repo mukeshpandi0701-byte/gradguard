@@ -17,6 +17,13 @@ interface PredictionData {
 interface Student {
   id: string;
   department: string | null;
+  student_name: string;
+  roll_number: string | null;
+  email: string | null;
+  attendance_percentage: number | null;
+  internal_marks: number;
+  fee_paid_percentage: number | null;
+  pending_fees: number | null;
 }
 
 const Reports = () => {
@@ -44,7 +51,7 @@ const Reports = () => {
 
       const { data: students } = await supabase
         .from("students")
-        .select("id, department")
+        .select("id, department, student_name, roll_number, email, attendance_percentage, internal_marks, fee_paid_percentage, pending_fees")
         .eq("user_id", user.id);
 
       // Extract unique departments
@@ -81,38 +88,56 @@ const Reports = () => {
   };
 
   const handleExportPDF = async () => {
-    if (!chartsRef.current) return;
-    
     setExporting(true);
     toast.loading("Generating PDF...");
 
     try {
-      const canvas = await html2canvas(chartsRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-      });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: allStudents } = await supabase
+        .from("students")
+        .select("id, department, student_name, roll_number, email, attendance_percentage, internal_marks, fee_paid_percentage, pending_fees")
+        .eq("user_id", user.id);
+
+      // Filter students by department if selected
+      const filteredStudentIds = selectedDepartment === "all" 
+        ? allStudents?.map(s => s.id)
+        : allStudents?.filter(s => s.department === selectedDepartment).map(s => s.id);
+
+      const { data: studentsData } = await supabase
+        .from("students")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("id", filteredStudentIds || []);
+
+      const { data: predictions } = await supabase
+        .from("predictions")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("student_id", filteredStudentIds || []);
+
+      const reportData = studentsData?.map((student: any) => {
+        const prediction = predictions?.find((p: any) => p.student_id === student.id);
+        return {
+          student_name: student.student_name,
+          roll_number: student.roll_number,
+          department: student.department,
+          email: student.email,
+          attendance_percentage: student.attendance_percentage || 0,
+          internal_marks: student.internal_marks || 0,
+          fee_paid_percentage: student.fee_paid_percentage || 0,
+          pending_fees: student.pending_fees || 0,
+          riskLevel: prediction?.final_risk_level || "low",
+          mlProbability: prediction?.ml_probability || 0,
+          insights: prediction?.insights,
+          suggestions: prediction?.suggestions,
+        };
+      }) || [];
+
+      const { generateStudentReportPDF } = await import("@/lib/pdfExport");
+      await generateStudentReportPDF(reportData, "Student Dropout Risk Report");
       
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      
-      // Title
-      pdf.setFontSize(20);
-      pdf.setFont("helvetica", "bold");
-      pdf.text("Student Dropout Analysis Report", pageWidth / 2, 20, { align: "center" });
-      
-      // Date
-      pdf.setFontSize(10);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 30, { align: "center" });
-      
-      // Add charts image
-      const imgWidth = pageWidth - 20;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 10, 40, imgWidth, Math.min(imgHeight, pageHeight - 50));
-      
-      pdf.save(`dropout-analysis-report-${new Date().toISOString().split('T')[0]}.pdf`);
       toast.dismiss();
       toast.success("PDF exported successfully!");
     } catch (error) {

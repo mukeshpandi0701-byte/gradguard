@@ -18,7 +18,7 @@ import StudentsWithSelection from "./pages/StudentsWithSelection";
 import StudentDetail from "./pages/StudentDetail";
 import StudentProfile from "./pages/StudentProfile";
 import SocialProfiles from "./pages/SocialProfiles";
-import DepartmentAnalytics from "./pages/DepartmentAnalytics";
+
 
 const queryClient = new QueryClient();
 
@@ -37,7 +37,7 @@ const App = () => (
           <Route path="/criteria" element={<Criteria />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/reports" element={<Reports />} />
-          <Route path="/department-analytics" element={<DepartmentAnalytics />} />
+          <Route path="/students-export" element={<StudentsWithSelection />} />
           <Route path="/students-export" element={<StudentsWithSelection />} />
           <Route path="/students/:id" element={<StudentDetail />} />
           <Route path="/students/:id/profile" element={<StudentProfile />} />
