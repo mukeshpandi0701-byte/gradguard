@@ -138,6 +138,41 @@ const Upload = () => {
 
         <Card className="shadow-elevated mb-6">
           <CardHeader>
+            <CardTitle>Upload CSV File</CardTitle>
+            <CardDescription>
+              Upload your formatted CSV file following the guide below
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="hidden"
+                id="csv-upload"
+              />
+              <label htmlFor="csv-upload" className="cursor-pointer">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <FileUp className="w-8 h-8 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-medium">
+                      {file ? file.name : "Click to upload CSV file"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      or drag and drop your file here
+                    </p>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-elevated mb-6">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Info className="w-5 h-5 text-primary" />
               CSV Format Guide
@@ -220,41 +255,6 @@ const Upload = () => {
               <h4 className="font-semibold mb-2">File Naming Convention:</h4>
               <p className="text-sm text-muted-foreground mb-2">Name your CSV file with the department name</p>
               <p className="font-mono text-primary">Example: II-CSE-B.csv</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-elevated mb-6">
-          <CardHeader>
-            <CardTitle>Upload CSV File</CardTitle>
-            <CardDescription>
-              Upload your formatted CSV file following the guide above
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="hidden"
-                id="csv-upload"
-              />
-              <label htmlFor="csv-upload" className="cursor-pointer">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <FileUp className="w-8 h-8 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-medium">
-                      {file ? file.name : "Click to upload CSV file"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      or drag and drop your file here
-                    </p>
-                  </div>
-                </div>
-              </label>
             </div>
           </CardContent>
         </Card>
