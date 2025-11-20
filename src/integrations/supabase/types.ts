@@ -144,7 +144,9 @@ export type Database = {
           created_at: string
           email: string
           full_name: string | null
+          github_url: string | null
           id: string
+          linkedin_url: string | null
           phone_number: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
@@ -153,7 +155,9 @@ export type Database = {
           created_at?: string
           email: string
           full_name?: string | null
+          github_url?: string | null
           id: string
+          linkedin_url?: string | null
           phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
@@ -162,7 +166,9 @@ export type Database = {
           created_at?: string
           email?: string
           full_name?: string | null
+          github_url?: string | null
           id?: string
+          linkedin_url?: string | null
           phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
@@ -224,8 +230,10 @@ export type Database = {
           created_at: string
           email: string | null
           fee_paid_percentage: number | null
+          github_url: string | null
           id: string
           internal_marks: number
+          linkedin_url: string | null
           paid_fees: number
           pending_fees: number | null
           phone_number: string | null
@@ -242,8 +250,10 @@ export type Database = {
           created_at?: string
           email?: string | null
           fee_paid_percentage?: number | null
+          github_url?: string | null
           id?: string
           internal_marks?: number
+          linkedin_url?: string | null
           paid_fees?: number
           pending_fees?: number | null
           phone_number?: string | null
@@ -260,8 +270,10 @@ export type Database = {
           created_at?: string
           email?: string | null
           fee_paid_percentage?: number | null
+          github_url?: string | null
           id?: string
           internal_marks?: number
+          linkedin_url?: string | null
           paid_fees?: number
           pending_fees?: number | null
           phone_number?: string | null
