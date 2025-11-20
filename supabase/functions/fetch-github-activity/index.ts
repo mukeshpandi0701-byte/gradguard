@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN");
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,26 +26,33 @@ serve(async (req) => {
       throw new Error("Invalid GitHub URL");
     }
 
+    // Prepare headers with optional authentication
+    const headers: Record<string, string> = {
+      "Accept": "application/vnd.github.v3+json",
+      "User-Agent": "Lovable-Student-Tracker",
+    };
+
+    // Add authentication if token is available (increases rate limit to 5,000/hour)
+    if (GITHUB_TOKEN) {
+      headers["Authorization"] = `Bearer ${GITHUB_TOKEN}`;
+    }
+
     // Fetch user data from GitHub API
     const userResponse = await fetch(`https://api.github.com/users/${username}`, {
-      headers: {
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Lovable-Student-Tracker",
-      },
+      headers,
     });
 
     if (!userResponse.ok) {
-      throw new Error("Failed to fetch GitHub user data");
+      const errorText = await userResponse.text();
+      console.error("GitHub API error:", userResponse.status, errorText);
+      throw new Error(`Failed to fetch GitHub user data: ${userResponse.status}`);
     }
 
     const userData = await userResponse.json();
 
     // Fetch user's events (activity)
     const eventsResponse = await fetch(`https://api.github.com/users/${username}/events/public?per_page=100`, {
-      headers: {
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Lovable-Student-Tracker",
-      },
+      headers,
     });
 
     if (!eventsResponse.ok) {
