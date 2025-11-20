@@ -7,12 +7,15 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { Github, Linkedin } from "lucide-react";
 
 interface Profile {
   id: string;
   email: string;
   full_name: string | null;
   phone_number: string | null;
+  github_url: string | null;
+  linkedin_url: string | null;
 }
 
 const Profile = () => {
@@ -23,6 +26,8 @@ const Profile = () => {
     full_name: "",
     email: "",
     phone_number: "",
+    github_url: "",
+    linkedin_url: "",
   });
 
   useEffect(() => {
@@ -48,6 +53,8 @@ const Profile = () => {
         full_name: data.full_name || "",
         email: data.email || "",
         phone_number: data.phone_number || "",
+        github_url: data.github_url || "",
+        linkedin_url: data.linkedin_url || "",
       });
     } catch (error: any) {
       toast.error("Failed to fetch profile");
@@ -67,6 +74,8 @@ const Profile = () => {
         .update({
           full_name: formData.full_name,
           phone_number: formData.phone_number,
+          github_url: formData.github_url,
+          linkedin_url: formData.linkedin_url,
         })
         .eq("id", profile.id);
 
@@ -144,6 +153,34 @@ const Profile = () => {
               <p className="text-sm text-muted-foreground">
                 Used for sending notifications
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="github_url" className="flex items-center gap-2">
+                <Github className="w-4 h-4" />
+                GitHub Profile URL
+              </Label>
+              <Input
+                id="github_url"
+                type="url"
+                value={formData.github_url}
+                onChange={(e) => setFormData({ ...formData, github_url: e.target.value })}
+                placeholder="https://github.com/username"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="linkedin_url" className="flex items-center gap-2">
+                <Linkedin className="w-4 h-4" />
+                LinkedIn Profile URL
+              </Label>
+              <Input
+                id="linkedin_url"
+                type="url"
+                value={formData.linkedin_url}
+                onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
+                placeholder="https://linkedin.com/in/username"
+              />
             </div>
 
             <Button onClick={handleSave} disabled={saving} className="w-full">
