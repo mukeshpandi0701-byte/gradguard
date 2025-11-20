@@ -79,17 +79,33 @@ const SocialProfiles = () => {
     setSyncing(true);
     const newActivities = new Map<string, StudentActivity>();
 
-    for (const student of studentsList) {
-      try {
-        const activity = await fetchStudentActivity(student);
-        newActivities.set(student.id, activity);
-      } catch (error) {
-        console.error(`Failed to fetch activity for ${student.student_name}:`, error);
+    try {
+      for (const student of studentsList) {
+        try {
+          const activity = await fetchStudentActivity(student);
+          newActivities.set(student.id, activity);
+        } catch (error) {
+          console.error(`Failed to fetch activity for ${student.student_name}:`, error);
+          // Continue with other students even if one fails
+        }
       }
-    }
 
-    setActivities(newActivities);
-    setSyncing(false);
+      setActivities(newActivities);
+      
+      // Check if any data was successfully fetched
+      const hasData = Array.from(newActivities.values()).some(
+        activity => activity.github !== null || activity.linkedin !== null
+      );
+      
+      if (!hasData) {
+        toast.warning("Unable to fetch activity data. GitHub API rate limit may have been reached. Please try again later.");
+      }
+    } catch (error) {
+      toast.error("Failed to sync activities");
+      console.error("Sync error:", error);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const fetchStudentActivity = async (student: Student): Promise<StudentActivity> => {
@@ -109,11 +125,14 @@ const SocialProfiles = () => {
           headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
         });
 
-        if (response.data) {
+        if (response.error) {
+          console.error("GitHub activity error:", response.error);
+        } else if (response.data) {
           activity.github = response.data;
         }
       } catch (error) {
         console.error("GitHub activity fetch failed:", error);
+        // Don't throw, just log and continue
       }
     }
 
@@ -126,11 +145,14 @@ const SocialProfiles = () => {
           headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
         });
 
-        if (response.data) {
+        if (response.error) {
+          console.error("LinkedIn activity error:", response.error);
+        } else if (response.data) {
           activity.linkedin = response.data;
         }
       } catch (error) {
         console.error("LinkedIn activity fetch failed:", error);
+        // Don't throw, just log and continue
       }
     }
 
@@ -142,9 +164,15 @@ const SocialProfiles = () => {
     try {
       const activity = await fetchStudentActivity(student);
       setActivities((prev) => new Map(prev).set(student.id, activity));
-      toast.success(`Synced ${student.student_name}'s profile`);
+      
+      if (activity.github === null && activity.linkedin === null) {
+        toast.warning(`Unable to fetch ${student.student_name}'s activity. GitHub API rate limit may have been reached.`);
+      } else {
+        toast.success(`Synced ${student.student_name}'s profile`);
+      }
     } catch (error) {
-      toast.error("Failed to sync profile");
+      toast.error(`Failed to sync ${student.student_name}'s profile`);
+      console.error("Sync error:", error);
     } finally {
       setSyncing(false);
     }
