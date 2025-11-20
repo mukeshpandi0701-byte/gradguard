@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 export interface StudentReportData {
   student_name: string;
   roll_number: string | null;
+  department?: string | null;
   attendance_percentage: number;
   internal_marks: number;
   fee_paid_percentage: number;
@@ -252,6 +253,14 @@ export const generateStudentReportPDF = async (
       pdf.text("Roll Number:", margin, yPosition);
       pdf.setFont("helvetica", "normal");
       pdf.text(student.roll_number, margin + 35, yPosition);
+      yPosition += 7;
+    }
+
+    if (student.department) {
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Department:", margin, yPosition);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(student.department, margin + 35, yPosition);
       yPosition += 7;
     }
 
