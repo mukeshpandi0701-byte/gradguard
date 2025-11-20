@@ -67,12 +67,30 @@ const Upload = () => {
         email: student.email,
       }));
 
-      const { error } = await supabase
-        .from("students")
-        .upsert(studentsToUpsert, {
-          onConflict: 'user_id,student_name,roll_number',
-          ignoreDuplicates: false
-        });
+      // For students with roll_number, upsert; for those without, just insert
+      const studentsWithRoll = studentsToUpsert.filter(s => s.roll_number);
+      const studentsWithoutRoll = studentsToUpsert.filter(s => !s.roll_number);
+
+      let error = null;
+
+      // Upsert students with roll numbers
+      if (studentsWithRoll.length > 0) {
+        const { error: upsertError } = await supabase
+          .from("students")
+          .upsert(studentsWithRoll, {
+            onConflict: 'user_id,student_name,roll_number',
+            ignoreDuplicates: false
+          });
+        error = upsertError;
+      }
+
+      // Insert students without roll numbers
+      if (studentsWithoutRoll.length > 0 && !error) {
+        const { error: insertError } = await supabase
+          .from("students")
+          .insert(studentsWithoutRoll);
+        error = insertError;
+      }
 
       if (error) throw error;
 

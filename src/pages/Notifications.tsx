@@ -1,117 +1,164 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { Send, Mail } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { ArrowLeft, Send, Mail, MessageSquare } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
-interface StudentWithPrediction {
+interface Student {
   id: string;
   student_name: string;
-  roll_number: string | null;
   email: string | null;
+}
+
+interface StudentWithPrediction extends Student {
   predictions?: Array<{
     final_risk_level: string;
   }>;
 }
 
 const Notifications = () => {
-  const navigate = useNavigate();
   const [students, setStudents] = useState<StudentWithPrediction[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
-  const [message, setMessage] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [selectedRiskLevel, setSelectedRiskLevel] = useState<"all" | "low" | "medium" | "high">("all");
 
   useEffect(() => {
     fetchStudents();
   }, []);
 
   const fetchStudents = async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("id, student_name, roll_number, email, predictions(final_risk_level)");
+        .select(`
+          id,
+          student_name,
+          email,
+          predictions(final_risk_level)
+        `)
+        .order('student_name');
 
       if (error) throw error;
-      setStudents(data || []);
-    } catch (error) {
+      setStudents(data as StudentWithPrediction[] || []);
+    } catch (error: any) {
       toast.error("Failed to fetch students");
       console.error(error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const toggleStudentSelection = (studentId: string) => {
-    const newSelection = new Set(selectedStudents);
-    if (newSelection.has(studentId)) {
-      newSelection.delete(studentId);
-    } else {
-      newSelection.add(studentId);
-    }
-    setSelectedStudents(newSelection);
+  const getDefaultMessage = (riskLevel: string) => {
+    const templates = {
+      low: `Dear Student,
+
+We're pleased to see your consistent performance. Keep up the good work!
+
+Your current status shows excellent attendance and academic progress. Continue maintaining this standard.
+
+Best regards,
+Academic Team`,
+      medium: `Dear Student,
+
+We've noticed some areas that need attention in your academic progress.
+
+Please focus on:
+- Improving attendance
+- Keeping up with coursework
+- Clearing pending fees if applicable
+
+We're here to support you. Please reach out if you need assistance.
+
+Best regards,
+Academic Team`,
+      high: `Dear Student,
+
+This is an important alert regarding your academic standing.
+
+We've identified significant concerns in:
+- Attendance levels
+- Academic performance
+- Fee payment status
+
+Please schedule a meeting with your tutor immediately to discuss an improvement plan.
+
+Best regards,
+Academic Team`
+    };
+
+    return templates[riskLevel as keyof typeof templates] || "";
   };
 
-  const toggleSelectAll = () => {
-    if (selectedStudents.size === students.length) {
-      setSelectedStudents(new Set());
-    } else {
-      setSelectedStudents(new Set(students.map(s => s.id)));
-    }
-  };
-
-  const selectByRiskLevel = (level: string) => {
-    const filtered = students.filter(
-      s => s.predictions?.[0]?.final_risk_level === level
-    );
-    setSelectedStudents(new Set(filtered.map(s => s.id)));
-    toast.success(`Selected ${filtered.length} ${level} risk students`);
-  };
-
-  const handleSendNotifications = async () => {
-    if (selectedStudents.size === 0) {
+  const handleSendNotifications = async (useTemplate: boolean = false) => {
+    const studentsToNotify = students.filter(s => selectedStudents.has(s.id));
+    
+    if (studentsToNotify.length === 0) {
       toast.error("Please select at least one student");
       return;
     }
 
-    if (!message.trim()) {
+    const studentsWithoutEmail = studentsToNotify.filter(s => !s.email);
+    if (studentsWithoutEmail.length > 0) {
+      toast.error(`${studentsWithoutEmail.length} students don't have email addresses`);
+      return;
+    }
+
+    if (!useTemplate && !customMessage.trim()) {
       toast.error("Please enter a message");
       return;
     }
 
     setSending(true);
-    const loadingToast = toast.loading("Sending notifications...");
+    toast.loading("Sending notifications...");
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-notifications", {
-        body: {
-          studentIds: Array.from(selectedStudents),
-          message: message.trim(),
-        },
-      });
+      if (useTemplate) {
+        // Group students by risk level and send templated messages
+        const lowRisk = studentsToNotify.filter(s => s.predictions?.[0]?.final_risk_level === "low");
+        const mediumRisk = studentsToNotify.filter(s => s.predictions?.[0]?.final_risk_level === "medium");
+        const highRisk = studentsToNotify.filter(s => s.predictions?.[0]?.final_risk_level === "high");
 
-      if (error) throw error;
+        const sendBatch = async (batch: StudentWithPrediction[], message: string) => {
+          if (batch.length === 0) return;
+          
+          const { error } = await supabase.functions.invoke("send-notifications", {
+            body: {
+              studentIds: batch.map(s => s.id),
+              message,
+            },
+          });
 
-      toast.dismiss(loadingToast);
-      
-      if (data?.results) {
-        const { email } = data.results;
-        toast.success(`${email.success} emails sent${email.failed > 0 ? `, ${email.failed} failed` : ""}`);
-        setMessage("");
-        setSelectedStudents(new Set());
+          if (error) throw error;
+        };
+
+        await Promise.all([
+          sendBatch(lowRisk, getDefaultMessage("low")),
+          sendBatch(mediumRisk, getDefaultMessage("medium")),
+          sendBatch(highRisk, getDefaultMessage("high")),
+        ]);
       } else {
-        toast.success("Notifications sent successfully!");
+        // Send custom message to all selected students
+        const { error } = await supabase.functions.invoke("send-notifications", {
+          body: {
+            studentIds: studentsToNotify.map(s => s.id),
+            message: customMessage,
+          },
+        });
+
+        if (error) throw error;
       }
+
+      toast.dismiss();
+      toast.success(`Notifications sent to ${studentsToNotify.length} students!`);
+      setCustomMessage("");
+      setSelectedStudents(new Set());
     } catch (error: any) {
-      toast.dismiss(loadingToast);
+      toast.dismiss();
       toast.error(error.message || "Failed to send notifications");
       console.error(error);
     } finally {
@@ -119,171 +166,180 @@ const Notifications = () => {
     }
   };
 
-  const getRiskBadge = (student: StudentWithPrediction) => {
-    const riskLevel = student.predictions?.[0]?.final_risk_level;
-    if (!riskLevel) return null;
-
-    const colors = {
-      low: "bg-green-100 text-green-800 border-green-300",
-      medium: "bg-yellow-100 text-yellow-800 border-yellow-300",
-      high: "bg-red-100 text-red-800 border-red-300",
-    };
-
-    return (
-      <Badge variant="outline" className={colors[riskLevel as keyof typeof colors]}>
-        {riskLevel.toUpperCase()}
-      </Badge>
-    );
+  const toggleStudent = (id: string) => {
+    const newSelection = new Set(selectedStudents);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedStudents(newSelection);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const selectByRiskLevel = (level: "all" | "low" | "medium" | "high") => {
+    setSelectedRiskLevel(level);
+    
+    if (level === "all") {
+      setSelectedStudents(new Set(students.map(s => s.id)));
+    } else {
+      const filtered = students.filter(s => 
+        s.predictions?.[0]?.final_risk_level === level
+      );
+      setSelectedStudents(new Set(filtered.map(s => s.id)));
+    }
+  };
+
+  const filteredStudents = selectedRiskLevel === "all" 
+    ? students 
+    : students.filter(s => s.predictions?.[0]?.final_risk_level === selectedRiskLevel);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <div>
-          <h1 className="text-3xl font-bold">Send Notifications</h1>
-          <p className="text-muted-foreground">Send email alerts to students</p>
-        </div>
+    <DashboardLayout>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold">Send Notifications</h2>
+          <p className="text-muted-foreground mt-2">
+            Send email notifications to students
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Message Composer */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle>Compose Message</CardTitle>
-                <CardDescription>Write your notification message</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Message</Label>
-                  <Textarea
-                    placeholder="Enter your message here..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    rows={6}
-                    className="mt-2"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {message.length} characters
-                  </p>
-                </div>
-
-                <div className="pt-2 border-t">
-                  <p className="text-sm font-medium mb-2">Quick Select:</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => selectByRiskLevel("high")}
-                      className="border-red-300 hover:bg-red-50"
-                    >
-                      High Risk
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => selectByRiskLevel("medium")}
-                      className="border-yellow-300 hover:bg-yellow-50"
-                    >
-                      Medium Risk
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => selectByRiskLevel("low")}
-                      className="border-green-300 hover:bg-green-50"
-                    >
-                      Low Risk
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={toggleSelectAll}
-                    >
-                      {selectedStudents.size === students.length ? "Deselect All" : "Select All"}
-                    </Button>
-                  </div>
-                </div>
-
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Students</CardTitle>
+              <CardDescription>
+                Choose students to send notifications to
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 flex-wrap">
                 <Button
-                  onClick={handleSendNotifications}
-                  disabled={sending}
-                  className="w-full"
-                  size="lg"
+                  variant={selectedRiskLevel === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => selectByRiskLevel("all")}
                 >
-                  <Send className="w-4 h-4 mr-2" />
-                  {sending ? "Sending..." : `Send to ${selectedStudents.size} Student${selectedStudents.size !== 1 ? 's' : ''}`}
+                  All Students
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
+                <Button
+                  variant={selectedRiskLevel === "low" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => selectByRiskLevel("low")}
+                >
+                  Low Risk
+                </Button>
+                <Button
+                  variant={selectedRiskLevel === "medium" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => selectByRiskLevel("medium")}
+                >
+                  Medium Risk
+                </Button>
+                <Button
+                  variant={selectedRiskLevel === "high" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => selectByRiskLevel("high")}
+                >
+                  High Risk
+                </Button>
+              </div>
 
-          {/* Student Selection */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Select Students ({selectedStudents.size} selected)</CardTitle>
-                <CardDescription>Choose which students will receive the notification</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12"></TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Roll Number</TableHead>
-                        <TableHead>Risk Level</TableHead>
-                        <TableHead>Contact</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {students.map((student) => (
-                        <TableRow key={student.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedStudents.has(student.id)}
-                              onCheckedChange={() => toggleStudentSelection(student.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{student.student_name}</TableCell>
-                          <TableCell>{student.roll_number || "N/A"}</TableCell>
-                          <TableCell>{getRiskBadge(student)}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {student.email ? (
-                              <div className="flex items-center gap-1">
-                                <Mail className="w-3 h-3" />
-                                {student.email}
-                              </div>
-                            ) : (
-                              "No email"
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              <div className="border rounded-md max-h-96 overflow-y-auto">
+                <div className="p-4 space-y-3">
+                  {filteredStudents.map((student) => (
+                    <div key={student.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={student.id}
+                        checked={selectedStudents.has(student.id)}
+                        onCheckedChange={() => toggleStudent(student.id)}
+                      />
+                      <Label
+                        htmlFor={student.id}
+                        className="flex-1 cursor-pointer flex justify-between items-center"
+                      >
+                        <span>{student.student_name}</span>
+                        {!student.email && (
+                          <span className="text-xs text-destructive">No email</span>
+                        )}
+                        {student.predictions?.[0] && (
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            student.predictions[0].final_risk_level === 'high' 
+                              ? 'bg-destructive/10 text-destructive' 
+                              : student.predictions[0].final_risk_level === 'medium'
+                              ? 'bg-warning/10 text-warning'
+                              : 'bg-success/10 text-success'
+                          }`}>
+                            {student.predictions[0].final_risk_level}
+                          </span>
+                        )}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Selected: {selectedStudents.size} students
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Message</CardTitle>
+              <CardDescription>
+                Choose between custom message or automated templates
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="custom" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="custom">Custom Message</TabsTrigger>
+                  <TabsTrigger value="template">Risk-Based Templates</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="custom" className="space-y-4">
+                  <Textarea
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    placeholder="Enter your message here..."
+                    rows={12}
+                  />
+                  <Button
+                    onClick={() => handleSendNotifications(false)}
+                    disabled={sending || selectedStudents.size === 0}
+                    className="w-full gap-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Send Custom Message
+                  </Button>
+                </TabsContent>
+                
+                <TabsContent value="template" className="space-y-4">
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p>
+                      Automatically sends customized messages based on each student's risk level:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li><strong>Low Risk:</strong> Encouragement message</li>
+                      <li><strong>Medium Risk:</strong> Alert with suggestions</li>
+                      <li><strong>High Risk:</strong> Urgent action required</li>
+                    </ul>
+                  </div>
+                  <Button
+                    onClick={() => handleSendNotifications(true)}
+                    disabled={sending || selectedStudents.size === 0}
+                    className="w-full gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    Send Templated Messages
+                  </Button>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 };
 
