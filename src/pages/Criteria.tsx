@@ -13,6 +13,9 @@ interface Criteria {
   min_attendance_percentage: number;
   min_internal_marks: number;
   max_pending_fees: number;
+  max_internal_marks: number;
+  total_fees: number;
+  total_hours: number;
   attendance_weightage: number;
   internal_weightage: number;
   fees_weightage: number;
@@ -26,6 +29,9 @@ const Criteria = () => {
     min_attendance_percentage: 75,
     min_internal_marks: 40,
     max_pending_fees: 10000,
+    max_internal_marks: 100,
+    total_fees: 100000,
+    total_hours: 100,
     attendance_weightage: 0.4,
     internal_weightage: 0.3,
     fees_weightage: 0.3,
@@ -52,6 +58,9 @@ const Criteria = () => {
           min_attendance_percentage: data.min_attendance_percentage,
           min_internal_marks: data.min_internal_marks,
           max_pending_fees: data.max_pending_fees,
+          max_internal_marks: data.max_internal_marks,
+          total_fees: data.total_fees,
+          total_hours: data.total_hours,
           attendance_weightage: data.attendance_weightage,
           internal_weightage: data.internal_weightage,
           fees_weightage: data.fees_weightage,
@@ -152,14 +161,14 @@ const Criteria = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="marks">Minimum Internal Marks</Label>
+                <Label htmlFor="marks">Minimum Internal Marks (Pass Threshold)</Label>
                 <Input
                   id="marks"
                   type="number"
                   value={criteria.min_internal_marks}
                   onChange={(e) => setCriteria({ ...criteria, min_internal_marks: Number(e.target.value) })}
                   min={0}
-                  max={100}
+                  max={criteria.max_internal_marks}
                 />
                 <p className="text-sm text-muted-foreground">
                   Students scoring below this will be flagged
@@ -177,6 +186,58 @@ const Criteria = () => {
                 />
                 <p className="text-sm text-muted-foreground">
                   Students with higher pending fees will be flagged
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>Course Maximums</CardTitle>
+              <CardDescription>
+                Set the maximum values for calculating percentages from CSV data
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="maxMarks">Maximum Internal Marks</Label>
+                <Input
+                  id="maxMarks"
+                  type="number"
+                  value={criteria.max_internal_marks}
+                  onChange={(e) => setCriteria({ ...criteria, max_internal_marks: Number(e.target.value) })}
+                  min={1}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Total marks out of which internal marks are scored
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="totalFees">Total Course Fees (₹)</Label>
+                <Input
+                  id="totalFees"
+                  type="number"
+                  value={criteria.total_fees}
+                  onChange={(e) => setCriteria({ ...criteria, total_fees: Number(e.target.value) })}
+                  min={0}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Total fees for the entire course
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="totalHours">Total Class Hours</Label>
+                <Input
+                  id="totalHours"
+                  type="number"
+                  value={criteria.total_hours}
+                  onChange={(e) => setCriteria({ ...criteria, total_hours: Number(e.target.value) })}
+                  min={1}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Total hours of classes in the course
                 </p>
               </div>
             </CardContent>

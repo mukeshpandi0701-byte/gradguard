@@ -140,7 +140,7 @@ export const generateStudentReportPDF = async (
     pdf.setFontSize(16);
     const pendingColor = student.pending_fees <= 5000 ? [34, 197, 94] : student.pending_fees <= 10000 ? [251, 191, 36] : [239, 68, 68];
     pdf.setTextColor(pendingColor[0], pendingColor[1], pendingColor[2]);
-    pdf.text(`₹${student.pending_fees.toFixed(0)}`, margin + boxWidth + 15, yPosition + 16);
+    pdf.text(`Rs. ${student.pending_fees.toFixed(0)}`, margin + boxWidth + 15, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
     yPosition += boxHeight + 12;
