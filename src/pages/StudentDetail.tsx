@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Download, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { AIInsights } from "@/components/AIInsights";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -426,6 +427,12 @@ const StudentDetail = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* AI-Powered Insights */}
+          <AIInsights 
+            studentId={student.id} 
+            studentName={student.student_name} 
+          />
         </div>
       </div>
     </DashboardLayout>
