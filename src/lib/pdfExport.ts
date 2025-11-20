@@ -14,6 +14,159 @@ export interface StudentReportData {
   insights?: string;
 }
 
+export interface SocialActivityData {
+  student_name: string;
+  roll_number: string | null;
+  github_activity: string;
+  linkedin_activity: string;
+  status: "active" | "moderate" | "inactive";
+}
+
+export const generateSocialActivityReportPDF = async (
+  students: SocialActivityData[],
+  statusCounts: { active: number; moderate: number; inactive: number }
+) => {
+  const pdf = new jsPDF("p", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - (margin * 2);
+
+  let yPosition = margin;
+
+  // Header
+  pdf.setFillColor(59, 130, 246);
+  pdf.rect(0, 0, pageWidth, 40, 'F');
+  
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(22);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Social Media Activity Report", pageWidth / 2, 20, { align: "center" });
+  
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 30, { align: "center" });
+  
+  yPosition = 50;
+  pdf.setTextColor(0, 0, 0);
+
+  // Activity Status Chart
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Activity Status Distribution", margin, yPosition);
+  yPosition += 15;
+
+  const maxCount = Math.max(statusCounts.active, statusCounts.moderate, statusCounts.inactive, 1);
+  const barHeight = 15;
+  const maxBarWidth = contentWidth - 50;
+  const chartStartY = yPosition;
+
+  // Active bar
+  const activeWidth = (statusCounts.active / maxCount) * maxBarWidth;
+  pdf.setFillColor(34, 197, 94); // Green
+  pdf.roundedRect(margin + 45, yPosition, activeWidth, barHeight, 2, 2, 'F');
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Active", margin, yPosition + 10);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(statusCounts.active.toString(), margin + 45 + activeWidth + 3, yPosition + 10);
+  yPosition += barHeight + 5;
+
+  // Moderate bar
+  const moderateWidth = (statusCounts.moderate / maxCount) * maxBarWidth;
+  pdf.setFillColor(251, 191, 36); // Yellow
+  pdf.roundedRect(margin + 45, yPosition, moderateWidth, barHeight, 2, 2, 'F');
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Moderate", margin, yPosition + 10);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(statusCounts.moderate.toString(), margin + 45 + moderateWidth + 3, yPosition + 10);
+  yPosition += barHeight + 5;
+
+  // Inactive bar
+  const inactiveWidth = (statusCounts.inactive / maxCount) * maxBarWidth;
+  pdf.setFillColor(239, 68, 68); // Red
+  pdf.roundedRect(margin + 45, yPosition, inactiveWidth, barHeight, 2, 2, 'F');
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Inactive", margin, yPosition + 10);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(statusCounts.inactive.toString(), margin + 45 + inactiveWidth + 3, yPosition + 10);
+  yPosition += barHeight + 15;
+
+  // Student Activity Table
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Student Activity Details", margin, yPosition);
+  yPosition += 10;
+
+  // Table header
+  pdf.setFillColor(240, 240, 240);
+  pdf.rect(margin, yPosition, contentWidth, 10, 'F');
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(0, 0, 0);
+  
+  const col1X = margin + 2;
+  const col2X = margin + 50;
+  const col3X = margin + 110;
+  
+  pdf.text("Name", col1X, yPosition + 7);
+  pdf.text("GitHub Activity", col2X, yPosition + 7);
+  pdf.text("LinkedIn Activity", col3X, yPosition + 7);
+  yPosition += 10;
+
+  // Table rows
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+
+  students.forEach((student, index) => {
+    if (yPosition > pageHeight - 30) {
+      pdf.addPage();
+      yPosition = margin;
+      
+      // Repeat header on new page
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(margin, yPosition, contentWidth, 10, 'F');
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Name", col1X, yPosition + 7);
+      pdf.text("GitHub Activity", col2X, yPosition + 7);
+      pdf.text("LinkedIn Activity", col3X, yPosition + 7);
+      yPosition += 10;
+      pdf.setFont("helvetica", "normal");
+    }
+
+    // Alternating row colors
+    if (index % 2 === 0) {
+      pdf.setFillColor(250, 250, 250);
+      pdf.rect(margin, yPosition, contentWidth, 8, 'F');
+    }
+
+    const name = student.roll_number 
+      ? `${student.student_name} (${student.roll_number})`
+      : student.student_name;
+    
+    pdf.text(pdf.splitTextToSize(name, 45)[0], col1X, yPosition + 5.5);
+    pdf.text(student.github_activity, col2X, yPosition + 5.5);
+    pdf.text(student.linkedin_activity, col3X, yPosition + 5.5);
+    
+    yPosition += 8;
+  });
+
+  // Footer
+  yPosition = pageHeight - 10;
+  pdf.setFontSize(8);
+  pdf.setTextColor(128, 128, 128);
+  pdf.text(
+    `Total Students: ${students.length} | Generated by Student Dropout Prediction System`,
+    pageWidth / 2,
+    yPosition,
+    { align: "center" }
+  );
+
+  // Save PDF
+  const filename = `social-activity-report-${new Date().toISOString().split("T")[0]}.pdf`;
+  pdf.save(filename);
+};
+
 export const generateStudentReportPDF = async (
   students: StudentReportData[],
   title: string = "Student Dropout Risk Report"

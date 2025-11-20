@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Github, Linkedin, RefreshCw, ExternalLink, TrendingUp, Activity } from "lucide-react";
+import { Github, Linkedin, RefreshCw, ExternalLink, TrendingUp, Activity, FileDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { generateSocialActivityReportPDF, SocialActivityData } from "@/lib/pdfExport";
 
 type Student = {
   id: string;
@@ -173,6 +174,37 @@ const SocialProfiles = () => {
     }
   };
 
+  const handleExportPDF = () => {
+    const socialData: SocialActivityData[] = students.map((student) => {
+      const activity = activities.get(student.id);
+      
+      const githubActivity = activity?.github
+        ? `${activity.github.totalCommits} commits, ${activity.github.publicRepos} repos`
+        : "No data";
+      
+      const linkedinActivity = activity?.linkedin
+        ? `${activity.linkedin.connectionCount} connections, ${activity.linkedin.recentPosts} posts`
+        : "No data";
+
+      return {
+        student_name: student.student_name,
+        roll_number: student.roll_number,
+        github_activity: githubActivity,
+        linkedin_activity: linkedinActivity,
+        status: getActivityStatus(activity),
+      };
+    });
+
+    const statusCounts = {
+      active: socialData.filter((s) => s.status === "active").length,
+      moderate: socialData.filter((s) => s.status === "moderate").length,
+      inactive: socialData.filter((s) => s.status === "inactive").length,
+    };
+
+    generateSocialActivityReportPDF(socialData, statusCounts);
+    toast.success("PDF report generated successfully");
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -199,13 +231,23 @@ const SocialProfiles = () => {
               Monitor student activity on GitHub and LinkedIn
             </p>
           </div>
-          <Button
-            onClick={() => syncAllActivities(students)}
-            disabled={syncing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
-            Sync All
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              disabled={students.length === 0}
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+            <Button
+              onClick={() => syncAllActivities(students)}
+              disabled={syncing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+              Sync All
+            </Button>
+          </div>
         </div>
 
         {students.length === 0 ? (
