@@ -95,6 +95,8 @@ const Criteria = () => {
         .upsert({
           user_id: user.id,
           ...normalized,
+        }, {
+          onConflict: 'user_id'
         });
 
       if (error) throw error;
