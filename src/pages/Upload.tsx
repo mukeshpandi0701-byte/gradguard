@@ -148,7 +148,31 @@ const Upload = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <h4 className="font-semibold mb-3">Required CSV Columns:</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold">Required CSV Columns:</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Create CSV template
+                    const headers = ['Roll No', 'Name', 'Email', 'Attended hours', 'Internal Score', 'Fees Paid'];
+                    const sampleRow = ['21CS001', 'John Doe', 'john@example.com', '75', '85', '50000'];
+                    const csv = [headers.join(','), sampleRow.join(',')].join('\n');
+                    
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'II-CSE-B.csv';
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    toast.success("Template downloaded!");
+                  }}
+                >
+                  <FileUp className="w-4 h-4 mr-2" />
+                  Download Template
+                </Button>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
