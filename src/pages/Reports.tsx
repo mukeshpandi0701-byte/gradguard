@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Download, FileText } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -11,6 +12,11 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface PredictionData {
   final_risk_level: string;
+}
+
+interface Student {
+  id: string;
+  department: string | null;
 }
 
 const Reports = () => {
@@ -22,11 +28,13 @@ const Reports = () => {
   });
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const chartsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchReportData();
-  }, []);
+  }, [selectedDepartment]);
 
   const fetchReportData = async () => {
     setLoading(true);
@@ -36,20 +44,30 @@ const Reports = () => {
 
       const { data: students } = await supabase
         .from("students")
-        .select("id")
+        .select("id, department")
         .eq("user_id", user.id);
+
+      // Extract unique departments
+      const uniqueDepts = Array.from(new Set((students as Student[])?.map(s => s.department).filter(Boolean))) as string[];
+      setDepartments(uniqueDepts);
+
+      // Filter students by department if selected
+      const filteredStudentIds = selectedDepartment === "all" 
+        ? (students as Student[])?.map(s => s.id)
+        : (students as Student[])?.filter(s => s.department === selectedDepartment).map(s => s.id);
 
       const { data: predictions } = await supabase
         .from("predictions")
-        .select("final_risk_level")
-        .eq("user_id", user.id);
+        .select("final_risk_level, student_id")
+        .eq("user_id", user.id)
+        .in("student_id", filteredStudentIds || []);
 
       const lowRisk = (predictions as PredictionData[])?.filter(p => p.final_risk_level === "low").length || 0;
       const mediumRisk = (predictions as PredictionData[])?.filter(p => p.final_risk_level === "medium").length || 0;
       const highRisk = (predictions as PredictionData[])?.filter(p => p.final_risk_level === "high").length || 0;
 
       setStats({
-        totalStudents: students?.length || 0,
+        totalStudents: filteredStudentIds?.length || 0,
         lowRisk,
         mediumRisk,
         highRisk,
@@ -147,6 +165,18 @@ const Reports = () => {
             Export PDF
           </Button>
         </div>
+
+        <Tabs value={selectedDepartment} onValueChange={setSelectedDepartment} className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="all">All Departments</TabsTrigger>
+            {departments.map((dept) => (
+              <TabsTrigger key={dept} value={dept}>
+                {dept}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent value={selectedDepartment} className="space-y-6">
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
@@ -286,6 +316,8 @@ const Reports = () => {
             </div>
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

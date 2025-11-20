@@ -171,6 +171,63 @@ const Upload = () => {
           </CardContent>
         </Card>
 
+        {preview.length > 0 && (
+          <Card className="shadow-card mb-6">
+            <CardHeader>
+              <CardTitle>Preview ({parsedData.length} students detected)</CardTitle>
+              <CardDescription>First 5 rows of your data</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student Name</TableHead>
+                      <TableHead>Roll No</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Attended Hours</TableHead>
+                      <TableHead>Paid Fees</TableHead>
+                      <TableHead>Internal Score</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedData.slice(0, 5).map((student, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{student.studentName}</TableCell>
+                        <TableCell>{student.rollNumber || "—"}</TableCell>
+                        <TableCell>{student.email || "—"}</TableCell>
+                        <TableCell>{student.attendedHours}</TableCell>
+                        <TableCell>₹{student.paidFees}</TableCell>
+                        <TableCell>{student.internalMarks}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button variant="outline" onClick={() => {
+                  setFile(null);
+                  setPreview([]);
+                  setParsedData([]);
+                }}>
+                  Clear
+                </Button>
+                <Button onClick={handleUpload} disabled={uploading}>
+                  {uploading ? (
+                    "Uploading..."
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Upload {parsedData.length} Students
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="shadow-elevated mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -258,63 +315,6 @@ const Upload = () => {
             </div>
           </CardContent>
         </Card>
-
-        {preview.length > 0 && (
-          <Card className="shadow-card mb-6">
-            <CardHeader>
-              <CardTitle>Preview ({parsedData.length} students detected)</CardTitle>
-              <CardDescription>First 5 rows of your data</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student Name</TableHead>
-                      <TableHead>Roll No</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Attended Hours</TableHead>
-                      <TableHead>Paid Fees</TableHead>
-                      <TableHead>Internal Score</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {parsedData.slice(0, 5).map((student, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{student.studentName}</TableCell>
-                        <TableCell>{student.rollNumber || "—"}</TableCell>
-                        <TableCell>{student.email || "—"}</TableCell>
-                        <TableCell>{student.attendedHours}</TableCell>
-                        <TableCell>₹{student.paidFees}</TableCell>
-                        <TableCell>{student.internalMarks}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <Button variant="outline" onClick={() => {
-                  setFile(null);
-                  setPreview([]);
-                  setParsedData([]);
-                }}>
-                  Clear
-                </Button>
-                <Button onClick={handleUpload} disabled={uploading}>
-                  {uploading ? (
-                    "Uploading..."
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Upload {parsedData.length} Students
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </DashboardLayout>
   );

@@ -14,6 +14,7 @@ interface Student {
   id: string;
   student_name: string;
   email: string | null;
+  department: string | null;
 }
 
 interface StudentWithPrediction extends Student {
@@ -28,6 +29,8 @@ const Notifications = () => {
   const [customMessage, setCustomMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<"all" | "low" | "medium" | "high">("all");
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
 
   useEffect(() => {
     fetchStudents();
@@ -41,12 +44,17 @@ const Notifications = () => {
           id,
           student_name,
           email,
+          department,
           predictions(final_risk_level)
         `)
         .order('student_name');
 
       if (error) throw error;
       setStudents(data as StudentWithPrediction[] || []);
+      
+      // Extract unique departments
+      const uniqueDepts = Array.from(new Set((data as StudentWithPrediction[])?.map(s => s.department).filter(Boolean))) as string[];
+      setDepartments(uniqueDepts);
     } catch (error: any) {
       toast.error("Failed to fetch students");
       console.error(error);
@@ -189,9 +197,13 @@ Academic Team`
     }
   };
 
-  const filteredStudents = selectedRiskLevel === "all" 
+  let filteredStudents = selectedRiskLevel === "all" 
     ? students 
     : students.filter(s => s.predictions?.[0]?.final_risk_level === selectedRiskLevel);
+
+  if (selectedDepartment !== "all") {
+    filteredStudents = filteredStudents.filter(s => s.department === selectedDepartment);
+  }
 
   return (
     <DashboardLayout>
@@ -212,6 +224,17 @@ Academic Team`
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Tabs value={selectedDepartment} onValueChange={setSelectedDepartment} className="w-full">
+                <TabsList className="w-full">
+                  <TabsTrigger value="all">All Departments</TabsTrigger>
+                  {departments.map((dept) => (
+                    <TabsTrigger key={dept} value={dept}>
+                      {dept}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+
               <div className="flex gap-2 flex-wrap">
                 <Button
                   variant={selectedRiskLevel === "all" ? "default" : "outline"}
