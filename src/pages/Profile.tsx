@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, Save, User } from "lucide-react";
+import { Save } from "lucide-react";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface Profile {
   id: string;
@@ -16,7 +16,6 @@ interface Profile {
 }
 
 const Profile = () => {
-  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -85,31 +84,30 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <header className="border-b bg-card shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <div className="flex items-center gap-2">
-            <User className="w-5 h-5 text-primary" />
-            <span className="font-semibold">Profile</span>
-          </div>
+    <DashboardLayout>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold">Tutor Profile</h2>
+          <p className="text-muted-foreground mt-2">
+            Manage your personal details used for sending notifications
+          </p>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Tutor Profile</CardTitle>
+            <CardTitle>Personal Information</CardTitle>
+            <CardDescription>
+              Update your profile details. Email is used for notifications to students.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -154,8 +152,8 @@ const Profile = () => {
             </Button>
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 
