@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +14,8 @@ interface NotificationRequest {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const resendApiKey = Deno.env.get("RESEND_API_KEY");
+const gmailUser = Deno.env.get("GMAIL_USER")!;
+const gmailAppPassword = Deno.env.get("GMAIL_APP_PASSWORD")!;
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -89,13 +90,24 @@ const handler = async (req: Request): Promise<Response> => {
       .eq("id", user.id)
       .maybeSingle();
 
-    // Send email notifications
-    if (resendApiKey) {
-      const resend = new Resend(resendApiKey);
+    // Send email notifications using Gmail SMTP
+    if (gmailUser && gmailAppPassword) {
+      const client = new SMTPClient({
+        connection: {
+          hostname: "smtp.gmail.com",
+          port: 465,
+          tls: true,
+          auth: {
+            username: gmailUser,
+            password: gmailAppPassword,
+          },
+        },
+      });
+
       const senderName = profile?.full_name || "Academic Team";
       const tutorEmail = profile?.email || "";
       
-      console.log(`Sending emails from ${senderName}, CC to tutor: ${tutorEmail || 'none'}`);
+      console.log(`Sending emails from ${senderName} (${gmailUser}), CC to tutor: ${tutorEmail || 'none'}`);
 
       for (const student of students || []) {
         if (!student.email) {
@@ -129,19 +141,91 @@ const handler = async (req: Request): Promise<Response> => {
           : "";
 
         try {
-          // Prepare email recipients - CC tutor if email exists
-          const emailTo = [student.email];
-          const emailCc = tutorEmail ? [tutorEmail] : undefined;
-
-          const emailResponse = await resend.emails.send({
-            from: `${senderName} <onboarding@resend.dev>`,
-            to: emailTo,
-            cc: emailCc,
+          await client.send({
+            from: `${senderName} <${gmailUser}>`,
+            to: student.email,
+            cc: tutorEmail || undefined,
             subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
+            content: "auto",
             html: `
               <!DOCTYPE html>
               <html>
-...
+                <head>
+                  <meta charset="utf-8">
+                  <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: ${riskColor}; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+                    .content { background: #f9f9f9; padding: 20px; }
+                    .stats { background: white; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid ${riskColor}; }
+                    .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+                    .badge { display: inline-block; padding: 8px 16px; background: ${riskBg}; color: ${riskColor}; border-radius: 20px; font-weight: bold; }
+                    .footer { background: #333; color: white; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; }
+                  </style>
+                </head>
+                <body>
+                  <div class="container">
+                    <div class="header">
+                      <h1>📚 Academic Performance Update</h1>
+                      <p style="margin: 0;">Student Progress Report</p>
+                    </div>
+                    
+                    <div class="content">
+                      <h2>Hello ${student.student_name},</h2>
+                      <p>${message}</p>
+                      
+                      <div style="margin: 20px 0;">
+                        <strong>Current Risk Level:</strong> 
+                        <span class="badge">${riskLevel.toUpperCase()} RISK</span>
+                      </div>
+                      
+                      <div class="stats">
+                        <h3 style="margin-top: 0; color: ${riskColor};">📊 Your Performance Metrics</h3>
+                        <div class="stat-row">
+                          <span><strong>Attendance:</strong></span>
+                          <span>${attendancePercentage}%</span>
+                        </div>
+                        <div class="stat-row">
+                          <span><strong>Internal Marks:</strong></span>
+                          <span>${internalMarks}</span>
+                        </div>
+                        <div class="stat-row">
+                          <span><strong>Fee Payment:</strong></span>
+                          <span>${feePaidPercentage}%</span>
+                        </div>
+                        <div class="stat-row">
+                          <span><strong>Pending Fees:</strong></span>
+                          <span>₹${pendingFees}</span>
+                        </div>
+                        <div class="stat-row" style="border-bottom: none;">
+                          <span><strong>Risk Probability:</strong></span>
+                          <span>${mlProbability}%</span>
+                        </div>
+                      </div>
+                      
+                      ${insights ? `
+                      <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <h3 style="color: #1976d2; margin-top: 0;">💡 Insights</h3>
+                        <p style="margin: 0;">${insights}</p>
+                      </div>
+                      ` : ''}
+                      
+                      ${suggestions ? `
+                      <div style="background: #f3e5f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <h3 style="color: #7b1fa2; margin-top: 0;">📝 Suggestions for Improvement</h3>
+                        <p style="margin: 0;">${suggestions}</p>
+                      </div>
+                      ` : ''}
+                      
+                      ${tutorMeetingMessage}
+                    </div>
+                    
+                    <div class="footer">
+                      <p style="margin: 0;">This is an automated message from your Academic Team</p>
+                      <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Please do not reply to this email</p>
+                    </div>
+                  </div>
+                </body>
               </html>
             `,
           });
@@ -156,7 +240,7 @@ const handler = async (req: Request): Promise<Response> => {
               subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
               message: message,
               status: "sent",
-              resend_email_id: emailResponse?.data?.id || null,
+              resend_email_id: null,
             });
           
           if (logError) {
@@ -164,16 +248,18 @@ const handler = async (req: Request): Promise<Response> => {
           }
           
           results.email.success++;
-          console.log(`✓ Email sent to ${student.student_name} (${student.email}), Risk: ${riskLevel}, Email ID: ${emailResponse?.data?.id}`);
+          console.log(`✓ Email sent to ${student.student_name} (${student.email}), Risk: ${riskLevel}`);
         } catch (error: any) {
           results.email.failed++;
           results.email.errors.push(`${student.student_name}: ${error.message}`);
           console.error(`Failed to send email to ${student.student_name}:`, error);
         }
       }
+      
+      await client.close();
     } else {
-      console.error("RESEND_API_KEY not configured");
-      throw new Error("Email service not configured - RESEND_API_KEY missing");
+      console.error("Gmail credentials not configured");
+      throw new Error("Email service not configured - Gmail credentials missing");
     }
 
     return new Response(
