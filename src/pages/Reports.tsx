@@ -231,7 +231,7 @@ const Reports = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="count" fill="#8b5cf6" barSize={60}>
+                  <Bar dataKey="count" fill="#8b5cf6" barSize={40}>
                     {barData.map((entry, index) => {
                       const colors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))"];
                       return <Cell key={`cell-${index}`} fill={colors[index]} />;
