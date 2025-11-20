@@ -8,6 +8,7 @@ import { ArrowLeft, Download, FileText } from "lucide-react";
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface PredictionData {
   final_risk_level: string;
@@ -136,28 +137,27 @@ const Reports = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-6">
-      <div className="max-w-7xl mx-auto">
+    <DashboardLayout>
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">Reports & Analytics</h1>
-              <p className="text-muted-foreground">Comprehensive dropout risk analysis</p>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold">Reports & Analytics</h2>
+            <p className="text-muted-foreground mt-2">
+              Comprehensive dropout risk analysis
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              💡 For individual student PDFs, visit <a href="/students-export" className="text-primary hover:underline font-medium">Export Student PDFs</a>
+            </p>
           </div>
           <Button onClick={handleExportPDF} disabled={exporting}>
             <Download className="w-4 h-4 mr-2" />
-            Export PDF
+            Export Analytics PDF
           </Button>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
@@ -207,8 +207,8 @@ const Reports = () => {
                     data={pieData}
                     cx="50%"
                     cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    labelLine={true}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
@@ -217,7 +217,8 @@ const Reports = () => {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(value: number) => [`${value} students`, "Count"]} />
+                  <Legend />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -294,7 +295,7 @@ const Reports = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </DashboardLayout>
   );
 };
 
