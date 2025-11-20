@@ -296,6 +296,7 @@ export type Database = {
           attendance_percentage: number | null
           attended_hours: number
           created_at: string
+          department: string | null
           email: string | null
           fee_paid_percentage: number | null
           github_url: string | null
@@ -316,6 +317,7 @@ export type Database = {
           attendance_percentage?: number | null
           attended_hours?: number
           created_at?: string
+          department?: string | null
           email?: string | null
           fee_paid_percentage?: number | null
           github_url?: string | null
@@ -336,6 +338,7 @@ export type Database = {
           attendance_percentage?: number | null
           attended_hours?: number
           created_at?: string
+          department?: string | null
           email?: string | null
           fee_paid_percentage?: number | null
           github_url?: string | null
