@@ -1,20 +1,19 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface PredictionData {
   final_risk_level: string;
 }
 
 const Reports = () => {
-  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalStudents: 0,
     lowRisk: 0,
