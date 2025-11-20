@@ -48,12 +48,23 @@ const handler = async (req: Request): Promise<Response> => {
       .select(`
         student_name, 
         email,
-        predictions(final_risk_level)
+        attendance_percentage,
+        internal_marks,
+        fee_paid_percentage,
+        pending_fees,
+        predictions(
+          final_risk_level,
+          ml_probability,
+          insights,
+          suggestions
+        )
       `)
       .in("id", studentIds)
       .eq("user_id", user.id);
 
     if (fetchError) throw fetchError;
+
+    console.log(`Found ${students?.length || 0} students to notify`);
 
     const results = {
       email: { success: 0, failed: 0, errors: [] as string[] },
@@ -70,6 +81,9 @@ const handler = async (req: Request): Promise<Response> => {
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
       const senderName = profile?.full_name || "Academic Team";
+      const tutorEmail = profile?.email || "";
+      
+      console.log(`Sending emails from ${senderName}, CC to tutor: ${tutorEmail || 'none'}`);
 
       for (const student of students || []) {
         if (!student.email) {
@@ -82,10 +96,25 @@ const handler = async (req: Request): Promise<Response> => {
         const riskColor = riskLevel === "high" ? "#dc2626" : riskLevel === "medium" ? "#f59e0b" : "#10b981";
         const riskBg = riskLevel === "high" ? "#fee2e2" : riskLevel === "medium" ? "#fef3c7" : "#d1fae5";
 
+        // Get detailed student data
+        const studentData = (student as any);
+        const attendancePercentage = studentData.attendance_percentage?.toFixed(1) || "N/A";
+        const internalMarks = studentData.internal_marks || "N/A";
+        const feePaidPercentage = studentData.fee_paid_percentage?.toFixed(1) || "N/A";
+        const pendingFees = studentData.pending_fees || 0;
+        const mlProbability = studentData.predictions?.[0]?.ml_probability?.toFixed(1) || "N/A";
+        const insights = studentData.predictions?.[0]?.insights || "";
+        const suggestions = studentData.predictions?.[0]?.suggestions || "";
+
         try {
+          // Prepare email recipients - CC tutor if email exists
+          const emailTo = [student.email];
+          const emailCc = tutorEmail ? [tutorEmail] : undefined;
+
           await resend.emails.send({
             from: `${senderName} <onboarding@resend.dev>`,
-            to: [student.email],
+            to: emailTo,
+            cc: emailCc,
             subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
             html: `
               <!DOCTYPE html>
@@ -115,6 +144,48 @@ const handler = async (req: Request): Promise<Response> => {
                       <p>Your current academic risk level: 
                         <span class="risk-badge">${riskLevel.toUpperCase()} RISK</span>
                       </p>
+                      
+                      <!-- Student Performance Summary -->
+                      <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                        <h3 style="color: #667eea; margin-top: 0;">Performance Summary</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                          <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Attendance</td>
+                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">${attendancePercentage}%</td>
+                          </tr>
+                          <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Internal Marks</td>
+                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">${internalMarks}</td>
+                          </tr>
+                          <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Fee Paid</td>
+                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">${feePaidPercentage}%</td>
+                          </tr>
+                          <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Pending Fees</td>
+                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">₹${pendingFees}</td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 12px 0; font-weight: 600; color: #374151;">Dropout Probability</td>
+                            <td style="padding: 12px 0; text-align: right; color: #1f2937;">${mlProbability}%</td>
+                          </tr>
+                        </table>
+                      </div>
+
+                      ${insights ? `
+                        <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+                          <h3 style="color: #1e40af; margin-top: 0;">📊 Insights</h3>
+                          <p style="margin: 0; color: #1e3a8a;">${insights}</p>
+                        </div>
+                      ` : ''}
+
+                      ${suggestions ? `
+                        <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+                          <h3 style="color: #047857; margin-top: 0;">💡 Recommendations</h3>
+                          <p style="margin: 0; color: #065f46;">${suggestions}</p>
+                        </div>
+                      ` : ''}
+                      
                       <div class="message">${message}</div>
                       <p style="margin-top: 20px;">If you have any questions or need support, please don't hesitate to reach out to your tutor.</p>
                       <p>Best regards,<br/><strong>${senderName}</strong></p>
@@ -129,7 +200,7 @@ const handler = async (req: Request): Promise<Response> => {
             `,
           });
           results.email.success++;
-          console.log(`Email sent to ${student.student_name} (${riskLevel} risk)`);
+          console.log(`✓ Email sent to ${student.student_name} (${student.email}), Risk: ${riskLevel}`);
         } catch (error: any) {
           results.email.failed++;
           results.email.errors.push(`${student.student_name}: ${error.message}`);
@@ -138,13 +209,13 @@ const handler = async (req: Request): Promise<Response> => {
       }
     } else {
       console.error("RESEND_API_KEY not configured");
-      throw new Error("Email service not configured");
+      throw new Error("Email service not configured - RESEND_API_KEY missing");
     }
 
     return new Response(
       JSON.stringify({
         results,
-        message: `Sent ${results.email.success} emails`,
+        message: `Successfully sent ${results.email.success} emails${results.email.failed > 0 ? `, ${results.email.failed} failed` : ''}`,
       }),
       {
         status: 200,

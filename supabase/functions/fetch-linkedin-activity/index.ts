@@ -17,20 +17,35 @@ serve(async (req) => {
       throw new Error("LinkedIn URL is required");
     }
 
-    // Note: LinkedIn's API requires OAuth and has strict rate limits
-    // For now, we'll return mock data as a placeholder
-    // In production, you would need to:
-    // 1. Set up LinkedIn OAuth app
-    // 2. Get user authorization
-    // 3. Use LinkedIn's API with proper tokens
+    console.log(`Fetching LinkedIn activity for: ${linkedinUrl}`);
+
+    // IMPORTANT: LinkedIn's API requires OAuth 2.0 and approved API access
+    // Without proper OAuth setup and LinkedIn API credentials, we cannot fetch real data
+    // This returns estimated activity data for demonstration purposes
     
-    // Mock data for demonstration
+    // To enable real LinkedIn data fetching, you would need to:
+    // 1. Create a LinkedIn Developer App at https://www.linkedin.com/developers/
+    // 2. Get OAuth 2.0 credentials
+    // 3. Implement OAuth flow for user authorization
+    // 4. Use LinkedIn's official API endpoints
+    
+    console.warn("LinkedIn API not configured - returning mock activity data");
+    
+    // Generate consistent mock data based on URL to simulate activity
+    const urlHash = linkedinUrl.split("").reduce((a: number, b: string) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    
+    const seed = Math.abs(urlHash);
     const mockActivity = {
-      connectionCount: Math.floor(Math.random() * 500) + 50,
-      recentPosts: Math.floor(Math.random() * 10),
-      lastActivity: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      profileViews: Math.floor(Math.random() * 100) + 10,
+      connectionCount: 50 + (seed % 450),
+      recentPosts: seed % 10,
+      lastActivity: new Date(Date.now() - (seed % 30) * 24 * 60 * 60 * 1000).toISOString(),
+      profileViews: 10 + (seed % 90),
     };
+
+    console.log("Mock LinkedIn activity:", mockActivity);
 
     return new Response(
       JSON.stringify(mockActivity),
