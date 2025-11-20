@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -15,10 +14,8 @@ export default function NotificationSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
-    twilioSenderName: "",
     resendSenderEmail: "",
     resendSenderName: "",
-    smsTemplate: "Hello {student_name}, this is a notification regarding your academic status. {message}",
   });
 
   useEffect(() => {
@@ -48,10 +45,8 @@ export default function NotificationSettings() {
 
       if (data) {
         setSettings({
-          twilioSenderName: data.twilio_sender_name || "",
           resendSenderEmail: data.resend_sender_email || "",
           resendSenderName: data.resend_sender_name || "",
-          smsTemplate: data.sms_template || settings.smsTemplate,
         });
       }
     } catch (error: any) {
@@ -86,10 +81,8 @@ export default function NotificationSettings() {
 
       const settingsData = {
         user_id: session.user.id,
-        twilio_sender_name: settings.twilioSenderName || null,
         resend_sender_email: settings.resendSenderEmail,
         resend_sender_name: settings.resendSenderName || null,
-        sms_template: settings.smsTemplate,
       };
 
       if (existing) {
@@ -130,17 +123,17 @@ export default function NotificationSettings() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Notification Settings</h2>
+          <h1 className="text-3xl font-bold">Notification Settings</h1>
           <p className="text-muted-foreground mt-2">
-            Configure your Twilio and Resend settings for sending SMS and email notifications
+            Configure your email notification settings
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Resend Configuration</CardTitle>
+            <CardTitle>Email Configuration (Resend)</CardTitle>
             <CardDescription>
               Configure email sending settings. You need to verify your domain in Resend dashboard first.
             </CardDescription>
@@ -167,53 +160,6 @@ export default function NotificationSettings() {
               />
               <p className="text-xs text-muted-foreground">
                 Must be from a verified domain in your Resend account
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Twilio Configuration</CardTitle>
-            <CardDescription>
-              Configure SMS sending settings. For trial accounts, phone numbers must be verified in Twilio.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="twilioSenderName">Sender Name (Optional)</Label>
-              <Input
-                id="twilioSenderName"
-                placeholder="e.g., College Name"
-                value={settings.twilioSenderName}
-                onChange={(e) => setSettings({ ...settings, twilioSenderName: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                This name will be included in SMS messages
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>SMS Template</CardTitle>
-            <CardDescription>
-              Customize the SMS message template. Use {"{student_name}"} and {"{message}"} as placeholders.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="smsTemplate">Message Template</Label>
-              <Textarea
-                id="smsTemplate"
-                rows={4}
-                placeholder="Hello {student_name}, {message}"
-                value={settings.smsTemplate}
-                onChange={(e) => setSettings({ ...settings, smsTemplate: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Available placeholders: {"{student_name}"}, {"{message}"}
               </p>
             </div>
           </CardContent>

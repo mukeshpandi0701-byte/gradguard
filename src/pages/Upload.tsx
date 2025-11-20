@@ -54,8 +54,8 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Insert students in batches
-      const studentsToInsert = parsedData.map(student => ({
+      // Upsert students (update if exists, insert if new)
+      const studentsToUpsert = parsedData.map(student => ({
         user_id: user.id,
         student_name: student.studentName,
         roll_number: student.rollNumber,
@@ -65,12 +65,14 @@ const Upload = () => {
         paid_fees: student.paidFees,
         internal_marks: student.internalMarks,
         email: student.email,
-        phone_number: student.phoneNumber,
       }));
 
       const { error } = await supabase
         .from("students")
-        .insert(studentsToInsert);
+        .upsert(studentsToUpsert, {
+          onConflict: 'user_id,student_name,roll_number',
+          ignoreDuplicates: false
+        });
 
       if (error) throw error;
 

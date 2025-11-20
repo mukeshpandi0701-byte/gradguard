@@ -34,12 +34,9 @@ const Index = () => {
             AI-powered early intervention system to identify at-risk students and improve retention rates through data-driven insights
           </p>
 
-          <div className="flex gap-4 justify-center mb-16">
+          <div className="flex justify-center mb-16">
             <Button size="lg" onClick={() => navigate("/auth")}>
               Get Started
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/auth")}>
-              Sign In
             </Button>
           </div>
 
