@@ -212,7 +212,6 @@ const Reports = () => {
                   </Pie>
                   <Tooltip formatter={(value: number) => [`${value} students`, "Count"]} />
                   <Legend />
-                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -226,13 +225,18 @@ const Reports = () => {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={barData}>
+                <BarChart data={barData} barCategoryGap="25%">
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="category" />
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="count" fill="#8b5cf6" />
+                  <Bar dataKey="count" fill="#8b5cf6" barSize={60}>
+                    {barData.map((entry, index) => {
+                      const colors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))"];
+                      return <Cell key={`cell-${index}`} fill={colors[index]} />;
+                    })}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
