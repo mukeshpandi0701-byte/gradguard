@@ -54,6 +54,9 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Extract department from filename (e.g., "II-CSE-B.csv" -> "II-CSE-B")
+      const department = file?.name.replace('.csv', '') || 'Unknown';
+
       // Fetch criteria to get maximum values for calculations
       const { data: criteria, error: criteriaError } = await supabase
         .from("dropout_criteria")
@@ -75,6 +78,7 @@ const Upload = () => {
         user_id: user.id,
         student_name: student.studentName,
         roll_number: student.rollNumber,
+        department: department,
         total_hours: totalHours,
         attended_hours: student.attendedHours,
         total_fees: totalFees,

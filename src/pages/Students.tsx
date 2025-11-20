@@ -9,6 +9,7 @@ import { RefreshCw, AlertCircle, Trash2, User } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { initializeModel, predictDropout } from "@/lib/mlModel";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ type Student = {
   student_name: string;
   roll_number: string | null;
   email: string | null;
+  department: string | null;
   attendance_percentage: number;
   fee_paid_percentage: number;
   pending_fees: number;
@@ -44,6 +46,8 @@ const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [predicting, setPredicting] = useState(false);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
 
   useEffect(() => {
     initializeModel().then(() => {
@@ -62,6 +66,10 @@ const Students = () => {
       if (error) throw error;
 
       setStudents(data || []);
+      
+      // Extract unique departments
+      const uniqueDepts = Array.from(new Set((data || []).map(s => s.department).filter(Boolean))) as string[];
+      setDepartments(uniqueDepts);
     } catch (error: any) {
       toast.error("Failed to fetch students");
       console.error(error);
@@ -200,6 +208,10 @@ const Students = () => {
     );
   };
 
+  const filteredStudents = selectedDepartment === "all" 
+    ? students 
+    : students.filter(s => s.department === selectedDepartment);
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -244,79 +256,100 @@ const Students = () => {
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Students ({students.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Roll No</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Attendance</TableHead>
-                    <TableHead>Marks</TableHead>
-                    <TableHead>Fees Paid</TableHead>
-                    <TableHead>Risk Level</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {students.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell className="font-medium">
-                        {student.roll_number || "—"}
-                      </TableCell>
-                      <TableCell>{student.student_name}</TableCell>
-                      <TableCell>{student.email || "—"}</TableCell>
-                      <TableCell>
-                        {student.attendance_percentage?.toFixed(1)}%
-                      </TableCell>
-                      <TableCell>{student.internal_marks}</TableCell>
-                      <TableCell>
-                        {student.fee_paid_percentage?.toFixed(1)}%
-                      </TableCell>
-                      <TableCell>{getRiskBadge(student.riskLevel)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Link to={`/students/${student.id}/profile`}>
-                            <Button variant="outline" size="sm" title="View Profile">
-                              <User className="w-4 h-4" />
-                            </Button>
-                          </Link>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm" title="Delete Student">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Student</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete {student.student_name}? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(student.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <Tabs value={selectedDepartment} onValueChange={setSelectedDepartment}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="all">
+                All Departments ({students.length})
+              </TabsTrigger>
+              {departments.map(dept => (
+                <TabsTrigger key={dept} value={dept}>
+                  {dept} ({students.filter(s => s.department === dept).length})
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            
+            <TabsContent value={selectedDepartment}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    Students ({filteredStudents.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Roll No</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Department</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Attendance</TableHead>
+                        <TableHead>Marks</TableHead>
+                        <TableHead>Fees Paid</TableHead>
+                        <TableHead>Risk Level</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredStudents.map((student) => (
+                        <TableRow key={student.id}>
+                          <TableCell className="font-medium">
+                            {student.roll_number || "—"}
+                          </TableCell>
+                          <TableCell>{student.student_name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{student.department || "—"}</Badge>
+                          </TableCell>
+                          <TableCell>{student.email || "—"}</TableCell>
+                          <TableCell>
+                            {student.attendance_percentage?.toFixed(1)}%
+                          </TableCell>
+                          <TableCell>{student.internal_marks}</TableCell>
+                          <TableCell>
+                            {student.fee_paid_percentage?.toFixed(1)}%
+                          </TableCell>
+                          <TableCell>{getRiskBadge(student.riskLevel)}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Link to={`/students/${student.id}/profile`}>
+                                <Button variant="outline" size="sm" title="View Profile">
+                                  <User className="w-4 h-4" />
+                                </Button>
+                              </Link>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm" title="Delete Student">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Student</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete {student.student_name}? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(student.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </DashboardLayout>
