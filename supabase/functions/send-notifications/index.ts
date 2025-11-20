@@ -133,12 +133,10 @@ const handler = async (req: Request): Promise<Response> => {
         // Add call-to-action for Medium and High Risk students
         const needsTutorMeeting = riskLevel === "medium" || riskLevel === "high";
         const tutorMeetingMessage = needsTutorMeeting 
-          ? `<div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; text-align: center;">
-               <h3 style="color: #92400e; margin-top: 0;">📅 Action Required</h3>
-               <p style="color: #78350f; margin: 10px 0; font-size: 16px; font-weight: 600;">Meet Your Tutor</p>
-               <p style="color: #78350f; margin: 10px 0;">Please schedule a meeting with your tutor to discuss your progress and receive personalized guidance.</p>
-             </div>`
+          ? `<div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; text-align: center;"><h3 style="color: #92400e; margin-top: 0;">📅 Action Required</h3><p style="color: #78350f; margin: 10px 0; font-size: 16px; font-weight: 600;">Meet Your Tutor</p><p style="color: #78350f; margin: 10px 0;">Please schedule a meeting with your tutor to discuss your progress and receive personalized guidance.</p></div>`
           : "";
+
+        const emailHTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background:${riskColor};color:white;padding:20px;border-radius:8px 8px 0 0}.content{background:#f9f9f9;padding:20px}.stats{background:white;padding:15px;margin:15px 0;border-radius:8px;border-left:4px solid ${riskColor}}.stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}.badge{display:inline-block;padding:8px 16px;background:${riskBg};color:${riskColor};border-radius:20px;font-weight:bold}.footer{background:#333;color:white;padding:20px;text-align:center;border-radius:0 0 8px 8px}</style></head><body><div class="container"><div class="header"><h1>📚 Academic Performance Update</h1><p style="margin:0">Student Progress Report</p></div><div class="content"><h2>Hello ${student.student_name},</h2><p>${message}</p><div style="margin:20px 0"><strong>Current Risk Level:</strong> <span class="badge">${riskLevel.toUpperCase()} RISK</span></div><div class="stats"><h3 style="margin-top:0;color:${riskColor}">📊 Your Performance Metrics</h3><div class="stat-row"><span><strong>Attendance:</strong></span><span>${attendancePercentage}%</span></div><div class="stat-row"><span><strong>Internal Marks:</strong></span><span>${internalMarks}</span></div><div class="stat-row"><span><strong>Fee Payment:</strong></span><span>${feePaidPercentage}%</span></div><div class="stat-row"><span><strong>Pending Fees:</strong></span><span>₹${pendingFees}</span></div><div class="stat-row" style="border-bottom:none"><span><strong>Risk Probability:</strong></span><span>${mlProbability}%</span></div></div>${insights ? `<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin:15px 0"><h3 style="color:#1976d2;margin-top:0">💡 Insights</h3><p style="margin:0">${insights}</p></div>` : ''}${suggestions ? `<div style="background:#f3e5f5;padding:15px;border-radius:8px;margin:15px 0"><h3 style="color:#7b1fa2;margin-top:0">📝 Suggestions for Improvement</h3><p style="margin:0">${suggestions}</p></div>` : ''}${tutorMeetingMessage}</div><div class="footer"><p style="margin:0">This is an automated message from your Academic Team</p><p style="margin:10px 0 0 0;font-size:12px;opacity:0.8">Please do not reply to this email</p></div></div></body></html>`;
 
         try {
           await client.send({
@@ -146,88 +144,8 @@ const handler = async (req: Request): Promise<Response> => {
             to: student.email,
             cc: tutorEmail || undefined,
             subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
-            content: "auto",
-            html: `
-              <!DOCTYPE html>
-              <html>
-                <head>
-                  <meta charset="utf-8">
-                  <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: ${riskColor}; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-                    .content { background: #f9f9f9; padding: 20px; }
-                    .stats { background: white; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid ${riskColor}; }
-                    .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-                    .badge { display: inline-block; padding: 8px 16px; background: ${riskBg}; color: ${riskColor}; border-radius: 20px; font-weight: bold; }
-                    .footer { background: #333; color: white; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; }
-                  </style>
-                </head>
-                <body>
-                  <div class="container">
-                    <div class="header">
-                      <h1>📚 Academic Performance Update</h1>
-                      <p style="margin: 0;">Student Progress Report</p>
-                    </div>
-                    
-                    <div class="content">
-                      <h2>Hello ${student.student_name},</h2>
-                      <p>${message}</p>
-                      
-                      <div style="margin: 20px 0;">
-                        <strong>Current Risk Level:</strong> 
-                        <span class="badge">${riskLevel.toUpperCase()} RISK</span>
-                      </div>
-                      
-                      <div class="stats">
-                        <h3 style="margin-top: 0; color: ${riskColor};">📊 Your Performance Metrics</h3>
-                        <div class="stat-row">
-                          <span><strong>Attendance:</strong></span>
-                          <span>${attendancePercentage}%</span>
-                        </div>
-                        <div class="stat-row">
-                          <span><strong>Internal Marks:</strong></span>
-                          <span>${internalMarks}</span>
-                        </div>
-                        <div class="stat-row">
-                          <span><strong>Fee Payment:</strong></span>
-                          <span>${feePaidPercentage}%</span>
-                        </div>
-                        <div class="stat-row">
-                          <span><strong>Pending Fees:</strong></span>
-                          <span>₹${pendingFees}</span>
-                        </div>
-                        <div class="stat-row" style="border-bottom: none;">
-                          <span><strong>Risk Probability:</strong></span>
-                          <span>${mlProbability}%</span>
-                        </div>
-                      </div>
-                      
-                      ${insights ? `
-                      <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                        <h3 style="color: #1976d2; margin-top: 0;">💡 Insights</h3>
-                        <p style="margin: 0;">${insights}</p>
-                      </div>
-                      ` : ''}
-                      
-                      ${suggestions ? `
-                      <div style="background: #f3e5f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                        <h3 style="color: #7b1fa2; margin-top: 0;">📝 Suggestions for Improvement</h3>
-                        <p style="margin: 0;">${suggestions}</p>
-                      </div>
-                      ` : ''}
-                      
-                      ${tutorMeetingMessage}
-                    </div>
-                    
-                    <div class="footer">
-                      <p style="margin: 0;">This is an automated message from your Academic Team</p>
-                      <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Please do not reply to this email</p>
-                    </div>
-                  </div>
-                </body>
-              </html>
-            `,
+            content: "text/html",
+            html: emailHTML,
           });
           
           // Log notification to database
