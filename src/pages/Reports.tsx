@@ -113,9 +113,7 @@ const Reports = () => {
   ];
 
   const barData = [
-    { category: "Low Risk", count: stats.lowRisk },
-    { category: "Medium Risk", count: stats.mediumRisk },
-    { category: "High Risk", count: stats.highRisk },
+    { category: "Risk Categories", lowRisk: stats.lowRisk, mediumRisk: stats.mediumRisk, highRisk: stats.highRisk },
   ];
 
   const trendData = [
@@ -231,12 +229,9 @@ const Reports = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="count" fill="#8b5cf6" barSize={40}>
-                    {barData.map((entry, index) => {
-                      const colors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))"];
-                      return <Cell key={`cell-${index}`} fill={colors[index]} />;
-                    })}
-                  </Bar>
+                  <Bar dataKey="lowRisk" name="Low Risk" fill="hsl(var(--chart-1))" barSize={40} />
+                  <Bar dataKey="mediumRisk" name="Medium Risk" fill="hsl(var(--chart-2))" barSize={40} />
+                  <Bar dataKey="highRisk" name="High Risk" fill="hsl(var(--chart-3))" barSize={40} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
