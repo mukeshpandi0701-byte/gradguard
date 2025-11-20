@@ -107,9 +107,9 @@ const Reports = () => {
   };
 
   const pieData = [
-    { name: "Low Risk", value: stats.lowRisk, color: "#10b981" },
-    { name: "Medium Risk", value: stats.mediumRisk, color: "#f59e0b" },
-    { name: "High Risk", value: stats.highRisk, color: "#ef4444" },
+    { name: "Low Risk", value: stats.lowRisk, color: "hsl(var(--chart-1))" },
+    { name: "Medium Risk", value: stats.mediumRisk, color: "hsl(var(--chart-2))" },
+    { name: "High Risk", value: stats.highRisk, color: "hsl(var(--chart-3))" },
   ];
 
   const barData = [
