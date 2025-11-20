@@ -21,9 +21,12 @@ export type Database = {
           fees_weightage: number
           id: string
           internal_weightage: number
+          max_internal_marks: number
           max_pending_fees: number
           min_attendance_percentage: number
           min_internal_marks: number
+          total_fees: number
+          total_hours: number
           updated_at: string
           user_id: string
         }
@@ -33,9 +36,12 @@ export type Database = {
           fees_weightage?: number
           id?: string
           internal_weightage?: number
+          max_internal_marks?: number
           max_pending_fees?: number
           min_attendance_percentage?: number
           min_internal_marks?: number
+          total_fees?: number
+          total_hours?: number
           updated_at?: string
           user_id: string
         }
@@ -45,9 +51,12 @@ export type Database = {
           fees_weightage?: number
           id?: string
           internal_weightage?: number
+          max_internal_marks?: number
           max_pending_fees?: number
           min_attendance_percentage?: number
           min_internal_marks?: number
+          total_fees?: number
+          total_hours?: number
           updated_at?: string
           user_id?: string
         }

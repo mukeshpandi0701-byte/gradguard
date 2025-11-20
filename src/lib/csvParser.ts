@@ -3,9 +3,7 @@ import Papa from "papaparse";
 export interface ParsedStudent {
   studentName: string;
   rollNumber?: string;
-  totalHours: number;
   attendedHours: number;
-  totalFees: number;
   paidFees: number;
   internalMarks: number;
   email?: string;
@@ -53,19 +51,15 @@ export const parseCSV = (file: File): Promise<{ data: ParsedStudent[]; preview: 
           // Detect columns using fuzzy matching
           const nameIdx = detectColumn(headers, ["name", "student", "nombre"]);
           const rollIdx = detectColumn(headers, ["roll", "id", "number", "enrollment"]);
-          const totalHoursIdx = detectColumn(headers, ["total hours", "total_hours", "hours total"]);
-          const attendedIdx = detectColumn(headers, ["attended", "present", "attendance hours"]);
-          const totalFeesIdx = detectColumn(headers, ["total fees", "total_fees", "fees total", "fee total"]);
-          const paidFeesIdx = detectColumn(headers, ["paid fees", "paid_fees", "fees paid", "amount paid"]);
-          const marksIdx = detectColumn(headers, ["marks", "internal", "score", "grade"]);
+          const attendedIdx = detectColumn(headers, ["attended", "attended hours", "present", "attendance hours"]);
+          const paidFeesIdx = detectColumn(headers, ["paid fees", "paid_fees", "fees paid", "amount paid", "fees"]);
+          const marksIdx = detectColumn(headers, ["marks", "internal", "score", "grade", "internal score"]);
           const emailIdx = detectColumn(headers, ["email", "e-mail", "mail", "email id"]);
           
           const parsedData: ParsedStudent[] = results.data.map((row: any) => ({
             studentName: row[headers[nameIdx]] || "Unknown",
             rollNumber: row[headers[rollIdx]] || undefined,
-            totalHours: cleanNumeric(row[headers[totalHoursIdx]]),
             attendedHours: cleanNumeric(row[headers[attendedIdx]]),
-            totalFees: cleanNumeric(row[headers[totalFeesIdx]]),
             paidFees: cleanNumeric(row[headers[paidFeesIdx]]),
             internalMarks: cleanNumeric(row[headers[marksIdx]]),
             email: emailIdx >= 0 ? row[headers[emailIdx]] : undefined,
@@ -73,7 +67,7 @@ export const parseCSV = (file: File): Promise<{ data: ParsedStudent[]; preview: 
           
           // Filter out rows with all zeros (likely invalid data)
           const validData = parsedData.filter(student => 
-            student.totalHours > 0 || student.totalFees > 0 || student.internalMarks > 0
+            student.attendedHours > 0 || student.paidFees > 0 || student.internalMarks > 0
           );
           
           resolve({

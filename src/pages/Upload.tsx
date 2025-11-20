@@ -54,14 +54,30 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Fetch criteria to get maximum values for calculations
+      const { data: criteria, error: criteriaError } = await supabase
+        .from("dropout_criteria")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (criteriaError && criteriaError.code !== "PGRST116") {
+        throw new Error("Please set up your criteria first in the Criteria Settings page");
+      }
+
+      // Use defaults if criteria doesn't exist
+      const maxInternalMarks = criteria?.max_internal_marks || 100;
+      const totalFees = criteria?.total_fees || 100000;
+      const totalHours = criteria?.total_hours || 100;
+
       // Upsert students (update if exists, insert if new)
       const studentsToUpsert = parsedData.map(student => ({
         user_id: user.id,
         student_name: student.studentName,
         roll_number: student.rollNumber,
-        total_hours: student.totalHours,
+        total_hours: totalHours,
         attended_hours: student.attendedHours,
-        total_fees: student.totalFees,
+        total_fees: totalFees,
         paid_fees: student.paidFees,
         internal_marks: student.internalMarks,
         email: student.email,
@@ -120,7 +136,7 @@ const Upload = () => {
           <CardHeader>
             <CardTitle>Upload CSV File</CardTitle>
             <CardDescription>
-              CSV should contain columns for: Student Name, Total Hours, Attended Hours, Total Fees, Paid Fees, Internal Marks
+              CSV should contain: Roll Number, Student Name, Email, Attended Hours, Fees Paid, Internal Score. Maximum values are set in Criteria Settings.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -164,11 +180,10 @@ const Upload = () => {
                     <TableRow>
                       <TableHead>Student Name</TableHead>
                       <TableHead>Roll No</TableHead>
-                      <TableHead>Total Hours</TableHead>
-                      <TableHead>Attended</TableHead>
-                      <TableHead>Total Fees</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Attended Hours</TableHead>
                       <TableHead>Paid Fees</TableHead>
-                      <TableHead>Internal Marks</TableHead>
+                      <TableHead>Internal Score</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -176,9 +191,8 @@ const Upload = () => {
                       <TableRow key={idx}>
                         <TableCell>{student.studentName}</TableCell>
                         <TableCell>{student.rollNumber || "—"}</TableCell>
-                        <TableCell>{student.totalHours}</TableCell>
+                        <TableCell>{student.email || "—"}</TableCell>
                         <TableCell>{student.attendedHours}</TableCell>
-                        <TableCell>₹{student.totalFees}</TableCell>
                         <TableCell>₹{student.paidFees}</TableCell>
                         <TableCell>{student.internalMarks}</TableCell>
                       </TableRow>
