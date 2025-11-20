@@ -42,10 +42,14 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Unauthorized");
     }
 
-    // Fetch student details
+    // Fetch student details with risk levels
     const { data: students, error: fetchError } = await supabase
       .from("students")
-      .select("student_name, email")
+      .select(`
+        student_name, 
+        email,
+        predictions(final_risk_level)
+      `)
       .in("id", studentIds)
       .eq("user_id", user.id);
 
@@ -55,18 +59,17 @@ const handler = async (req: Request): Promise<Response> => {
       email: { success: 0, failed: 0, errors: [] as string[] },
     };
 
-    // Fetch user's notification settings
-    const { data: settings } = await supabase
-      .from("notification_settings")
-      .select("resend_sender_email, resend_sender_name")
-      .eq("user_id", user.id)
+    // Fetch user's profile for sender info
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", user.id)
       .maybeSingle();
 
     // Send email notifications
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
-      const senderEmail = settings?.resend_sender_email || "onboarding@resend.dev";
-      const senderName = settings?.resend_sender_name || "Student Alert System";
+      const senderName = profile?.full_name || "Academic Team";
 
       for (const student of students || []) {
         if (!student.email) {
@@ -75,25 +78,58 @@ const handler = async (req: Request): Promise<Response> => {
           continue;
         }
 
+        const riskLevel = (student as any).predictions?.[0]?.final_risk_level || "unknown";
+        const riskColor = riskLevel === "high" ? "#dc2626" : riskLevel === "medium" ? "#f59e0b" : "#10b981";
+        const riskBg = riskLevel === "high" ? "#fee2e2" : riskLevel === "medium" ? "#fef3c7" : "#d1fae5";
+
         try {
           await resend.emails.send({
-            from: `${senderName} <${senderEmail}>`,
+            from: `${senderName} <onboarding@resend.dev>`,
             to: [student.email],
-            subject: "Important Update About Your Academic Progress",
+            subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
             html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #333;">Hi ${student.student_name},</h2>
-                <p style="font-size: 16px; line-height: 1.6; color: #555;">${message}</p>
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 14px; color: #888;">
-                  Please contact your tutor if you have any questions.
-                </p>
-                <p style="font-size: 14px; color: #888;">Best regards,<br/>Academic Team</p>
-              </div>
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <meta charset="utf-8">
+                  <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                    .container { max-width: 600px; margin: 0 auto; }
+                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+                    .content { background: #f9f9f9; padding: 30px; }
+                    .risk-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin: 15px 0; background: ${riskBg}; color: ${riskColor}; }
+                    .message { white-space: pre-wrap; margin: 20px 0; padding: 20px; background: white; border-left: 4px solid #667eea; border-radius: 5px; }
+                    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; background: #f0f0f0; }
+                    h1 { margin: 0; font-size: 24px; }
+                    h2 { color: #333; margin-top: 0; }
+                  </style>
+                </head>
+                <body>
+                  <div class="container">
+                    <div class="header">
+                      <h1>Student Dropout Prevention System</h1>
+                      <p style="margin: 5px 0 0 0;">Academic Update Notification</p>
+                    </div>
+                    <div class="content">
+                      <h2>Dear ${student.student_name},</h2>
+                      <p>Your current academic risk level: 
+                        <span class="risk-badge">${riskLevel.toUpperCase()} RISK</span>
+                      </p>
+                      <div class="message">${message}</div>
+                      <p style="margin-top: 20px;">If you have any questions or need support, please don't hesitate to reach out to your tutor.</p>
+                      <p>Best regards,<br/><strong>${senderName}</strong></p>
+                    </div>
+                    <div class="footer">
+                      <p style="margin: 5px 0;">This is an automated message from the Student Dropout Prevention System</p>
+                      <p style="margin: 5px 0;">Reply to: ${profile?.email || "your tutor"}</p>
+                    </div>
+                  </div>
+                </body>
+              </html>
             `,
           });
           results.email.success++;
-          console.log(`Email sent to ${student.student_name}`);
+          console.log(`Email sent to ${student.student_name} (${riskLevel} risk)`);
         } catch (error: any) {
           results.email.failed++;
           results.email.errors.push(`${student.student_name}: ${error.message}`);
