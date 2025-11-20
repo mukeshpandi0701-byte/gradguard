@@ -18,7 +18,9 @@ export interface SocialActivityData {
   student_name: string;
   roll_number: string | null;
   github_activity: string;
+  github_status: string;
   linkedin_activity: string;
+  linkedin_status: string;
   status: "active" | "moderate" | "inactive";
 }
 
@@ -101,22 +103,26 @@ export const generateSocialActivityReportPDF = async (
   // Table header
   pdf.setFillColor(240, 240, 240);
   pdf.rect(margin, yPosition, contentWidth, 10, 'F');
-  pdf.setFontSize(10);
+  pdf.setFontSize(9);
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
   
   const col1X = margin + 2;
-  const col2X = margin + 50;
-  const col3X = margin + 110;
+  const col2X = margin + 40;
+  const col3X = margin + 80;
+  const col4X = margin + 120;
+  const col5X = margin + 155;
   
   pdf.text("Name", col1X, yPosition + 7);
   pdf.text("GitHub Activity", col2X, yPosition + 7);
-  pdf.text("LinkedIn Activity", col3X, yPosition + 7);
+  pdf.text("GitHub Status", col3X, yPosition + 7);
+  pdf.text("LinkedIn Activity", col4X, yPosition + 7);
+  pdf.text("LinkedIn Status", col5X, yPosition + 7);
   yPosition += 10;
 
   // Table rows
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
+  pdf.setFontSize(8);
 
   students.forEach((student, index) => {
     if (yPosition > pageHeight - 30) {
@@ -127,11 +133,15 @@ export const generateSocialActivityReportPDF = async (
       pdf.setFillColor(240, 240, 240);
       pdf.rect(margin, yPosition, contentWidth, 10, 'F');
       pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
       pdf.text("Name", col1X, yPosition + 7);
       pdf.text("GitHub Activity", col2X, yPosition + 7);
-      pdf.text("LinkedIn Activity", col3X, yPosition + 7);
+      pdf.text("GitHub Status", col3X, yPosition + 7);
+      pdf.text("LinkedIn Activity", col4X, yPosition + 7);
+      pdf.text("LinkedIn Status", col5X, yPosition + 7);
       yPosition += 10;
       pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
     }
 
     // Alternating row colors
@@ -144,9 +154,30 @@ export const generateSocialActivityReportPDF = async (
       ? `${student.student_name} (${student.roll_number})`
       : student.student_name;
     
-    pdf.text(pdf.splitTextToSize(name, 45)[0], col1X, yPosition + 5.5);
-    pdf.text(student.github_activity, col2X, yPosition + 5.5);
-    pdf.text(student.linkedin_activity, col3X, yPosition + 5.5);
+    pdf.text(pdf.splitTextToSize(name, 36)[0], col1X, yPosition + 5.5);
+    pdf.text(pdf.splitTextToSize(student.github_activity, 38)[0], col2X, yPosition + 5.5);
+    
+    // GitHub status with color
+    const githubStatusColor = student.github_status === "Active" 
+      ? [34, 197, 94] 
+      : student.github_status === "Moderate" 
+      ? [251, 191, 36] 
+      : [239, 68, 68];
+    pdf.setTextColor(githubStatusColor[0], githubStatusColor[1], githubStatusColor[2]);
+    pdf.text(student.github_status, col3X, yPosition + 5.5);
+    pdf.setTextColor(0, 0, 0);
+    
+    pdf.text(pdf.splitTextToSize(student.linkedin_activity, 33)[0], col4X, yPosition + 5.5);
+    
+    // LinkedIn status with color
+    const linkedinStatusColor = student.linkedin_status === "Active" 
+      ? [34, 197, 94] 
+      : student.linkedin_status === "Moderate" 
+      ? [251, 191, 36] 
+      : [239, 68, 68];
+    pdf.setTextColor(linkedinStatusColor[0], linkedinStatusColor[1], linkedinStatusColor[2]);
+    pdf.text(student.linkedin_status, col5X, yPosition + 5.5);
+    pdf.setTextColor(0, 0, 0);
     
     yPosition += 8;
   });
