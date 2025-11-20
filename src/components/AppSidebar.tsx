@@ -1,4 +1,4 @@
-import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, Share2 } from "lucide-react";
+import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, Share2, TrendingUp } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ const mainItems = [
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
   { title: "Dropout Criteria", url: "/criteria", icon: FileText },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },
+  { title: "Department Analytics", url: "/department-analytics", icon: TrendingUp },
   { title: "Send Notifications", url: "/notifications", icon: Bell },
 ];
 
