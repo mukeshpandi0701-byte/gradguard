@@ -160,6 +160,54 @@ export type Database = {
         }
         Relationships: []
       }
+      student_history: {
+        Row: {
+          attendance_percentage: number | null
+          fee_paid_percentage: number | null
+          id: string
+          internal_marks: number | null
+          pending_fees: number | null
+          recorded_at: string
+          student_id: string
+          user_id: string
+        }
+        Insert: {
+          attendance_percentage?: number | null
+          fee_paid_percentage?: number | null
+          id?: string
+          internal_marks?: number | null
+          pending_fees?: number | null
+          recorded_at?: string
+          student_id: string
+          user_id: string
+        }
+        Update: {
+          attendance_percentage?: number | null
+          fee_paid_percentage?: number | null
+          id?: string
+          internal_marks?: number | null
+          pending_fees?: number | null
+          recorded_at?: string
+          student_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_student"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           attendance_percentage: number | null

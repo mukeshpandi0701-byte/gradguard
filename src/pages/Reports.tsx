@@ -32,13 +32,18 @@ const Reports = () => {
   const fetchReportData = async () => {
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const { data: students } = await supabase
         .from("students")
-        .select("id");
+        .select("id")
+        .eq("user_id", user.id);
 
       const { data: predictions } = await supabase
         .from("predictions")
-        .select("final_risk_level");
+        .select("final_risk_level")
+        .eq("user_id", user.id);
 
       const lowRisk = (predictions as PredictionData[])?.filter(p => p.final_risk_level === "low").length || 0;
       const mediumRisk = (predictions as PredictionData[])?.filter(p => p.final_risk_level === "medium").length || 0;

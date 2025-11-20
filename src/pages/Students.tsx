@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, RefreshCw, AlertCircle, Trash2 } from "lucide-react";
+import { RefreshCw, AlertCircle, Trash2, Eye } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { initializeModel, predictDropout } from "@/lib/mlModel";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ interface Student {
   id: string;
   student_name: string;
   roll_number: string | null;
+  email: string | null;
   attendance_percentage: number;
   fee_paid_percentage: number;
   pending_fees: number;
@@ -54,7 +56,8 @@ const Students = () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("*");
+        .select("*")
+        .order('roll_number', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
 
@@ -206,64 +209,63 @@ const Students = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <header className="border-b bg-card shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold">Student Analysis</h2>
+            <p className="text-muted-foreground mt-2">
+              View and analyze student dropout risk predictions
+            </p>
+          </div>
+          <Button
+            onClick={runPredictions}
+            disabled={predicting || students.length === 0}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${predicting ? 'animate-spin' : ''}`} />
+            {predicting ? "Running..." : "Run Predictions"}
           </Button>
-          <Button onClick={runPredictions} disabled={predicting || students.length === 0}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${predicting ? "animate-spin" : ""}`} />
-            {predicting ? "Predicting..." : "Run Predictions"}
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Student Analysis</h1>
-          <p className="text-muted-foreground">
-            View detailed analysis and dropout risk predictions for all students
-          </p>
         </div>
 
         {students.length === 0 ? (
-          <Card className="shadow-card">
+          <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium mb-2">No students found</p>
-              <p className="text-muted-foreground mb-4">Upload a CSV file to get started</p>
+              <h3 className="text-lg font-semibold mb-2">No Students Found</h3>
+              <p className="text-muted-foreground text-center mb-4">
+                Upload student data to get started with dropout predictions
+              </p>
               <Button onClick={() => navigate("/upload")}>
-                Upload CSV
+                Upload Student Data
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <Card className="shadow-card">
+          <Card>
             <CardHeader>
               <CardTitle>Students ({students.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
+              <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
                       <TableHead>Roll No</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Attendance</TableHead>
-                      <TableHead>Internal Marks</TableHead>
+                      <TableHead>Marks</TableHead>
                       <TableHead>Fees Paid</TableHead>
-                      <TableHead>Pending Fees</TableHead>
                       <TableHead>Risk Level</TableHead>
-                      <TableHead>ML Probability</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -309,12 +311,11 @@ const Students = () => {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
             </CardContent>
           </Card>
         )}
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 

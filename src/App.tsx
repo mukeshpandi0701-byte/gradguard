@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Upload from "./pages/Upload";
 import Students from "./pages/Students";
+import StudentDetail from "./pages/StudentDetail";
 import Criteria from "./pages/Criteria";
 import Profile from "./pages/Profile";
 import Reports from "./pages/Reports";
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/students" element={<Students />} />
+          <Route path="/students/:id" element={<StudentDetail />} />
           <Route path="/criteria" element={<Criteria />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/reports" element={<Reports />} />
