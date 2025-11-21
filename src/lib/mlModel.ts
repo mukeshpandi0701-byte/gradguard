@@ -162,7 +162,7 @@ export const predictDropout = (
     issues.push(`Low internal marks (${input.internalMarks.toFixed(1)})`);
   }
   if (input.pendingFees > criteria.maxPendingFees) {
-    issues.push(`High pending fees (₹${input.pendingFees.toFixed(0)})`);
+    issues.push(`High pending fees (Rs. ${input.pendingFees.toFixed(0)})`);
   }
 
   const insights = issues.length > 0 
