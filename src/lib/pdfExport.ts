@@ -273,6 +273,295 @@ export const generateAnalyticsReportPDF = async (
   pdf.save(filename);
 };
 
+export const generateAIStudentReportPDF = async (
+  studentData: {
+    student_name: string;
+    roll_number: string | null;
+    department: string | null;
+    email: string | null;
+    phone_number: string | null;
+    attendance_percentage: number;
+    internal_marks: number;
+    fee_paid_percentage: number;
+    pending_fees: number;
+  },
+  prediction: {
+    final_risk_level: string;
+    ml_probability: number;
+    insights: string | null;
+    suggestions: string | null;
+  } | null,
+  trendAnalysis: any | null,
+  recommendations: any | null,
+  historyChart: HTMLElement | null
+) => {
+  const pdf = new jsPDF("p", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - (margin * 2);
+
+  let yPosition = margin;
+
+  // Header with blue background
+  pdf.setFillColor(59, 130, 246);
+  pdf.rect(0, 0, pageWidth, 45, 'F');
+  
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(24);
+  pdf.setFont("helvetica", "bold");
+  pdf.text(`Student Report: ${studentData.student_name}`, pageWidth / 2, 20, { align: "center" });
+  
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 32, { align: "center" });
+  
+  yPosition = 55;
+  pdf.setTextColor(0, 0, 0);
+
+  // Performance Overview Section
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Performance Overview", margin, yPosition);
+  yPosition += 10;
+
+  const metrics = [
+    { label: "Overall Performance", value: `${studentData.attendance_percentage.toFixed(1)}%`, color: studentData.attendance_percentage >= 75 ? [34, 197, 94] : [239, 68, 68] },
+    { label: "Internal Marks", value: `${studentData.internal_marks}/100`, color: studentData.internal_marks >= 40 ? [34, 197, 94] : [239, 68, 68] },
+    { label: "Fees Paid", value: `${studentData.fee_paid_percentage.toFixed(1)}%`, color: studentData.fee_paid_percentage >= 80 ? [34, 197, 94] : [239, 68, 68] },
+    { label: "Fees Due", value: `Rs. ${studentData.pending_fees.toFixed(0)}`, color: studentData.pending_fees <= 5000 ? [34, 197, 94] : [239, 68, 68] }
+  ];
+
+  pdf.setFontSize(11);
+  metrics.forEach(metric => {
+    pdf.setFont("helvetica", "bold");
+    pdf.text(metric.label + ":", margin, yPosition);
+    pdf.setTextColor(metric.color[0], metric.color[1], metric.color[2]);
+    pdf.text(metric.value, margin + 60, yPosition);
+    pdf.setTextColor(0, 0, 0);
+    yPosition += 7;
+  });
+  
+  yPosition += 8;
+
+  // Contact Information
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Contact Information", margin, yPosition);
+  yPosition += 10;
+
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "normal");
+  if (studentData.email) {
+    pdf.text(`Email: ${studentData.email}`, margin, yPosition);
+    yPosition += 7;
+  }
+  if (studentData.phone_number) {
+    pdf.text(`Phone: ${studentData.phone_number}`, margin, yPosition);
+    yPosition += 7;
+  }
+  if (studentData.department) {
+    pdf.text(`Department: ${studentData.department}`, margin, yPosition);
+    yPosition += 7;
+  }
+  if (!studentData.email && !studentData.phone_number && !studentData.department) {
+    pdf.setTextColor(128, 128, 128);
+    pdf.text("Contact details not available", margin, yPosition);
+    pdf.setTextColor(0, 0, 0);
+    yPosition += 7;
+  }
+  
+  yPosition += 8;
+
+  // Performance Trend Chart
+  if (historyChart && yPosition + 60 < pageHeight - margin) {
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Performance Trend Over Time", margin, yPosition);
+    yPosition += 10;
+
+    try {
+      const canvas = await (window as any).html2canvas(historyChart, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const imgWidth = contentWidth;
+      const imgHeight = 60;
+      
+      pdf.addImage(imgData, "PNG", margin, yPosition, imgWidth, imgHeight);
+      yPosition += imgHeight + 10;
+    } catch (error) {
+      console.error("Error capturing chart:", error);
+      pdf.setTextColor(128, 128, 128);
+      pdf.setFontSize(11);
+      pdf.text("Chart not available", margin, yPosition);
+      pdf.setTextColor(0, 0, 0);
+      yPosition += 10;
+    }
+  } else {
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Performance Trend Over Time", margin, yPosition);
+    yPosition += 10;
+    pdf.setTextColor(128, 128, 128);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("No historical data available yet", margin, yPosition);
+    pdf.setTextColor(0, 0, 0);
+    yPosition += 10;
+  }
+
+  // Check if we need a new page
+  if (yPosition > pageHeight - 60) {
+    pdf.addPage();
+    yPosition = margin;
+  }
+
+  // AI-Powered Insights
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("AI-Powered Insights", margin, yPosition);
+  yPosition += 10;
+
+  if (trendAnalysis) {
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    
+    if (trendAnalysis.summary) {
+      const summaryLines = pdf.splitTextToSize(trendAnalysis.summary, contentWidth);
+      pdf.text(summaryLines, margin, yPosition);
+      yPosition += summaryLines.length * 5 + 8;
+    }
+
+    if (trendAnalysis.warningSignals && trendAnalysis.warningSignals.length > 0) {
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Warning Signals:", margin, yPosition);
+      yPosition += 6;
+      pdf.setFont("helvetica", "normal");
+      trendAnalysis.warningSignals.forEach((signal: string) => {
+        const lines = pdf.splitTextToSize(`• ${signal}`, contentWidth - 5);
+        pdf.text(lines, margin + 3, yPosition);
+        yPosition += lines.length * 5;
+      });
+      yPosition += 5;
+    }
+  } else {
+    pdf.setTextColor(128, 128, 128);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "italic");
+    pdf.text("AI insights not generated yet. Click 'Analyze Trends' on the student page.", margin, yPosition);
+    pdf.setTextColor(0, 0, 0);
+    yPosition += 10;
+  }
+
+  // Check if we need a new page
+  if (yPosition > pageHeight - 60) {
+    pdf.addPage();
+    yPosition = margin;
+  }
+
+  // Short-Term Goals
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Short-Term Goals (1 Month)", margin, yPosition);
+  yPosition += 10;
+
+  if (recommendations?.shortTermGoals && recommendations.shortTermGoals.length > 0) {
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    
+    recommendations.shortTermGoals.forEach((goal: any, index: number) => {
+      if (yPosition > pageHeight - 40) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+      
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`${index + 1}. ${goal.goal}`, margin, yPosition);
+      yPosition += 6;
+      
+      pdf.setFont("helvetica", "normal");
+      if (goal.steps && goal.steps.length > 0) {
+        goal.steps.forEach((step: string) => {
+          const lines = pdf.splitTextToSize(`  • ${step}`, contentWidth - 5);
+          pdf.text(lines, margin + 3, yPosition);
+          yPosition += lines.length * 5;
+        });
+      }
+      yPosition += 5;
+    });
+  } else {
+    pdf.setTextColor(128, 128, 128);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "italic");
+    pdf.text("Goals not generated yet. Click 'Generate Recommendations' on the student page.", margin, yPosition);
+    pdf.setTextColor(0, 0, 0);
+    yPosition += 10;
+  }
+
+  // Check if we need a new page
+  if (yPosition > pageHeight - 60) {
+    pdf.addPage();
+    yPosition = margin;
+  }
+
+  // Long-Term Strategies
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Long-Term Strategies (3 Months)", margin, yPosition);
+  yPosition += 10;
+
+  if (recommendations?.longTermStrategies && recommendations.longTermStrategies.length > 0) {
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    
+    recommendations.longTermStrategies.forEach((strategy: any, index: number) => {
+      if (yPosition > pageHeight - 40) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+      
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`${index + 1}. ${strategy.strategy}`, margin, yPosition);
+      yPosition += 6;
+      
+      pdf.setFont("helvetica", "normal");
+      if (strategy.description) {
+        const lines = pdf.splitTextToSize(strategy.description, contentWidth);
+        pdf.text(lines, margin + 3, yPosition);
+        yPosition += lines.length * 5;
+      }
+      
+      if (strategy.milestones && strategy.milestones.length > 0) {
+        strategy.milestones.forEach((milestone: string) => {
+          const lines = pdf.splitTextToSize(`  • ${milestone}`, contentWidth - 5);
+          pdf.text(lines, margin + 3, yPosition);
+          yPosition += lines.length * 5;
+        });
+      }
+      yPosition += 5;
+    });
+  } else {
+    pdf.setTextColor(128, 128, 128);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "italic");
+    pdf.text("Strategies not generated yet. Click 'Generate Recommendations' on the student page.", margin, yPosition);
+    pdf.setTextColor(0, 0, 0);
+    yPosition += 10;
+  }
+
+  // Footer
+  pdf.setFontSize(8);
+  pdf.setTextColor(128, 128, 128);
+  pdf.text("End of Report", pageWidth / 2, pageHeight - 10, { align: "center" });
+
+  // Save PDF
+  const filename = `student-report-${studentData.roll_number || 'unknown'}-${new Date().toISOString().split("T")[0]}.pdf`;
+  pdf.save(filename);
+};
+
 export const generateStudentReportPDF = async (
   students: StudentReportData[],
   title: string = "Student Dropout Risk Report"

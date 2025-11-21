@@ -202,38 +202,38 @@ const Upload = () => {
             </Card>
 
             {preview.length > 0 && (
-              <Card className="shadow-card">
-                <CardHeader>
-                  <CardTitle>Preview ({parsedData.length} students detected)</CardTitle>
-                  <CardDescription>First 5 rows of your data</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Student Name</TableHead>
-                          <TableHead>Roll No</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Attended Hours</TableHead>
-                          <TableHead>Paid Fees</TableHead>
-                          <TableHead>Internal Score</TableHead>
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle>Preview ({parsedData.length} students detected)</CardTitle>
+                <CardDescription>All uploaded student data</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student Name</TableHead>
+                        <TableHead>Roll No</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Attended Hours</TableHead>
+                        <TableHead>Paid Fees</TableHead>
+                        <TableHead>Internal Score</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {parsedData.map((student, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>{student.studentName}</TableCell>
+                          <TableCell>{student.rollNumber || "—"}</TableCell>
+                          <TableCell>{student.email || "—"}</TableCell>
+                          <TableCell>{student.attendedHours}</TableCell>
+                          <TableCell>₹{student.paidFees}</TableCell>
+                          <TableCell>{student.internalMarks}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {parsedData.slice(0, 5).map((student, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell>{student.studentName}</TableCell>
-                            <TableCell>{student.rollNumber || "—"}</TableCell>
-                            <TableCell>{student.email || "—"}</TableCell>
-                            <TableCell>{student.attendedHours}</TableCell>
-                            <TableCell>₹{student.paidFees}</TableCell>
-                            <TableCell>{student.internalMarks}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
 
                   <div className="flex justify-end gap-3 mt-6">
                     <Button variant="outline" onClick={() => {
