@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,14 +9,14 @@ import { ArrowLeft, Download, TrendingUp, TrendingDown, Minus } from "lucide-rea
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AIInsights } from "@/components/AIInsights";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 interface StudentData {
   id: string;
   student_name: string;
   roll_number: string | null;
   email: string | null;
+  department: string | null;
+  phone_number: string | null;
   attendance_percentage: number;
   fee_paid_percentage: number;
   pending_fees: number;
@@ -46,7 +46,6 @@ interface HistoryEntry {
 const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const reportRef = useRef<HTMLDivElement>(null);
   
   const [student, setStudent] = useState<StudentData | null>(null);
   const [prediction, setPrediction] = useState<PredictionData | null>(null);
@@ -126,58 +125,33 @@ const StudentDetail = () => {
     return <Minus className="h-4 w-4 text-slate-600" />;
   };
 
+  const [aiInsightsRef, setAiInsightsRef] = useState<{
+    trendAnalysis: any;
+    recommendations: any;
+  }>({ trendAnalysis: null, recommendations: null });
+
   const handleExportPDF = async () => {
-    if (!reportRef.current) return;
+    if (!student) return;
     
     setExporting(true);
-    toast.loading("Generating PDF...");
+    toast.loading("Generating comprehensive PDF report...");
 
     try {
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-      });
+      const { generateAIStudentReportPDF } = await import("@/lib/pdfExport");
       
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      // Get the chart element if available
+      const chartElement = document.querySelector('.recharts-wrapper')?.parentElement as HTMLElement || null;
       
-      // Title
-      pdf.setFontSize(20);
-      pdf.setFont("helvetica", "bold");
-      pdf.text(`Student Report: ${student?.student_name || ""}`, pageWidth / 2, 20, { align: "center" });
+      await generateAIStudentReportPDF(
+        student,
+        prediction,
+        aiInsightsRef.trendAnalysis,
+        aiInsightsRef.recommendations,
+        chartElement
+      );
       
-      // Date
-      pdf.setFontSize(10);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 28, { align: "center" });
-      
-      // Add report image
-      const imgWidth = pageWidth - 20;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      if (imgHeight <= pageHeight - 40) {
-        pdf.addImage(imgData, "PNG", 10, 35, imgWidth, imgHeight);
-      } else {
-        let yOffset = 35;
-        let remainingHeight = imgHeight;
-        
-        while (remainingHeight > 0) {
-          const chunkHeight = Math.min(pageHeight - 45, remainingHeight);
-          pdf.addImage(imgData, "PNG", 10, yOffset, imgWidth, chunkHeight, undefined, "FAST");
-          remainingHeight -= chunkHeight;
-          
-          if (remainingHeight > 0) {
-            pdf.addPage();
-            yOffset = 10;
-          }
-        }
-      }
-      
-      pdf.save(`student-report-${student?.roll_number || id}-${new Date().toISOString().split('T')[0]}.pdf`);
       toast.dismiss();
-      toast.success("PDF exported successfully!");
+      toast.success("PDF report exported successfully!");
     } catch (error) {
       toast.dismiss();
       toast.error("Failed to export PDF");
@@ -239,7 +213,7 @@ const StudentDetail = () => {
           </Button>
         </div>
 
-        <div ref={reportRef} className="space-y-6">
+        <div className="space-y-6">
           {/* Risk Status Card */}
           {prediction && (
             <Card className="border-2">
@@ -431,7 +405,8 @@ const StudentDetail = () => {
           {/* AI-Powered Insights */}
           <AIInsights 
             studentId={student.id} 
-            studentName={student.student_name} 
+            studentName={student.student_name}
+            onDataUpdate={(data) => setAiInsightsRef(data)}
           />
         </div>
       </div>

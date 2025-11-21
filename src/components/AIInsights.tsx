@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 interface AIInsightsProps {
   studentId: string;
   studentName: string;
+  onDataUpdate?: (data: { trendAnalysis: any; recommendations: any }) => void;
 }
 
 interface TrendAnalysis {
@@ -64,11 +65,18 @@ interface Recommendations {
   keyFocusAreas: string[];
 }
 
-export const AIInsights = ({ studentId, studentName }: AIInsightsProps) => {
+export const AIInsights = ({ studentId, studentName, onDataUpdate }: AIInsightsProps) => {
   const [trendAnalysis, setTrendAnalysis] = useState<TrendAnalysis | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
   const [loadingTrends, setLoadingTrends] = useState(false);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
+  // Notify parent component when data changes
+  const updateParent = (trends: TrendAnalysis | null, recs: Recommendations | null) => {
+    if (onDataUpdate) {
+      onDataUpdate({ trendAnalysis: trends, recommendations: recs });
+    }
+  };
 
   const analyzeTrends = async () => {
     setLoadingTrends(true);
@@ -83,6 +91,7 @@ export const AIInsights = ({ studentId, studentName }: AIInsightsProps) => {
 
       if (data.success) {
         setTrendAnalysis(data.analysis);
+        updateParent(data.analysis, recommendations);
         toast.dismiss();
         toast.success("Trend analysis complete!");
       } else {
@@ -110,6 +119,7 @@ export const AIInsights = ({ studentId, studentName }: AIInsightsProps) => {
 
       if (data.success) {
         setRecommendations(data.recommendations);
+        updateParent(trendAnalysis, data.recommendations);
         toast.dismiss();
         toast.success("Recommendations generated!");
       } else {
