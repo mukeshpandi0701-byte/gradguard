@@ -6,8 +6,6 @@ import { toast } from "sonner";
 import { Download, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface PredictionData {
@@ -88,58 +86,20 @@ const Reports = () => {
   };
 
   const handleExportPDF = async () => {
+    if (!chartsRef.current) {
+      toast.error("Charts not ready");
+      return;
+    }
+
     setExporting(true);
-    toast.loading("Generating PDF...");
+    toast.loading("Generating analytics PDF...");
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { data: allStudents } = await supabase
-        .from("students")
-        .select("id, department, student_name, roll_number, email, attendance_percentage, internal_marks, fee_paid_percentage, pending_fees")
-        .eq("user_id", user.id);
-
-      // Filter students by department if selected
-      const filteredStudentIds = selectedDepartment === "all" 
-        ? allStudents?.map(s => s.id)
-        : allStudents?.filter(s => s.department === selectedDepartment).map(s => s.id);
-
-      const { data: studentsData } = await supabase
-        .from("students")
-        .select("*")
-        .eq("user_id", user.id)
-        .in("id", filteredStudentIds || []);
-
-      const { data: predictions } = await supabase
-        .from("predictions")
-        .select("*")
-        .eq("user_id", user.id)
-        .in("student_id", filteredStudentIds || []);
-
-      const reportData = studentsData?.map((student: any) => {
-        const prediction = predictions?.find((p: any) => p.student_id === student.id);
-        return {
-          student_name: student.student_name,
-          roll_number: student.roll_number,
-          department: student.department,
-          email: student.email,
-          attendance_percentage: student.attendance_percentage || 0,
-          internal_marks: student.internal_marks || 0,
-          fee_paid_percentage: student.fee_paid_percentage || 0,
-          pending_fees: student.pending_fees || 0,
-          riskLevel: prediction?.final_risk_level || "low",
-          mlProbability: prediction?.ml_probability || 0,
-          insights: prediction?.insights,
-          suggestions: prediction?.suggestions,
-        };
-      }) || [];
-
-      const { generateStudentReportPDF } = await import("@/lib/pdfExport");
-      await generateStudentReportPDF(reportData, "Student Dropout Risk Report");
+      const { generateAnalyticsReportPDF } = await import("@/lib/pdfExport");
+      await generateAnalyticsReportPDF(selectedDepartment, stats, chartsRef.current);
       
       toast.dismiss();
-      toast.success("PDF exported successfully!");
+      toast.success("Analytics PDF exported successfully!");
     } catch (error) {
       toast.dismiss();
       toast.error("Failed to export PDF");

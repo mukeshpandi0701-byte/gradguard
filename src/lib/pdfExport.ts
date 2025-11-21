@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 export interface StudentReportData {
   student_name: string;
@@ -196,6 +197,79 @@ export const generateSocialActivityReportPDF = async (
 
   // Save PDF
   const filename = `social-activity-report-${new Date().toISOString().split("T")[0]}.pdf`;
+  pdf.save(filename);
+};
+
+export const generateAnalyticsReportPDF = async (
+  department: string,
+  stats: { totalStudents: number; lowRisk: number; mediumRisk: number; highRisk: number },
+  chartsElement: HTMLElement
+) => {
+  const pdf = new jsPDF("p", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 15;
+
+  let yPosition = margin;
+
+  // Department name in bold
+  pdf.setFontSize(24);
+  pdf.setFont("helvetica", "bold");
+  pdf.text(department === "all" ? "All Departments" : department, pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 15;
+
+  // Generated date
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 15;
+
+  // Statistics summary
+  pdf.setFontSize(14);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Statistics Summary", margin, yPosition);
+  yPosition += 10;
+
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(`Total Students: ${stats.totalStudents}`, margin + 5, yPosition);
+  yPosition += 7;
+  pdf.setTextColor(34, 197, 94);
+  pdf.text(`Low Risk: ${stats.lowRisk}`, margin + 5, yPosition);
+  yPosition += 7;
+  pdf.setTextColor(251, 191, 36);
+  pdf.text(`Medium Risk: ${stats.mediumRisk}`, margin + 5, yPosition);
+  yPosition += 7;
+  pdf.setTextColor(239, 68, 68);
+  pdf.text(`High Risk: ${stats.highRisk}`, margin + 5, yPosition);
+  yPosition += 12;
+  pdf.setTextColor(0, 0, 0);
+
+  // Capture charts as image
+  try {
+    const canvas = await (window as any).html2canvas(chartsElement, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    
+    const imgData = canvas.toDataURL("image/png");
+    const imgWidth = pageWidth - (margin * 2);
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    // Check if we need a new page
+    if (yPosition + imgHeight > pageHeight - margin) {
+      pdf.addPage();
+      yPosition = margin;
+    }
+    
+    pdf.addImage(imgData, "PNG", margin, yPosition, imgWidth, imgHeight);
+  } catch (error) {
+    console.error("Error capturing charts:", error);
+  }
+
+  // Save PDF
+  const filename = `analytics-report-${department}-${new Date().toISOString().split("T")[0]}.pdf`;
   pdf.save(filename);
 };
 
