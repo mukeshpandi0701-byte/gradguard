@@ -50,25 +50,49 @@ const Students = () => {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
 
   useEffect(() => {
-    initializeModel().then(() => {
-      fetchStudents();
-    });
+    fetchStudents();
+    // Initialize model in background (non-blocking)
+    initializeModel().catch(console.error);
   }, []);
 
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Fetch students with their predictions in a single query
+      const { data: studentsData, error: studentsError } = await supabase
         .from("students")
         .select("*")
         .order('roll_number', { ascending: true, nullsFirst: false });
 
-      if (error) throw error;
+      if (studentsError) throw studentsError;
 
-      setStudents(data || []);
+      // Fetch all predictions for this user
+      const { data: predictionsData, error: predictionsError } = await supabase
+        .from("predictions")
+        .select("student_id, ml_probability, final_risk_level")
+        .eq("user_id", user.id);
+
+      if (predictionsError) throw predictionsError;
+
+      // Create a map of predictions by student_id
+      const predictionsMap = new Map(
+        (predictionsData || []).map(p => [p.student_id, p])
+      );
+
+      // Merge students with their predictions
+      const studentsWithPredictions = (studentsData || []).map(student => ({
+        ...student,
+        riskLevel: predictionsMap.get(student.id)?.final_risk_level,
+        mlProbability: predictionsMap.get(student.id)?.ml_probability,
+      }));
+
+      setStudents(studentsWithPredictions);
       
       // Extract unique departments
-      const uniqueDepts = Array.from(new Set((data || []).map(s => s.department).filter(Boolean))) as string[];
+      const uniqueDepts = Array.from(new Set(studentsWithPredictions.map(s => s.department).filter(Boolean))) as string[];
       setDepartments(uniqueDepts);
     } catch (error: any) {
       toast.error("Failed to fetch students");
