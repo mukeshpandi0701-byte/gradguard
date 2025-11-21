@@ -247,10 +247,11 @@ export const generateAnalyticsReportPDF = async (
 
   // Capture charts as image
   try {
-    const canvas = await (window as any).html2canvas(chartsElement, {
+    const canvas = await html2canvas(chartsElement, {
       scale: 2,
       useCORS: true,
       logging: false,
+      backgroundColor: '#ffffff',
     });
     
     const imgData = canvas.toDataURL("image/png");
@@ -266,6 +267,10 @@ export const generateAnalyticsReportPDF = async (
     pdf.addImage(imgData, "PNG", margin, yPosition, imgWidth, imgHeight);
   } catch (error) {
     console.error("Error capturing charts:", error);
+    pdf.setTextColor(128, 128, 128);
+    pdf.setFontSize(11);
+    pdf.text("Charts could not be captured", margin, yPosition);
+    pdf.setTextColor(0, 0, 0);
   }
 
   // Save PDF
@@ -381,7 +386,7 @@ export const generateAIStudentReportPDF = async (
     yPosition += 10;
 
     try {
-      const canvas = await (window as any).html2canvas(historyChart, {
+      const canvas = await html2canvas(historyChart, {
         scale: 2,
         backgroundColor: "#ffffff",
       });
@@ -396,7 +401,7 @@ export const generateAIStudentReportPDF = async (
       console.error("Error capturing chart:", error);
       pdf.setTextColor(128, 128, 128);
       pdf.setFontSize(11);
-      pdf.text("Chart not available", margin, yPosition);
+      pdf.text("Chart could not be captured", margin, yPosition);
       pdf.setTextColor(0, 0, 0);
       yPosition += 10;
     }
@@ -739,7 +744,9 @@ export const generateStudentReportPDF = async (
 
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      const insights = pdf.splitTextToSize(student.insights, contentWidth);
+      // Clean the insights text to ensure proper encoding
+      const cleanedInsights = student.insights.replace(/₹/g, 'Rs. ').replace(/\s+/g, ' ').trim();
+      const insights = pdf.splitTextToSize(cleanedInsights, contentWidth);
       pdf.text(insights, margin, yPosition);
       yPosition += insights.length * 5 + 5;
     }
@@ -758,7 +765,9 @@ export const generateStudentReportPDF = async (
 
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      const suggestions = pdf.splitTextToSize(student.suggestions, contentWidth);
+      // Clean the suggestions text to ensure proper encoding
+      const cleanedSuggestions = student.suggestions.replace(/₹/g, 'Rs. ').replace(/\s+/g, ' ').trim();
+      const suggestions = pdf.splitTextToSize(cleanedSuggestions, contentWidth);
       pdf.text(suggestions, margin, yPosition);
     }
 
