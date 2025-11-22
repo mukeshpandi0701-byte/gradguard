@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Download, FileText } from "lucide-react";
+import { Download, BarChart3 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -163,47 +163,49 @@ const Reports = () => {
 
           <TabsContent value={selectedDepartment} className="space-y-6">
 
-        {/* Key Insights */}
-        <Card className="shadow-elevated border-l-4 border-l-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Key Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {stats.totalStudents > 0 && (
-              <>
-                <div className="p-4 rounded-lg bg-success/10 border border-success/20">
-                  <p className="text-sm font-medium">
-                    {((stats.lowRisk / stats.totalStudents) * 100).toFixed(1)}% of students are at low risk
-                  </p>
-                </div>
-                {stats.mediumRisk > 0 && (
-                  <div className="p-4 rounded-lg bg-warning/10 border border-warning/20">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-6 mb-6">
+          {/* Key Insights */}
+          <Card className="shadow-elevated border-l-4 border-l-primary">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Key Insights
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {stats.totalStudents > 0 && (
+                <>
+                  <div className="p-4 rounded-lg bg-success/10 border border-success/20">
                     <p className="text-sm font-medium">
-                      {stats.mediumRisk} student{stats.mediumRisk !== 1 ? 's' : ''} need attention to prevent escalation
+                      {((stats.lowRisk / stats.totalStudents) * 100).toFixed(1)}% of students are at low risk
                     </p>
                   </div>
-                )}
-                {stats.highRisk > 0 && (
-                  <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-                    <p className="text-sm font-medium">
-                      {stats.highRisk} student{stats.highRisk !== 1 ? 's' : ''} require immediate intervention
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-            {stats.totalStudents === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No student data available. Upload student data and run predictions to see insights.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+                  {stats.mediumRisk > 0 && (
+                    <div className="p-4 rounded-lg bg-warning/10 border border-warning/20">
+                      <p className="text-sm font-medium">
+                        {stats.mediumRisk} student{stats.mediumRisk !== 1 ? 's' : ''} need attention to prevent escalation
+                      </p>
+                    </div>
+                  )}
+                  {stats.highRisk > 0 && (
+                    <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <p className="text-sm font-medium">
+                        {stats.highRisk} student{stats.highRisk !== 1 ? 's' : ''} require immediate intervention
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+              {stats.totalStudents === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No student data available. Upload student data and run predictions to see insights.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
@@ -236,6 +238,7 @@ const Reports = () => {
               <div className="text-3xl font-bold text-red-600">{stats.highRisk}</div>
             </CardContent>
           </Card>
+          </div>
         </div>
 
         {/* Charts */}
@@ -318,32 +321,6 @@ const Reports = () => {
           </Card>
         </div>
 
-        {/* Insights */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Key Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm font-medium text-green-900">
-                {((stats.lowRisk / stats.totalStudents) * 100).toFixed(1)}% of students are at low risk
-              </p>
-            </div>
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm font-medium text-yellow-900">
-                {stats.mediumRisk} students need attention to prevent escalation
-              </p>
-            </div>
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm font-medium text-red-900">
-                {stats.highRisk} students require immediate intervention
-              </p>
-            </div>
-          </CardContent>
-        </Card>
           </TabsContent>
         </Tabs>
       </div>
