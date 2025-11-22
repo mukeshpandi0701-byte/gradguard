@@ -199,7 +199,7 @@ const Reports = () => {
         </div>
 
         {/* Charts */}
-        <div ref={chartsRef} className="space-y-6 bg-white p-6 rounded-lg">
+        <div ref={chartsRef} className="space-y-6 bg-card p-6 rounded-lg border">
           {/* Pie Chart - Risk Distribution */}
           <Card>
             <CardHeader>
@@ -223,7 +223,10 @@ const Reports = () => {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => [`${value} students`, "Count"]} />
+                  <Tooltip 
+                    formatter={(value: number) => [`${value} students`, "Count"]}
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                  />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -239,10 +242,10 @@ const Reports = () => {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={barData} barGap={8}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" />
-                  <YAxis />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted-foreground/20" />
+                  <XAxis dataKey="category" className="text-muted-foreground" />
+                  <YAxis className="text-muted-foreground" />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
                   <Legend />
                   <Bar dataKey="lowRisk" name="Low Risk" fill="hsl(var(--chart-1))" barSize={40} />
                   <Bar dataKey="mediumRisk" name="Medium Risk" fill="hsl(var(--chart-2))" barSize={40} />
@@ -261,14 +264,14 @@ const Reports = () => {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted-foreground/20" />
+                  <XAxis dataKey="month" className="text-muted-foreground" />
+                  <YAxis className="text-muted-foreground" />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
                   <Legend />
-                  <Line type="monotone" dataKey="low" stroke="#10b981" strokeWidth={2} name="Low Risk" />
-                  <Line type="monotone" dataKey="medium" stroke="#f59e0b" strokeWidth={2} name="Medium Risk" />
-                  <Line type="monotone" dataKey="high" stroke="#ef4444" strokeWidth={2} name="High Risk" />
+                  <Line type="monotone" dataKey="low" stroke="hsl(var(--chart-1))" strokeWidth={2} name="Low Risk" />
+                  <Line type="monotone" dataKey="medium" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Medium Risk" />
+                  <Line type="monotone" dataKey="high" stroke="hsl(var(--chart-3))" strokeWidth={2} name="High Risk" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
