@@ -248,7 +248,7 @@ const Students = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 w-full">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-3xl font-bold">Student Analysis</h2>
@@ -299,7 +299,7 @@ const Students = () => {
                     Students ({filteredStudents.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>

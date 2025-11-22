@@ -62,7 +62,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-7xl">
+      <div className="space-y-4 w-full max-w-7xl">
         <div>
           <h2 className="text-3xl font-bold text-foreground">Dashboard</h2>
           <p className="text-muted-foreground mt-2">
