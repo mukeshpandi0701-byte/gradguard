@@ -163,6 +163,46 @@ const Reports = () => {
 
           <TabsContent value={selectedDepartment} className="space-y-6">
 
+        {/* Key Insights */}
+        <Card className="shadow-elevated border-l-4 border-l-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Key Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {stats.totalStudents > 0 && (
+              <>
+                <div className="p-4 rounded-lg bg-success/10 border border-success/20">
+                  <p className="text-sm font-medium">
+                    {((stats.lowRisk / stats.totalStudents) * 100).toFixed(1)}% of students are at low risk
+                  </p>
+                </div>
+                {stats.mediumRisk > 0 && (
+                  <div className="p-4 rounded-lg bg-warning/10 border border-warning/20">
+                    <p className="text-sm font-medium">
+                      {stats.mediumRisk} student{stats.mediumRisk !== 1 ? 's' : ''} need attention to prevent escalation
+                    </p>
+                  </div>
+                )}
+                {stats.highRisk > 0 && (
+                  <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <p className="text-sm font-medium">
+                      {stats.highRisk} student{stats.highRisk !== 1 ? 's' : ''} require immediate intervention
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+            {stats.totalStudents === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No student data available. Upload student data and run predictions to see insights.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-3">
