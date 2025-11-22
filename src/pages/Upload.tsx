@@ -273,6 +273,12 @@ const Upload = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">File Naming Convention:</h4>
+                  <p className="text-sm text-muted-foreground mb-2">Name your CSV file with the department name</p>
+                  <p className="font-mono text-primary">Example: Year-Dept-Sec.csv</p>
+                </div>
+
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold">Required CSV Columns:</h4>
@@ -340,12 +346,6 @@ const Upload = () => {
                       </TableRow>
                     </TableBody>
                   </Table>
-                </div>
-                
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-semibold mb-2">File Naming Convention:</h4>
-                  <p className="text-sm text-muted-foreground mb-2">Name your CSV file with the department name</p>
-                  <p className="font-mono text-primary">Example: Year-Dept-Sec.csv</p>
                 </div>
               </CardContent>
             </Card>

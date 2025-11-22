@@ -106,49 +106,51 @@ const StudentsWithSelection = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 max-w-5xl">
         <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold">Students with Predictions</h2>
-          <Button onClick={handleExportSelected} disabled={exporting || selectedStudents.size === 0}>
+          <h2 className="text-2xl font-bold">Students with Predictions</h2>
+          <Button onClick={handleExportSelected} disabled={exporting || selectedStudents.size === 0} size="sm">
             <FileDown className="w-4 h-4 mr-2" />
             Export Selected ({selectedStudents.size})
           </Button>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={selectedStudents.size === students.length && students.length > 0}
-                  onCheckedChange={toggleSelectAll}
-                />
-              </TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Roll No</TableHead>
-              <TableHead>Attendance</TableHead>
-              <TableHead>Marks</TableHead>
-              <TableHead>Risk</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {students.map((student) => (
-              <TableRow key={student.id}>
-                <TableCell>
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedStudents.has(student.id)}
-                    onCheckedChange={() => toggleSelection(student.id)}
+                    checked={selectedStudents.size === students.length && students.length > 0}
+                    onCheckedChange={toggleSelectAll}
                   />
-                </TableCell>
-                <TableCell>{student.student_name}</TableCell>
-                <TableCell>{student.roll_number || "—"}</TableCell>
-                <TableCell>{student.attendance_percentage?.toFixed(1)}%</TableCell>
-                <TableCell>{student.internal_marks}</TableCell>
-                <TableCell>{student.predictions?.[0]?.final_risk_level?.toUpperCase() || "—"}</TableCell>
+                </TableHead>
+                <TableHead className="text-sm">Name</TableHead>
+                <TableHead className="text-sm">Roll No</TableHead>
+                <TableHead className="text-sm">Attendance</TableHead>
+                <TableHead className="text-sm">Marks</TableHead>
+                <TableHead className="text-sm">Risk</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {students.map((student) => (
+                <TableRow key={student.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedStudents.has(student.id)}
+                      onCheckedChange={() => toggleSelection(student.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="text-sm">{student.student_name}</TableCell>
+                  <TableCell className="text-sm">{student.roll_number || "—"}</TableCell>
+                  <TableCell className="text-sm">{student.attendance_percentage?.toFixed(1)}%</TableCell>
+                  <TableCell className="text-sm">{student.internal_marks}</TableCell>
+                  <TableCell className="text-sm">{student.predictions?.[0]?.final_risk_level?.toUpperCase() || "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </DashboardLayout>
   );
