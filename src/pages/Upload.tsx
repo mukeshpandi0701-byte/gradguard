@@ -276,7 +276,16 @@ const Upload = () => {
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <h4 className="font-semibold mb-2">File Naming Convention:</h4>
                   <p className="text-sm text-muted-foreground mb-2">Name your CSV file with the department name</p>
-                  <p className="font-mono text-primary">Example: II-CSE-B.csv</p>
+                  <div className="space-y-1">
+                    <p className="text-sm">
+                      <span className="font-bold text-white">Name_Format:</span>
+                      <span className="font-mono text-primary ml-2">Year-Dept-Sec.csv</span>
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-semibold text-primary">Example:</span>
+                      <span className="font-mono text-primary ml-2">II-CSE-B.csv</span>
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -295,7 +304,7 @@ const Upload = () => {
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = 'II-CSE-B.csv';
+                        a.download = 'Year-Dept-Sec.csv';
                         a.click();
                         window.URL.revokeObjectURL(url);
                         toast.success("Template downloaded!");
