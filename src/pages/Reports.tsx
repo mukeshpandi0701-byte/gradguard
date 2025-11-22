@@ -173,7 +173,7 @@ const Reports = () => {
               <div className="text-3xl font-bold">{stats.totalStudents}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="shadow-[0_0_20px_rgba(34,197,94,0.25)] border-green-500/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Low Risk</CardTitle>
             </CardHeader>
@@ -181,7 +181,7 @@ const Reports = () => {
               <div className="text-3xl font-bold text-green-600">{stats.lowRisk}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="shadow-[0_0_20px_rgba(234,179,8,0.25)] border-yellow-500/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Medium Risk</CardTitle>
             </CardHeader>
@@ -189,7 +189,7 @@ const Reports = () => {
               <div className="text-3xl font-bold text-yellow-600">{stats.mediumRisk}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="shadow-[0_0_20px_rgba(239,68,68,0.25)] border-red-500/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">High Risk</CardTitle>
             </CardHeader>
