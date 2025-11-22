@@ -161,7 +161,7 @@ const Upload = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors">
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors">
                   <input
                     type="file"
                     accept=".csv"
@@ -171,15 +171,15 @@ const Upload = () => {
                     id="csv-upload"
                   />
                   <label htmlFor="csv-upload" className="cursor-pointer">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                        <FileUp className="w-8 h-8 text-primary" />
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <FileUp className="w-6 h-6 text-primary" />
                       </div>
                       <div>
-                        <p className="text-lg font-medium">
+                        <p className="text-base font-medium">
                           {files.length > 0 ? `${files.length} file(s) selected` : "Click to upload CSV files"}
                         </p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           or drag and drop your files here
                         </p>
                       </div>
@@ -188,11 +188,11 @@ const Upload = () => {
                 </div>
 
                 {files.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <p className="text-sm font-medium">Selected files:</p>
+                  <div className="mt-3 space-y-1">
+                    <p className="text-xs font-medium">Selected files:</p>
                     {files.map((file, idx) => (
-                      <div key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-600" />
+                      <div key={idx} className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Check className="w-3 h-3 text-green-600" />
                         {file.name}
                       </div>
                     ))}
@@ -282,7 +282,7 @@ const Upload = () => {
                       <span className="font-mono text-primary ml-2">Year-Dept-Sec.csv</span>
                     </p>
                     <p className="text-sm">
-                      <span className="font-semibold text-primary">Example:</span>
+                      <span className="font-bold text-white">Example:</span>
                       <span className="font-mono text-primary ml-2">II-CSE-B.csv</span>
                     </p>
                   </div>
