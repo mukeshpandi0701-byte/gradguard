@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, ArrowLeft, Github, Linkedin, Mail, Phone, User } from "lucide-react";
+import { ArrowLeft, Mail, Phone, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface StudentProfile {
@@ -33,11 +33,6 @@ const StudentProfile = () => {
   const navigate = useNavigate();
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    github_url: "",
-    linkedin_url: "",
-  });
 
   useEffect(() => {
     fetchStudentProfile();
@@ -67,41 +62,12 @@ const StudentProfile = () => {
       if (error) throw error;
 
       setStudent(data as StudentProfile);
-      setFormData({
-        github_url: (data as any).github_url || "",
-        linkedin_url: (data as any).linkedin_url || "",
-      });
     } catch (error: any) {
       toast.error("Failed to fetch student profile");
       console.error(error);
       navigate("/students");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!student) return;
-
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("students")
-        .update({
-          github_url: formData.github_url,
-          linkedin_url: formData.linkedin_url,
-        })
-        .eq("id", student.id);
-
-      if (error) throw error;
-
-      toast.success("Profile updated successfully!");
-      fetchStudentProfile();
-    } catch (error: any) {
-      toast.error("Failed to update profile");
-      console.error(error);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -232,70 +198,6 @@ const StudentProfile = () => {
             </CardContent>
           </Card>
         </div>
-
-        {/* Social Profiles */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle>Social Profiles</CardTitle>
-            <CardDescription>
-              Add your GitHub and LinkedIn profiles
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="github_url" className="flex items-center gap-2">
-                <Github className="w-4 h-4" />
-                GitHub Profile URL
-              </Label>
-              <Input
-                id="github_url"
-                type="url"
-                value={formData.github_url}
-                onChange={(e) => setFormData({ ...formData, github_url: e.target.value })}
-                placeholder="https://github.com/username"
-              />
-              {formData.github_url && (
-                <a 
-                  href={formData.github_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
-                >
-                  View Profile <ArrowLeft className="w-3 h-3 rotate-180" />
-                </a>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="linkedin_url" className="flex items-center gap-2">
-                <Linkedin className="w-4 h-4" />
-                LinkedIn Profile URL
-              </Label>
-              <Input
-                id="linkedin_url"
-                type="url"
-                value={formData.linkedin_url}
-                onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
-                placeholder="https://linkedin.com/in/username"
-              />
-              {formData.linkedin_url && (
-                <a 
-                  href={formData.linkedin_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
-                >
-                  View Profile <ArrowLeft className="w-3 h-3 rotate-180" />
-                </a>
-              )}
-            </div>
-
-            <Button onClick={handleSave} disabled={saving} className="w-full">
-              <Save className="w-4 h-4 mr-2" />
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
-          </CardContent>
-        </Card>
 
         {/* AI Insights */}
         {prediction && (

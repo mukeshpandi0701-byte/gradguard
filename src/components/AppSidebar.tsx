@@ -1,4 +1,4 @@
-import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, Share2 } from "lucide-react";
+import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +24,6 @@ const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Upload CSV", url: "/upload", icon: Upload },
   { title: "Students", url: "/students", icon: Users },
-  { title: "Social Profiles", url: "/social-profiles", icon: Share2 },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
   { title: "Dropout Criteria", url: "/criteria", icon: FileText },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },
