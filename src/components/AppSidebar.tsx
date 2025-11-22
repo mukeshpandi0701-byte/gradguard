@@ -90,16 +90,16 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border" style={{ width: open ? '200px' : undefined }}>
-      <SidebarHeader className="border-b border-border p-4">
+    <Sidebar collapsible="icon" className="border-r border-border/50 backdrop-blur-sm" style={{ width: open ? '200px' : undefined }}>
+      <SidebarHeader className="border-b border-border/50 p-4 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <BarChart3 className="h-5 w-5 text-primary-foreground" />
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-secondary shadow-md flex items-center justify-center">
+            <BarChart3 className="h-5 w-5 text-white" />
           </div>
           {open && (
             <div className="flex flex-col">
-              <span className="text-sm font-semibold">Dropout Prediction</span>
-              <span className="text-xs text-muted-foreground">System</span>
+              <span className="text-sm font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">GradGuard</span>
+              <span className="text-xs text-muted-foreground">Smart Analytics</span>
             </div>
           )}
         </div>
