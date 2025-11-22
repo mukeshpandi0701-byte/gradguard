@@ -25,12 +25,12 @@ const mainItems = [
   { title: "Upload CSV", url: "/upload", icon: Upload },
   { title: "Students", url: "/students", icon: Users },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
-  { title: "Dropout Criteria", url: "/criteria", icon: FileText },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },
   { title: "Send Notifications", url: "/notifications", icon: Bell },
 ];
 
 const settingsItems = [
+  { title: "Dropout Criteria", url: "/criteria", icon: FileText },
   { title: "Profile", url: "/profile", icon: Settings },
   { title: "Notification Settings", url: "/notification-settings", icon: Bell },
 ];

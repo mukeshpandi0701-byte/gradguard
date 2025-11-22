@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, AlertCircle, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { Users, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Upload, BarChart3 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
 const Dashboard = () => {
@@ -62,7 +62,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-7xl">
         <div>
           <h2 className="text-3xl font-bold text-foreground">Dashboard</h2>
           <p className="text-muted-foreground mt-2">
@@ -120,6 +120,43 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Quick Actions */}
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button
+                onClick={() => navigate("/upload")}
+                className="p-6 rounded-lg border-2 border-primary/20 hover:border-primary/40 hover:bg-accent/5 transition-all group"
+              >
+                <Upload className="w-8 h-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="font-semibold mb-1">Upload CSV</h3>
+                <p className="text-sm text-muted-foreground">Import student data</p>
+              </button>
+              
+              <button
+                onClick={() => navigate("/students")}
+                className="p-6 rounded-lg border-2 border-secondary/20 hover:border-secondary/40 hover:bg-accent/5 transition-all group"
+              >
+                <Users className="w-8 h-8 text-secondary mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="font-semibold mb-1">View Students</h3>
+                <p className="text-sm text-muted-foreground">Analyze student profiles</p>
+              </button>
+              
+              <button
+                onClick={() => navigate("/reports")}
+                className="p-6 rounded-lg border-2 border-accent/20 hover:border-accent/40 hover:bg-accent/5 transition-all group"
+              >
+                <BarChart3 className="w-8 h-8 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="font-semibold mb-1">View Reports</h3>
+                <p className="text-sm text-muted-foreground">Generate analytics</p>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
