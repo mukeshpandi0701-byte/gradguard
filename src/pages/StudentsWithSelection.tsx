@@ -106,7 +106,7 @@ const StudentsWithSelection = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 max-w-5xl">
+      <div className="space-y-4 w-full">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Students with Predictions</h2>
           <Button onClick={handleExportSelected} disabled={exporting || selectedStudents.size === 0} size="sm">

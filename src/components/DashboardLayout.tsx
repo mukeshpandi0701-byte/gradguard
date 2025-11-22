@@ -22,7 +22,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 p-6 overflow-auto">
+          <main className="flex-1 p-4 overflow-auto">
             {children}
           </main>
         </div>
