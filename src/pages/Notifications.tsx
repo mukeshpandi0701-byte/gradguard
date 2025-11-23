@@ -225,10 +225,10 @@ Academic Team`
             </CardHeader>
             <CardContent className="space-y-4">
               <Tabs value={selectedDepartment} onValueChange={setSelectedDepartment} className="w-full">
-                <TabsList className="w-full">
-                  <TabsTrigger value="all">All Departments</TabsTrigger>
+                <TabsList className="w-full overflow-x-auto flex-nowrap justify-start">
+                  <TabsTrigger value="all" className="whitespace-nowrap">All Departments</TabsTrigger>
                   {departments.map((dept) => (
-                    <TabsTrigger key={dept} value={dept}>
+                    <TabsTrigger key={dept} value={dept} className="whitespace-nowrap">
                       {dept}
                     </TabsTrigger>
                   ))}

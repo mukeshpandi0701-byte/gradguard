@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, BarChart3, Users, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ParallaxWrapper } from "@/components/ParallaxWrapper";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -24,27 +25,32 @@ const Index = () => {
       </div>
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="flex justify-center mb-8">
-            <div className="p-4 bg-gradient-to-br from-primary to-secondary rounded-3xl shadow-elevated">
-              <GraduationCap className="w-20 h-20 text-white" />
+          <ParallaxWrapper speed={-0.2}>
+            <div className="flex justify-center mb-8">
+              <div className="p-4 bg-gradient-to-br from-primary to-secondary rounded-3xl shadow-elevated">
+                <GraduationCap className="w-20 h-20 text-white" />
+              </div>
             </div>
-          </div>
+          </ParallaxWrapper>
           
-          <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Student Dropout Prediction System
-          </h1>
-          
-          <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-            AI-powered early intervention system to identify at-risk students and improve retention rates through data-driven insights
-          </p>
+          <ParallaxWrapper speed={-0.1}>
+            <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Student Dropout Prediction System
+            </h1>
+            
+            <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
+              AI-powered early intervention system to identify at-risk students and improve retention rates through data-driven insights
+            </p>
 
-          <div className="flex justify-center mb-16">
-            <Button size="lg" onClick={() => navigate("/auth")}>
-              Get Started
-            </Button>
-          </div>
+            <div className="flex justify-center mb-16">
+              <Button size="lg" onClick={() => navigate("/auth")}>
+                Get Started
+              </Button>
+            </div>
+          </ParallaxWrapper>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
+          <ParallaxWrapper speed={0.1}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
             <div className="p-6 rounded-xl bg-card border shadow-card hover:shadow-elevated transition-all">
               <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                 <BarChart3 className="w-6 h-6 text-primary" />
@@ -74,7 +80,8 @@ const Index = () => {
                 Configure thresholds and weightages to match your institution's needs
               </p>
             </div>
-          </div>
+            </div>
+          </ParallaxWrapper>
         </div>
       </div>
     </div>
