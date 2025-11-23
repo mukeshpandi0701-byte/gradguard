@@ -10,10 +10,10 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-accent/5">
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background/95 to-primary/5">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 border-b border-border/50 backdrop-blur-sm bg-background/80 flex items-center justify-between px-4 sticky top-0 z-10 shadow-sm">
+          <header className="h-14 border-b border-white/10 backdrop-blur-xl bg-card/50 flex items-center justify-between px-4 sticky top-0 z-10 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)]">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
               <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
