@@ -242,12 +242,12 @@ const Reports = () => {
         {/* Charts */}
         <div ref={chartsRef} className="space-y-6 bg-card p-6 rounded-lg border">
           {/* Pie Chart - Risk Distribution */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Risk Distribution</CardTitle>
               <CardDescription>Current distribution of students by risk level</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="select-none">
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -259,14 +259,21 @@ const Reports = () => {
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
+                    style={{ outline: 'none' }}
                   >
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={entry.color} style={{ outline: 'none' }} />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value: number) => [`${value} students`, "Count"]}
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                    contentStyle={{ 
+                      backgroundColor: 'var(--card)', 
+                      border: '1px solid var(--border)',
+                      borderRadius: '0.5rem',
+                      color: 'var(--foreground)'
+                    }}
+                    labelStyle={{ color: 'var(--foreground)' }}
                   />
                   <Legend />
                 </PieChart>
@@ -275,44 +282,60 @@ const Reports = () => {
           </Card>
 
           {/* Bar Chart - Risk Counts */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Student Count by Risk Category</CardTitle>
               <CardDescription>Number of students in each risk category</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="select-none">
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={barData} barGap={8}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted-foreground/20" />
                   <XAxis dataKey="category" className="text-muted-foreground" />
                   <YAxis className="text-muted-foreground" />
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'var(--card)', 
+                      border: '1px solid var(--border)',
+                      borderRadius: '0.5rem',
+                      color: 'var(--foreground)'
+                    }}
+                    labelStyle={{ color: 'var(--foreground)' }}
+                  />
                   <Legend />
-                  <Bar dataKey="lowRisk" name="Low Risk" fill="hsl(var(--chart-1))" barSize={40} />
-                  <Bar dataKey="mediumRisk" name="Medium Risk" fill="hsl(var(--chart-2))" barSize={40} />
-                  <Bar dataKey="highRisk" name="High Risk" fill="hsl(var(--chart-3))" barSize={40} />
+                  <Bar dataKey="lowRisk" name="Low Risk" fill="hsl(var(--chart-1))" barSize={40} style={{ outline: 'none' }} />
+                  <Bar dataKey="mediumRisk" name="Medium Risk" fill="hsl(var(--chart-2))" barSize={40} style={{ outline: 'none' }} />
+                  <Bar dataKey="highRisk" name="High Risk" fill="hsl(var(--chart-3))" barSize={40} style={{ outline: 'none' }} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
           {/* Line Chart - Trends */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Risk Trends Over Time</CardTitle>
               <CardDescription>Monthly trends of risk levels (simulated data)</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="select-none">
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={trendData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted-foreground/20" />
                   <XAxis dataKey="month" className="text-muted-foreground" />
                   <YAxis className="text-muted-foreground" />
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'var(--card)', 
+                      border: '1px solid var(--border)',
+                      borderRadius: '0.5rem',
+                      color: 'var(--foreground)'
+                    }}
+                    labelStyle={{ color: 'var(--foreground)' }}
+                  />
                   <Legend />
-                  <Line type="monotone" dataKey="low" stroke="hsl(var(--chart-1))" strokeWidth={2} name="Low Risk" />
-                  <Line type="monotone" dataKey="medium" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Medium Risk" />
-                  <Line type="monotone" dataKey="high" stroke="hsl(var(--chart-3))" strokeWidth={2} name="High Risk" />
+                  <Line type="monotone" dataKey="low" stroke="hsl(var(--chart-1))" strokeWidth={2} name="Low Risk" style={{ outline: 'none' }} />
+                  <Line type="monotone" dataKey="medium" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Medium Risk" style={{ outline: 'none' }} />
+                  <Line type="monotone" dataKey="high" stroke="hsl(var(--chart-3))" strokeWidth={2} name="High Risk" style={{ outline: 'none' }} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
