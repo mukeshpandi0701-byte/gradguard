@@ -27,33 +27,14 @@ export function CustomCursor() {
 
   return (
     <>
-      {/* Main cursor dot */}
+      {/* Simple cursor dot */}
       <div
-        className="fixed w-4 h-4 bg-primary rounded-full pointer-events-none z-[9999] mix-blend-difference transition-transform duration-150"
+        className="fixed w-2 h-2 bg-primary rounded-full pointer-events-none z-[9999] transition-all duration-100 ease-out"
         style={{
           left: `${position.x}px`,
           top: `${position.y}px`,
           transform: `translate(-50%, -50%) scale(${isPointer ? 1.5 : 1})`,
-        }}
-      />
-      
-      {/* Cursor glow/trail */}
-      <div
-        className="fixed w-8 h-8 border-2 border-primary/50 rounded-full pointer-events-none z-[9998] transition-all duration-300 ease-out"
-        style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          transform: `translate(-50%, -50%) scale(${isPointer ? 1.8 : 1})`,
-        }}
-      />
-      
-      {/* Outer glow */}
-      <div
-        className="fixed w-12 h-12 bg-primary/10 rounded-full pointer-events-none z-[9997] blur-md transition-all duration-500 ease-out"
-        style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          transform: `translate(-50%, -50%) scale(${isPointer ? 2 : 1})`,
+          opacity: 0.8,
         }}
       />
     </>
