@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import confetti from 'canvas-confetti';
 
 interface Student {
   id: string;
@@ -149,6 +150,20 @@ Academic Team`
           sendBatch(mediumRisk, getDefaultMessage("medium")),
           sendBatch(highRisk, getDefaultMessage("high")),
         ]);
+        
+        // Trigger confetti if notifications were sent to low risk students
+        if (lowRisk.length > 0) {
+          setTimeout(() => {
+            confetti({
+              particleCount: 150,
+              spread: 90,
+              origin: { y: 0.6 },
+              colors: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0'],
+              startVelocity: 45,
+              ticks: 200
+            });
+          }, 300);
+        }
       } else {
         // Send custom message to all selected students
         const { error } = await supabase.functions.invoke("send-notifications", {
@@ -163,6 +178,23 @@ Academic Team`
 
       toast.dismiss();
       toast.success(`Notifications sent to ${studentsToNotify.length} students!`);
+      
+      // Check if any low risk students were notified and trigger confetti
+      const lowRiskNotified = studentsToNotify.filter(s => 
+        s.predictions?.[0]?.final_risk_level === "low"
+      );
+      if (lowRiskNotified.length > 0) {
+        setTimeout(() => {
+          confetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { y: 0.6 },
+            colors: ['#10b981', '#34d399', '#6ee7b7'],
+            startVelocity: 40
+          });
+        }, 200);
+      }
+      
       setCustomMessage("");
       setSelectedStudents(new Set());
     } catch (error: any) {
@@ -194,6 +226,19 @@ Academic Team`
         s.predictions?.[0]?.final_risk_level === level
       );
       setSelectedStudents(new Set(filtered.map(s => s.id)));
+    }
+    
+    // Trigger confetti for low risk students
+    if (level === "low") {
+      const lowRiskCount = students.filter(s => s.predictions?.[0]?.final_risk_level === "low").length;
+      if (lowRiskCount > 0) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0']
+        });
+      }
     }
   };
 
@@ -240,6 +285,7 @@ Academic Team`
                   variant={selectedRiskLevel === "all" ? "default" : "outline"}
                   size="sm"
                   onClick={() => selectByRiskLevel("all")}
+                  className="flex-1 min-w-[120px]"
                 >
                   All Students
                 </Button>
@@ -247,6 +293,7 @@ Academic Team`
                   variant={selectedRiskLevel === "low" ? "default" : "outline"}
                   size="sm"
                   onClick={() => selectByRiskLevel("low")}
+                  className="flex-1 min-w-[100px]"
                 >
                   Low Risk
                 </Button>
@@ -254,6 +301,7 @@ Academic Team`
                   variant={selectedRiskLevel === "medium" ? "default" : "outline"}
                   size="sm"
                   onClick={() => selectByRiskLevel("medium")}
+                  className="flex-1 min-w-[120px]"
                 >
                   Medium Risk
                 </Button>
@@ -261,42 +309,61 @@ Academic Team`
                   variant={selectedRiskLevel === "high" ? "default" : "outline"}
                   size="sm"
                   onClick={() => selectByRiskLevel("high")}
+                  className="flex-1 min-w-[100px]"
                 >
                   High Risk
                 </Button>
               </div>
 
-              <div className="border rounded-md max-h-96 overflow-y-auto">
+              <div className="border rounded-md">
                 <div className="p-4 space-y-3">
-                  {filteredStudents.map((student) => (
-                    <div key={student.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={student.id}
-                        checked={selectedStudents.has(student.id)}
-                        onCheckedChange={() => toggleStudent(student.id)}
-                      />
-                      <Label
-                        htmlFor={student.id}
-                        className="flex-1 cursor-pointer flex justify-between items-center"
+                  {filteredStudents.map((student) => {
+                    const isLowRisk = student.predictions?.[0]?.final_risk_level === 'low';
+                    return (
+                      <div 
+                        key={student.id} 
+                        className={`flex items-center space-x-2 p-2 rounded-lg transition-all ${isLowRisk ? 'bg-success/5' : ''}`}
                       >
-                        <span>{student.student_name}</span>
-                        {!student.email && (
-                          <span className="text-xs text-destructive">No email</span>
-                        )}
-                        {student.predictions?.[0] && (
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            student.predictions[0].final_risk_level === 'high' 
-                              ? 'bg-destructive/10 text-destructive' 
-                              : student.predictions[0].final_risk_level === 'medium'
-                              ? 'bg-warning/10 text-warning'
-                              : 'bg-success/10 text-success'
-                          }`}>
-                            {student.predictions[0].final_risk_level}
-                          </span>
-                        )}
-                      </Label>
-                    </div>
-                  ))}
+                        <Checkbox
+                          id={student.id}
+                          checked={selectedStudents.has(student.id)}
+                          onCheckedChange={() => {
+                            toggleStudent(student.id);
+                            // Trigger small confetti when selecting a low risk student
+                            if (isLowRisk && !selectedStudents.has(student.id)) {
+                              confetti({
+                                particleCount: 30,
+                                spread: 50,
+                                origin: { y: 0.7 },
+                                colors: ['#10b981', '#34d399'],
+                                scalar: 0.8
+                              });
+                            }
+                          }}
+                        />
+                        <Label
+                          htmlFor={student.id}
+                          className="flex-1 cursor-pointer flex justify-between items-center"
+                        >
+                          <span>{student.student_name}</span>
+                          {!student.email && (
+                            <span className="text-xs text-destructive">No email</span>
+                          )}
+                          {student.predictions?.[0] && (
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              student.predictions[0].final_risk_level === 'high' 
+                                ? 'bg-destructive/10 text-destructive' 
+                                : student.predictions[0].final_risk_level === 'medium'
+                                ? 'bg-warning/10 text-warning'
+                                : 'bg-success/10 text-success'
+                            }`}>
+                              {student.predictions[0].final_risk_level}
+                            </span>
+                          )}
+                        </Label>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
