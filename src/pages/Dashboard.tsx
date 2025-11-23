@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Upload, BarChart3 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { ParallaxWrapper } from "@/components/ParallaxWrapper";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -63,15 +64,18 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 w-full max-w-7xl">
-        <div>
-          <h2 className="text-3xl font-bold text-foreground">Dashboard</h2>
-          <p className="text-muted-foreground mt-2">
-            Overview of student dropout risk analysis
-          </p>
-        </div>
+        <ParallaxWrapper speed={-0.05}>
+          <div>
+            <h2 className="text-3xl font-bold text-foreground">Dashboard</h2>
+            <p className="text-muted-foreground mt-2">
+              Overview of student dropout risk analysis
+            </p>
+          </div>
+        </ParallaxWrapper>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <ParallaxWrapper speed={0.05}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="shadow-card hover:shadow-elevated transition-shadow">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
@@ -120,9 +124,11 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+        </ParallaxWrapper>
 
         {/* Quick Actions */}
-        <Card className="shadow-card">
+        <ParallaxWrapper speed={0.1}>
+          <Card className="shadow-card">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
@@ -157,6 +163,7 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+        </ParallaxWrapper>
       </div>
     </DashboardLayout>
   );
