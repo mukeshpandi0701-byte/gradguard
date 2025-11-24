@@ -167,6 +167,75 @@ const Index = () => {
         </div>
       </section>
 
+      {/* How It Works Section */}
+      <section className="py-20 px-6 bg-gradient-to-b from-muted/20 to-background">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-16 space-y-4">
+            <h2 className="text-4xl md:text-5xl font-display font-bold">
+              How It Works
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Transform your student retention strategy in four simple steps
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              {
+                step: "01",
+                title: "Upload Data",
+                description: "Import student records via CSV with attendance, performance, and fee information",
+                gradient: "from-primary to-primary/50"
+              },
+              {
+                step: "02",
+                title: "AI Analysis",
+                description: "Our ML engine analyzes patterns and predicts dropout risks with high accuracy",
+                gradient: "from-secondary to-secondary/50"
+              },
+              {
+                step: "03",
+                title: "Get Insights",
+                description: "View detailed risk assessments, trends, and AI-powered recommendations",
+                gradient: "from-accent to-accent/50"
+              },
+              {
+                step: "04",
+                title: "Take Action",
+                description: "Send targeted notifications and interventions to at-risk students",
+                gradient: "from-success to-success/50"
+              }
+            ].map((item, index) => (
+              <div
+                key={index}
+                className="relative group"
+              >
+                {/* Connector line (hidden on mobile) */}
+                {index < 3 && (
+                  <div className="hidden lg:block absolute top-16 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-border to-transparent" />
+                )}
+                
+                <div className="relative p-8 rounded-2xl bg-card border border-border hover:border-primary/50 shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-2">
+                  {/* Step Number */}
+                  <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br ${item.gradient} mb-6 shadow-lg`}>
+                    <span className="text-2xl font-display font-bold text-white">
+                      {item.step}
+                    </span>
+                  </div>
+                  
+                  <h3 className="text-xl font-display font-semibold mb-3 group-hover:text-primary transition-colors">
+                    {item.title}
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-6">
         <div className="container mx-auto max-w-4xl">
