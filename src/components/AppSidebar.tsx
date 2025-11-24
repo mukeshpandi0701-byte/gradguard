@@ -1,4 +1,4 @@
-import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search } from "lucide-react";
+import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, History as HistoryIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,7 @@ const settingsItems = [
   { title: "Dropout Criteria", url: "/criteria", icon: FileText },
   { title: "Profile", url: "/profile", icon: Settings },
   { title: "Notification Settings", url: "/notification-settings", icon: Bell },
+  { title: "Download History", url: "/history", icon: HistoryIcon },
 ];
 
 export function AppSidebar() {
