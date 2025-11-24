@@ -5,6 +5,7 @@ export interface DownloadHistoryParams {
   reportName: string;
   fileSize?: number;
   metadata?: any;
+  storagePath?: string;
 }
 
 export const logDownloadHistory = async (params: DownloadHistoryParams) => {
@@ -24,6 +25,7 @@ export const logDownloadHistory = async (params: DownloadHistoryParams) => {
         report_name: params.reportName,
         file_size: params.fileSize || null,
         metadata: params.metadata || null,
+        storage_path: params.storagePath || null,
       });
 
     if (error) {

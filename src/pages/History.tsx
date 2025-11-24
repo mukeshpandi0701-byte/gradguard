@@ -3,8 +3,9 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FileText, Download, Trash2, Calendar, AlertCircle } from "lucide-react";
+import { FileText, Download, Trash2, Calendar, Filter, Search, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import {
   Table,
@@ -15,6 +16,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface DownloadRecord {
   id: string;
@@ -23,15 +37,25 @@ interface DownloadRecord {
   file_size: number | null;
   download_date: string;
   metadata: any;
+  storage_path: string | null;
 }
 
 const History = () => {
   const [records, setRecords] = useState<DownloadRecord[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<DownloadRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
 
   useEffect(() => {
     fetchHistory();
   }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [records, searchQuery, typeFilter, dateFrom, dateTo]);
 
   const fetchHistory = async () => {
     try {
@@ -57,12 +81,84 @@ const History = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const applyFilters = () => {
+    let filtered = [...records];
+
+    // Search filter
+    if (searchQuery) {
+      filtered = filtered.filter(record =>
+        record.report_name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Type filter
+    if (typeFilter !== "all") {
+      filtered = filtered.filter(record => record.report_type === typeFilter);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      filtered = filtered.filter(record =>
+        new Date(record.download_date) >= dateFrom
+      );
+    }
+    if (dateTo) {
+      filtered = filtered.filter(record =>
+        new Date(record.download_date) <= dateTo
+      );
+    }
+
+    setFilteredRecords(filtered);
+  };
+
+  const handleDownload = async (record: DownloadRecord) => {
+    if (!record.storage_path) {
+      toast.info("This report was generated before storage was enabled. Please regenerate from the original page.");
+      return;
+    }
+
     try {
+      const { data, error } = await supabase.storage
+        .from('reports')
+        .download(record.storage_path);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = window.URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = record.report_name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("Report downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading report:", error);
+      toast.error("Failed to download report");
+    }
+  };
+
+  const handleDelete = async (record: DownloadRecord) => {
+    try {
+      // Delete from storage if exists
+      if (record.storage_path) {
+        const { error: storageError } = await supabase.storage
+          .from('reports')
+          .remove([record.storage_path]);
+        
+        if (storageError) {
+          console.error("Error deleting from storage:", storageError);
+        }
+      }
+
+      // Delete from database
       const { error } = await supabase
         .from("download_history")
         .delete()
-        .eq("id", id);
+        .eq("id", record.id);
 
       if (error) throw error;
       
@@ -72,6 +168,45 @@ const History = () => {
       console.error("Error deleting record:", error);
       toast.error("Failed to delete record");
     }
+  };
+
+  const exportToCSV = () => {
+    if (filteredRecords.length === 0) {
+      toast.error("No records to export");
+      return;
+    }
+
+    const headers = ["Report Type", "Report Name", "Date", "Size (KB)"];
+    const rows = filteredRecords.map(record => [
+      record.report_type.replace(/_/g, " ").toUpperCase(),
+      record.report_name,
+      format(new Date(record.download_date), "yyyy-MM-dd HH:mm"),
+      record.file_size ? (record.file_size / 1024).toFixed(2) : "N/A"
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `download-history-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    toast.success("History exported to CSV");
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setTypeFilter("all");
+    setDateFrom(undefined);
+    setDateTo(undefined);
   };
 
   const formatFileSize = (bytes: number | null) => {
@@ -109,15 +244,100 @@ const History = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 p-6">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Download History
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            View and manage your previously downloaded reports and PDFs
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Download History
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              View and manage your previously downloaded reports and PDFs
+            </p>
+          </div>
+          <Button onClick={exportToCSV} variant="outline" className="gap-2">
+            <FileDown className="h-4 w-4" />
+            Export CSV
+          </Button>
         </div>
 
+        {/* Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Report Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="student_pdf">Student PDF</SelectItem>
+                  <SelectItem value="analytics_pdf">Analytics PDF</SelectItem>
+                  <SelectItem value="class_report">Class Report</SelectItem>
+                  <SelectItem value="social_activity_report">Social Activity</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateFrom ? format(dateFrom, "MMM dd, yyyy") : "From Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={setDateFrom}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateTo ? format(dateTo, "MMM dd, yyyy") : "To Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={setDateTo}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            {(searchQuery || typeFilter !== "all" || dateFrom || dateTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="mt-4"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* History Table */}
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -125,16 +345,16 @@ const History = () => {
               Report History
             </CardTitle>
             <CardDescription>
-              {records.length} {records.length === 1 ? "record" : "records"} found
+              {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"} found
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {records.length === 0 ? (
+            {filteredRecords.length === 0 ? (
               <div className="text-center py-12">
                 <Download className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No download history yet</p>
+                <p className="text-muted-foreground">No records found</p>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Your downloaded reports will appear here
+                  {records.length > 0 ? "Try adjusting your filters" : "Your downloaded reports will appear here"}
                 </p>
               </div>
             ) : (
@@ -149,7 +369,7 @@ const History = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {records.map((record) => (
+                  {filteredRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>
                         <Badge variant="outline" className={getReportTypeColor(record.report_type)}>
@@ -173,9 +393,7 @@ const History = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              toast.info("PDFs are not stored. Please regenerate the report from the original page.");
-                            }}
+                            onClick={() => handleDownload(record)}
                             className="hover:bg-primary/10 hover:text-primary"
                           >
                             <Download className="h-4 w-4" />
@@ -183,7 +401,7 @@ const History = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(record.id)}
+                            onClick={() => handleDelete(record)}
                             className="hover:bg-destructive/10 hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
