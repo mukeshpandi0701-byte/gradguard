@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { logDownloadHistory } from "./downloadHistory";
 
 export interface StudentReportData {
   student_name: string;
@@ -198,6 +199,18 @@ export const generateSocialActivityReportPDF = async (
   // Save PDF
   const filename = `social-activity-report-${new Date().toISOString().split("T")[0]}.pdf`;
   pdf.save(filename);
+  
+  // Log download history
+  await logDownloadHistory({
+    reportType: "social_activity_report",
+    reportName: filename,
+    metadata: {
+      totalStudents: students.length,
+      activeCount: statusCounts.active,
+      moderateCount: statusCounts.moderate,
+      inactiveCount: statusCounts.inactive,
+    },
+  });
 };
 
 export const generateAnalyticsReportPDF = async (
@@ -276,6 +289,19 @@ export const generateAnalyticsReportPDF = async (
   // Save PDF
   const filename = `analytics-report-${department}-${new Date().toISOString().split("T")[0]}.pdf`;
   pdf.save(filename);
+  
+  // Log download history
+  await logDownloadHistory({
+    reportType: "analytics_pdf",
+    reportName: filename,
+    metadata: {
+      department,
+      totalStudents: stats.totalStudents,
+      lowRisk: stats.lowRisk,
+      mediumRisk: stats.mediumRisk,
+      highRisk: stats.highRisk,
+    },
+  });
 };
 
 export const generateAIStudentReportPDF = async (
@@ -565,6 +591,18 @@ export const generateAIStudentReportPDF = async (
   // Save PDF
   const filename = `student-report-${studentData.roll_number || 'unknown'}-${new Date().toISOString().split("T")[0]}.pdf`;
   pdf.save(filename);
+  
+  // Log download history
+  await logDownloadHistory({
+    reportType: "student_pdf",
+    reportName: filename,
+    metadata: {
+      studentName: studentData.student_name,
+      rollNumber: studentData.roll_number,
+      department: studentData.department,
+      riskLevel: prediction?.final_risk_level,
+    },
+  });
 };
 
 export const generateStudentReportPDF = async (
@@ -786,4 +824,14 @@ export const generateStudentReportPDF = async (
   // Save PDF
   const filename = `student-reports-${new Date().toISOString().split("T")[0]}.pdf`;
   pdf.save(filename);
+  
+  // Log download history
+  await logDownloadHistory({
+    reportType: "class_report",
+    reportName: filename,
+    metadata: {
+      totalStudents: students.length,
+      reportTitle: title,
+    },
+  });
 };
