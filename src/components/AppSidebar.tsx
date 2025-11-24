@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
+import logo from "@/assets/logo.png";
 
 import {
   Sidebar,
@@ -93,16 +94,12 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50 backdrop-blur-sm" style={{ width: open ? '200px' : undefined }}>
       <SidebarHeader className="border-b border-border/50 p-4 bg-gradient-to-br from-primary/5 to-secondary/5">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-secondary shadow-md flex items-center justify-center">
-            <BarChart3 className="h-5 w-5 text-white" />
-          </div>
-          {open && (
-            <div className="flex flex-col">
-              <span className="text-sm font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">GradGuard</span>
-              <span className="text-xs text-muted-foreground">Smart Analytics</span>
-            </div>
-          )}
+        <div className="flex items-center justify-center">
+          <img 
+            src={logo} 
+            alt="GradGuard Logo" 
+            className={`transition-all duration-300 ${open ? 'h-12 w-12' : 'h-8 w-8'} object-contain`}
+          />
         </div>
       </SidebarHeader>
 
