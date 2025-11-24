@@ -3,7 +3,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FileText, Download, Trash2, Calendar } from "lucide-react";
+import { FileText, Download, Trash2, Calendar, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import {
@@ -84,13 +84,15 @@ const History = () => {
   const getReportTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case "student_pdf":
-        return "bg-blue-500/10 text-blue-500";
+        return "border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400";
       case "analytics_pdf":
-        return "bg-purple-500/10 text-purple-500";
+        return "border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400";
       case "class_report":
-        return "bg-green-500/10 text-green-500";
+        return "border-green-500/20 bg-green-500/10 text-green-600 dark:text-green-400";
+      case "social_activity_report":
+        return "border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-400";
       default:
-        return "bg-gray-500/10 text-gray-500";
+        return "border-border bg-muted text-foreground";
     }
   };
 
@@ -150,8 +152,8 @@ const History = () => {
                   {records.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>
-                        <Badge className={getReportTypeColor(record.report_type)}>
-                          {record.report_type.replace(/_/g, " ")}
+                        <Badge variant="outline" className={getReportTypeColor(record.report_type)}>
+                          {record.report_type.replace(/_/g, " ").toUpperCase()}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium">
@@ -167,14 +169,26 @@ const History = () => {
                         {formatFileSize(record.file_size)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(record.id)}
-                          className="hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              toast.info("PDFs are not stored. Please regenerate the report from the original page.");
+                            }}
+                            className="hover:bg-primary/10 hover:text-primary"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(record.id)}
+                            className="hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
