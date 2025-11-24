@@ -7,6 +7,7 @@ import { Download, BarChart3 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { PDFPreviewModal } from "@/components/PDFPreviewModal";
 
 interface PredictionData {
   final_risk_level: string;
@@ -35,6 +36,7 @@ const Reports = () => {
   const [exporting, setExporting] = useState(false);
   const [departments, setDepartments] = useState<string[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [showPreview, setShowPreview] = useState(false);
   const chartsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -85,11 +87,16 @@ const Reports = () => {
     }
   };
 
-  const handleExportPDF = async () => {
+  const handleExportClick = () => {
     if (!chartsRef.current) {
       toast.error("Charts not ready");
       return;
     }
+    setShowPreview(true);
+  };
+
+  const handleExportPDF = async () => {
+    if (!chartsRef.current) return;
 
     setExporting(true);
     toast.loading("Generating analytics PDF...");
@@ -100,6 +107,7 @@ const Reports = () => {
       
       toast.dismiss();
       toast.success("Analytics PDF exported successfully!");
+      setShowPreview(false);
     } catch (error) {
       toast.dismiss();
       toast.error("Failed to export PDF");
@@ -108,6 +116,75 @@ const Reports = () => {
       setExporting(false);
     }
   };
+
+  const renderPreviewContent = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-primary">
+          {selectedDepartment === "all" ? "All Departments" : selectedDepartment} - Analytics Report
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Generated on: {new Date().toLocaleDateString()}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Total Students</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalStudents}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-green-600">Low Risk</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.lowRisk}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-yellow-600">Medium Risk</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{stats.mediumRisk}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-red-600">High Risk</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.highRisk}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="p-4 rounded-lg bg-muted/30">
+        <h3 className="font-semibold mb-2">Key Insights</h3>
+        <ul className="space-y-2 text-sm">
+          {stats.totalStudents > 0 && (
+            <>
+              <li>• {((stats.lowRisk / stats.totalStudents) * 100).toFixed(1)}% of students are at low risk</li>
+              {stats.mediumRisk > 0 && (
+                <li>• {stats.mediumRisk} students require moderate intervention</li>
+              )}
+              {stats.highRisk > 0 && (
+                <li className="text-red-600 font-medium">• {stats.highRisk} students are at critical risk and need immediate attention</li>
+              )}
+            </>
+          )}
+        </ul>
+      </div>
+
+      <div className="text-xs text-muted-foreground">
+        <p>The exported PDF will include all charts and detailed analytics.</p>
+      </div>
+    </div>
+  );
 
   const pieData = [
     { name: "Low Risk", value: stats.lowRisk, color: "hsl(var(--chart-1))" },
@@ -145,11 +222,21 @@ const Reports = () => {
             <h2 className="text-2xl font-bold">Reports & Analytics</h2>
             <p className="text-muted-foreground">Comprehensive dropout risk analysis</p>
           </div>
-          <Button onClick={handleExportPDF} disabled={exporting}>
+          <Button onClick={handleExportClick} disabled={exporting}>
             <Download className="w-4 h-4 mr-2" />
             Export PDF
           </Button>
         </div>
+
+        <PDFPreviewModal
+          open={showPreview}
+          onOpenChange={setShowPreview}
+          title="Preview Analytics Report PDF"
+          description="Review the content before exporting your analytics report"
+          previewContent={renderPreviewContent()}
+          onConfirmExport={handleExportPDF}
+          isExporting={exporting}
+        />
 
         <Tabs value={selectedDepartment} onValueChange={setSelectedDepartment} className="w-full">
           <TabsList className="mb-4">

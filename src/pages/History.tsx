@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { PDFPreviewModal } from "@/components/PDFPreviewModal";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -17,7 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -50,6 +51,8 @@ const History = () => {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [showPreview, setShowPreview] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     fetchHistory();
@@ -172,12 +175,16 @@ const History = () => {
     }
   };
 
-  const exportToPDF = () => {
+  const handleExportClick = () => {
     if (filteredRecords.length === 0) {
       toast.error("No records to export");
       return;
     }
+    setShowPreview(true);
+  };
 
+  const exportToPDF = () => {
+    setIsExporting(true);
     const doc = new jsPDF();
     
     // Add title
@@ -228,7 +235,53 @@ const History = () => {
 
     doc.save(`download-history-${format(new Date(), "yyyy-MM-dd")}.pdf`);
     toast.success("History exported to PDF");
+    setIsExporting(false);
+    setShowPreview(false);
   };
+
+  const renderPreviewContent = () => (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-bold text-primary">Download History Report</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Generated on: {format(new Date(), "MMMM dd, yyyy 'at' HH:mm")}
+        </p>
+        <p className="text-sm font-medium mt-2">Total Records: {filteredRecords.length}</p>
+      </div>
+
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-primary text-primary-foreground">
+            <tr>
+              <th className="p-2 text-left font-semibold">Report Type</th>
+              <th className="p-2 text-left font-semibold">Report Name</th>
+              <th className="p-2 text-left font-semibold">Date</th>
+              <th className="p-2 text-left font-semibold">Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRecords.slice(0, 10).map((record, idx) => (
+              <tr key={record.id} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
+                <td className="p-2">
+                  <Badge variant="outline" className={getReportTypeColor(record.report_type)}>
+                    {record.report_type.replace(/_/g, " ").toUpperCase()}
+                  </Badge>
+                </td>
+                <td className="p-2">{record.report_name}</td>
+                <td className="p-2">{format(new Date(record.download_date), "MMM dd, yyyy HH:mm")}</td>
+                <td className="p-2">{formatFileSize(record.file_size)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filteredRecords.length > 10 && (
+          <div className="p-2 bg-muted/50 text-center text-sm text-muted-foreground">
+            ... and {filteredRecords.length - 10} more records
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const clearFilters = () => {
     setSearchQuery("");
@@ -281,7 +334,7 @@ const History = () => {
               View and manage your previously downloaded reports and PDFs
             </p>
           </div>
-          <Button onClick={exportToPDF} variant="outline" className="gap-2">
+          <Button onClick={handleExportClick} variant="outline" className="gap-2">
             <FileDown className="h-4 w-4" />
             Export PDF
           </Button>
@@ -443,6 +496,16 @@ const History = () => {
             )}
           </CardContent>
         </Card>
+
+        <PDFPreviewModal
+          open={showPreview}
+          onOpenChange={setShowPreview}
+          title="Preview Download History PDF"
+          description="Review the content before exporting your download history report"
+          previewContent={renderPreviewContent()}
+          onConfirmExport={exportToPDF}
+          isExporting={isExporting}
+        />
       </div>
     </DashboardLayout>
   );
