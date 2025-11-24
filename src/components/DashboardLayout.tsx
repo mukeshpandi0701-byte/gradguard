@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { motion } from "framer-motion";
+import logo from "@/assets/logo.png";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -17,9 +18,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <header className="h-14 border-b border-white/10 backdrop-blur-xl bg-card/50 flex items-center justify-between px-4 sticky top-0 z-10 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)]">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
-              <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                GradGuard
-              </h1>
+              <img 
+                src={logo} 
+                alt="GradGuard Logo" 
+                className="h-8 w-8 object-contain"
+              />
             </div>
             <ThemeToggle />
           </header>
