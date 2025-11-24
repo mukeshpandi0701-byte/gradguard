@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      download_history: {
+        Row: {
+          created_at: string
+          download_date: string
+          file_size: number | null
+          id: string
+          metadata: Json | null
+          report_name: string
+          report_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          download_date?: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json | null
+          report_name: string
+          report_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          download_date?: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json | null
+          report_name?: string
+          report_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dropout_criteria: {
         Row: {
           attendance_weightage: number
