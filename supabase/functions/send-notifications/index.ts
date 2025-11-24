@@ -14,8 +14,6 @@ interface NotificationRequest {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const gmailUser = Deno.env.get("GMAIL_USER")!;
-const gmailAppPassword = Deno.env.get("GMAIL_APP_PASSWORD")!;
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -43,7 +41,19 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Unauthorized");
     }
 
-    // Fetch student details with risk levels and historical data
+    // Fetch institution's email settings
+    const { data: emailSettings, error: settingsError } = await supabase
+      .from("institution_email_settings")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (settingsError || !emailSettings) {
+      throw new Error("Email settings not configured. Please configure SMTP settings in Notification Settings.");
+    }
+
+    // Fetch student details with risk levels
     const { data: students, error: fetchError } = await supabase
       .from("students")
       .select(`
@@ -66,17 +76,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (fetchError) throw fetchError;
 
-    // Fetch historical data for all students at once
-    const { data: allHistory, error: historyError } = await supabase
-      .from("student_history")
-      .select("*")
-      .in("student_id", studentIds)
-      .order("recorded_at", { ascending: true });
-
-    if (historyError) {
-      console.error("Error fetching student history:", historyError);
-    }
-
     console.log(`Found ${students?.length || 0} students to notify`);
 
     const results = {
@@ -90,58 +89,57 @@ const handler = async (req: Request): Promise<Response> => {
       .eq("id", user.id)
       .maybeSingle();
 
-    // Send email notifications using Gmail SMTP
-    if (gmailUser && gmailAppPassword) {
-      const client = new SMTPClient({
-        connection: {
-          hostname: "smtp.gmail.com",
-          port: 465,
-          tls: true,
-          auth: {
-            username: gmailUser,
-            password: gmailAppPassword,
-          },
+    // Send email notifications using institution's SMTP settings
+    const client = new SMTPClient({
+      connection: {
+        hostname: emailSettings.smtp_host,
+        port: emailSettings.smtp_port,
+        tls: emailSettings.smtp_port === 465,
+        auth: {
+          username: emailSettings.smtp_user,
+          password: emailSettings.smtp_password,
         },
-      });
+      },
+    });
 
-      const senderName = profile?.full_name || "Academic Team";
-      const tutorEmail = profile?.email || "";
-      
-      console.log(`Sending emails from ${senderName} (${gmailUser}), CC to tutor: ${tutorEmail || 'none'}`);
+    const senderName = emailSettings.sender_name || "Academic Team";
+    const tutorEmail = profile?.email || "";
+    
+    console.log(`Sending emails from ${senderName} (${emailSettings.sender_email}), CC to tutor: ${tutorEmail || 'none'}`);
 
-      for (const student of students || []) {
-        if (!student.email) {
-          results.email.failed++;
-          results.email.errors.push(`${student.student_name}: No email address`);
-          continue;
-        }
+    for (const student of students || []) {
+      if (!student.email) {
+        results.email.failed++;
+        results.email.errors.push(`${student.student_name}: No email address`);
+        continue;
+      }
 
-        const riskLevel = (student as any).predictions?.[0]?.final_risk_level || "unknown";
-        const riskColor = riskLevel === "high" ? "#dc2626" : riskLevel === "medium" ? "#f59e0b" : "#10b981";
-        const riskBg = riskLevel === "high" ? "#fee2e2" : riskLevel === "medium" ? "#fef3c7" : "#d1fae5";
+      const riskLevel = (student as any).predictions?.[0]?.final_risk_level || "unknown";
+      const riskColor = riskLevel === "high" ? "#dc2626" : riskLevel === "medium" ? "#f59e0b" : "#10b981";
+      const riskBg = riskLevel === "high" ? "#fee2e2" : riskLevel === "medium" ? "#fef3c7" : "#d1fae5";
 
-        // Get detailed student data
-        const studentData = (student as any);
-        const attendancePercentage = studentData.attendance_percentage?.toFixed(1) || "N/A";
-        const internalMarks = studentData.internal_marks || "N/A";
-        const feePaidPercentage = studentData.fee_paid_percentage?.toFixed(1) || "N/A";
-        const pendingFees = studentData.pending_fees || 0;
-        const mlProbability = studentData.predictions?.[0]?.ml_probability?.toFixed(1) || "N/A";
-        const insights = studentData.predictions?.[0]?.insights || "";
-        const suggestions = studentData.predictions?.[0]?.suggestions || "";
+      // Get detailed student data
+      const studentData = (student as any);
+      const attendancePercentage = studentData.attendance_percentage?.toFixed(1) || "N/A";
+      const internalMarks = studentData.internal_marks || "N/A";
+      const feePaidPercentage = studentData.fee_paid_percentage?.toFixed(1) || "N/A";
+      const pendingFees = studentData.pending_fees || 0;
+      const mlProbability = studentData.predictions?.[0]?.ml_probability?.toFixed(1) || "N/A";
+      const insights = studentData.predictions?.[0]?.insights || "";
+      const suggestions = studentData.predictions?.[0]?.suggestions || "";
 
-        // Add call-to-action for Medium and High Risk students
-        const needsTutorMeeting = riskLevel === "medium" || riskLevel === "high";
-        const tutorMeetingMessage = needsTutorMeeting 
-          ? `
+      // Add call-to-action for Medium and High Risk students
+      const needsTutorMeeting = riskLevel === "medium" || riskLevel === "high";
+      const tutorMeetingMessage = needsTutorMeeting 
+        ? `
 <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; text-align: center;">
   <h3 style="color: #92400e; margin-top: 0;">📅 Action Required</h3>
   <p style="color: #78350f; margin: 10px 0; font-size: 16px; font-weight: 600;">Meet Your Tutor</p>
   <p style="color: #78350f; margin: 10px 0;">Please schedule a meeting with your tutor to discuss your progress and receive personalized guidance.</p>
 </div>`
-          : "";
+        : "";
 
-        const emailHTML = `<!DOCTYPE html>
+      const emailHTML = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -204,54 +202,50 @@ const handler = async (req: Request): Promise<Response> => {
       ${tutorMeetingMessage}
     </div>
     <div class="footer">
-      <p style="margin: 0">This is an automated message from your Academic Team</p>
+      <p style="margin: 0">This is an automated message from ${senderName}</p>
       <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8">Please do not reply to this email</p>
     </div>
   </div>
 </body>
 </html>`;
 
-        try {
-          await client.send({
-            from: `${senderName} <${gmailUser}>`,
-            to: student.email,
-            cc: tutorEmail || undefined,
+      try {
+        await client.send({
+          from: `${senderName} <${emailSettings.sender_email}>`,
+          to: student.email,
+          cc: tutorEmail || undefined,
+          subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
+          content: "text/html",
+          html: emailHTML,
+        });
+        
+        // Log notification to database
+        const { error: logError } = await supabase
+          .from("notification_logs")
+          .insert({
+            user_id: user.id,
+            student_id: (student as any).id,
+            student_email: student.email,
             subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
-            content: "text/html",
-            html: emailHTML,
+            message: message,
+            status: "sent",
+            resend_email_id: null,
           });
-          
-          // Log notification to database
-          const { error: logError } = await supabase
-            .from("notification_logs")
-            .insert({
-              user_id: user.id,
-              student_id: (student as any).id,
-              student_email: student.email,
-              subject: `Academic Update - ${riskLevel.toUpperCase()} Risk Alert`,
-              message: message,
-              status: "sent",
-              resend_email_id: null,
-            });
-          
-          if (logError) {
-            console.error(`Failed to log notification for ${student.student_name}:`, logError);
-          }
-          
-          results.email.success++;
-          console.log(`✓ Email sent to ${student.student_name} (${student.email}), Risk: ${riskLevel}`);
-        } catch (error: any) {
-          results.email.failed++;
-          results.email.errors.push(`${student.student_name}: ${error.message}`);
-          console.error(`Failed to send email to ${student.student_name}:`, error);
+        
+        if (logError) {
+          console.error(`Failed to log notification for ${student.student_name}:`, logError);
         }
+        
+        results.email.success++;
+        console.log(`✓ Email sent to ${student.student_name} (${student.email}), Risk: ${riskLevel}`);
+      } catch (error: any) {
+        results.email.failed++;
+        results.email.errors.push(`${student.student_name}: ${error.message}`);
+        console.error(`Failed to send email to ${student.student_name}:`, error);
       }
-      
-      await client.close();
-    } else {
-      console.error("Gmail credentials not configured");
-      throw new Error("Email service not configured - Gmail credentials missing");
     }
+    
+    await client.close();
 
     return new Response(
       JSON.stringify({
