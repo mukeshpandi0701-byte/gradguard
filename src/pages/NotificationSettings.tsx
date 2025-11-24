@@ -16,10 +16,6 @@ export default function NotificationSettings() {
   const [settings, setSettings] = useState({
     resendSenderEmail: "",
     resendSenderName: "",
-    smtpHost: "smtp.gmail.com",
-    smtpPort: "587",
-    smtpUser: "",
-    smtpPassword: "",
   });
 
   useEffect(() => {
@@ -37,36 +33,22 @@ export default function NotificationSettings() {
 
   const fetchSettings = async (userId: string) => {
     try {
-      // Fetch notification settings
-      const { data: notifData, error: notifError } = await supabase
+      const { data, error } = await supabase
         .from("notification_settings")
         .select("*")
         .eq("user_id", userId)
         .maybeSingle();
 
-      if (notifError && notifError.code !== "PGRST116") {
-        throw notifError;
+      if (error && error.code !== "PGRST116") {
+        throw error;
       }
 
-      // Fetch email SMTP settings
-      const { data: emailData, error: emailError } = await supabase
-        .from("institution_email_settings")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (emailError && emailError.code !== "PGRST116") {
-        throw emailError;
+      if (data) {
+        setSettings({
+          resendSenderEmail: data.resend_sender_email || "",
+          resendSenderName: data.resend_sender_name || "",
+        });
       }
-
-      setSettings({
-        resendSenderEmail: notifData?.resend_sender_email || "",
-        resendSenderName: notifData?.resend_sender_name || "",
-        smtpHost: emailData?.smtp_host || "smtp.gmail.com",
-        smtpPort: String(emailData?.smtp_port || "587"),
-        smtpUser: emailData?.smtp_user || "",
-        smtpPassword: emailData?.smtp_password || "",
-      });
     } catch (error: any) {
       console.error("Error fetching settings:", error);
       toast.error("Failed to load settings");
@@ -90,66 +72,33 @@ export default function NotificationSettings() {
         return;
       }
 
-      if (!settings.smtpUser || !settings.smtpPassword) {
-        toast.error("SMTP credentials are required");
-        setSaving(false);
-        return;
-      }
-
-      // Check if notification settings exist
-      const { data: existingNotif } = await supabase
+      // Check if settings exist
+      const { data: existing } = await supabase
         .from("notification_settings")
         .select("id")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
-      const notifData = {
+      const settingsData = {
         user_id: session.user.id,
         resend_sender_email: settings.resendSenderEmail,
         resend_sender_name: settings.resendSenderName || null,
       };
 
-      if (existingNotif) {
+      if (existing) {
+        // Update existing settings
         const { error } = await supabase
           .from("notification_settings")
-          .update(notifData)
+          .update(settingsData)
           .eq("user_id", session.user.id);
+
         if (error) throw error;
       } else {
+        // Insert new settings
         const { error } = await supabase
           .from("notification_settings")
-          .insert(notifData);
-        if (error) throw error;
-      }
+          .insert(settingsData);
 
-      // Check if email settings exist
-      const { data: existingEmail } = await supabase
-        .from("institution_email_settings")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      const emailData = {
-        user_id: session.user.id,
-        smtp_host: settings.smtpHost,
-        smtp_port: parseInt(settings.smtpPort),
-        smtp_user: settings.smtpUser,
-        smtp_password: settings.smtpPassword,
-        sender_name: settings.resendSenderName || "Academic Team",
-        sender_email: settings.resendSenderEmail,
-        is_active: true,
-      };
-
-      if (existingEmail) {
-        const { error } = await supabase
-          .from("institution_email_settings")
-          .update(emailData)
-          .eq("user_id", session.user.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("institution_email_settings")
-          .insert(emailData);
         if (error) throw error;
       }
 
@@ -184,71 +133,23 @@ export default function NotificationSettings() {
 
         <Card>
           <CardHeader>
-            <CardTitle>SMTP Email Configuration</CardTitle>
+            <CardTitle>Email Configuration (Resend)</CardTitle>
             <CardDescription>
-              Configure your institution's email server settings. These credentials are stored securely and used only for sending notifications.
+              Configure email sending settings. You need to verify your domain in Resend dashboard first.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="smtpHost">SMTP Host *</Label>
-                <Input
-                  id="smtpHost"
-                  placeholder="e.g., smtp.gmail.com"
-                  value={settings.smtpHost}
-                  onChange={(e) => setSettings({ ...settings, smtpHost: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="smtpPort">SMTP Port *</Label>
-                <Input
-                  id="smtpPort"
-                  type="number"
-                  placeholder="e.g., 587"
-                  value={settings.smtpPort}
-                  onChange={(e) => setSettings({ ...settings, smtpPort: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
             <div className="space-y-2">
-              <Label htmlFor="smtpUser">SMTP Username/Email *</Label>
-              <Input
-                id="smtpUser"
-                type="email"
-                placeholder="e.g., notifications@yourcollege.edu"
-                value={settings.smtpUser}
-                onChange={(e) => setSettings({ ...settings, smtpUser: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="smtpPassword">SMTP Password/App Password *</Label>
-              <Input
-                id="smtpPassword"
-                type="password"
-                placeholder="Your SMTP password or app-specific password"
-                value={settings.smtpPassword}
-                onChange={(e) => setSettings({ ...settings, smtpPassword: e.target.value })}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                For Gmail: Use an <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">App Password</a> instead of your regular password
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="resendSenderName">Sender Display Name</Label>
+              <Label htmlFor="resendSenderName">Sender Name</Label>
               <Input
                 id="resendSenderName"
-                placeholder="e.g., College Academic Team"
+                placeholder="e.g., College Alerts"
                 value={settings.resendSenderName}
                 onChange={(e) => setSettings({ ...settings, resendSenderName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="resendSenderEmail">Sender Email Address *</Label>
+              <Label htmlFor="resendSenderEmail">Sender Email *</Label>
               <Input
                 id="resendSenderEmail"
                 type="email"
@@ -258,7 +159,7 @@ export default function NotificationSettings() {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                This email will appear in the "From" field of notifications
+                Must be from a verified domain in your Resend account
               </p>
             </div>
           </CardContent>

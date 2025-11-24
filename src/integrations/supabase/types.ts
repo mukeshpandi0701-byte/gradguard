@@ -98,48 +98,6 @@ export type Database = {
         }
         Relationships: []
       }
-      institution_email_settings: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          sender_email: string
-          sender_name: string
-          smtp_host: string
-          smtp_password: string
-          smtp_port: number
-          smtp_user: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          sender_email: string
-          sender_name: string
-          smtp_host?: string
-          smtp_password: string
-          smtp_port?: number
-          smtp_user: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          sender_email?: string
-          sender_name?: string
-          smtp_host?: string
-          smtp_password?: string
-          smtp_port?: number
-          smtp_user?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       notification_logs: {
         Row: {
           bounced_at: string | null
