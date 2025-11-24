@@ -23,6 +23,7 @@ export type Database = {
           metadata: Json | null
           report_name: string
           report_type: string
+          storage_path: string | null
           user_id: string
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           metadata?: Json | null
           report_name: string
           report_type: string
+          storage_path?: string | null
           user_id: string
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           metadata?: Json | null
           report_name?: string
           report_type?: string
+          storage_path?: string | null
           user_id?: string
         }
         Relationships: []

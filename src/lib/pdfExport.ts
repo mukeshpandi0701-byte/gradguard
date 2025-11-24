@@ -1,6 +1,35 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { logDownloadHistory } from "./downloadHistory";
+import { supabase } from "@/integrations/supabase/client";
+
+// Helper function to upload PDF to storage
+const uploadPDFToStorage = async (pdf: jsPDF, filename: string): Promise<string | null> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const pdfBlob = pdf.output('blob');
+    const storagePath = `${user.id}/${filename}`;
+
+    const { error } = await supabase.storage
+      .from('reports')
+      .upload(storagePath, pdfBlob, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
+
+    if (error) {
+      console.error('Error uploading PDF to storage:', error);
+      return null;
+    }
+
+    return storagePath;
+  } catch (error) {
+    console.error('Failed to upload PDF:', error);
+    return null;
+  }
+};
 
 export interface StudentReportData {
   student_name: string;
@@ -198,12 +227,17 @@ export const generateSocialActivityReportPDF = async (
 
   // Save PDF
   const filename = `social-activity-report-${new Date().toISOString().split("T")[0]}.pdf`;
+  
+  // Upload to storage
+  const storagePath = await uploadPDFToStorage(pdf, filename);
+  
   pdf.save(filename);
   
   // Log download history
   await logDownloadHistory({
     reportType: "social_activity_report",
     reportName: filename,
+    storagePath,
     metadata: {
       totalStudents: students.length,
       activeCount: statusCounts.active,
@@ -288,12 +322,17 @@ export const generateAnalyticsReportPDF = async (
 
   // Save PDF
   const filename = `analytics-report-${department}-${new Date().toISOString().split("T")[0]}.pdf`;
+  
+  // Upload to storage
+  const storagePath = await uploadPDFToStorage(pdf, filename);
+  
   pdf.save(filename);
   
   // Log download history
   await logDownloadHistory({
     reportType: "analytics_pdf",
     reportName: filename,
+    storagePath,
     metadata: {
       department,
       totalStudents: stats.totalStudents,
@@ -590,17 +629,22 @@ export const generateAIStudentReportPDF = async (
 
   // Save PDF
   const filename = `student-report-${studentData.roll_number || 'unknown'}-${new Date().toISOString().split("T")[0]}.pdf`;
+  
+  // Upload to storage
+  const storagePath = await uploadPDFToStorage(pdf, filename);
+  
   pdf.save(filename);
   
   // Log download history
   await logDownloadHistory({
     reportType: "student_pdf",
     reportName: filename,
+    storagePath,
     metadata: {
       studentName: studentData.student_name,
       rollNumber: studentData.roll_number,
       department: studentData.department,
-      riskLevel: prediction?.final_risk_level,
+      riskLevel: prediction?.final_risk_level || 'Unknown',
     },
   });
 };
@@ -823,12 +867,17 @@ export const generateStudentReportPDF = async (
 
   // Save PDF
   const filename = `student-reports-${new Date().toISOString().split("T")[0]}.pdf`;
+  
+  // Upload to storage
+  const storagePath = await uploadPDFToStorage(pdf, filename);
+  
   pdf.save(filename);
   
   // Log download history
   await logDownloadHistory({
     reportType: "class_report",
     reportName: filename,
+    storagePath,
     metadata: {
       totalStudents: students.length,
       reportTitle: title,
