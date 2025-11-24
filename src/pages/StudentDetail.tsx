@@ -9,6 +9,7 @@ import { ArrowLeft, Download, TrendingUp, TrendingDown, Minus } from "lucide-rea
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AIInsights } from "@/components/AIInsights";
+import { PDFPreviewModal } from "@/components/PDFPreviewModal";
 
 interface StudentData {
   id: string;
@@ -52,6 +53,7 @@ const StudentDetail = () => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -130,6 +132,11 @@ const StudentDetail = () => {
     recommendations: any;
   }>({ trendAnalysis: null, recommendations: null });
 
+  const handleExportClick = () => {
+    if (!student) return;
+    setShowPreview(true);
+  };
+
   const handleExportPDF = async () => {
     if (!student) return;
     
@@ -152,6 +159,7 @@ const StudentDetail = () => {
       
       toast.dismiss();
       toast.success("PDF report exported successfully!");
+      setShowPreview(false);
     } catch (error) {
       toast.dismiss();
       toast.error("Failed to export PDF");
@@ -159,6 +167,85 @@ const StudentDetail = () => {
     } finally {
       setExporting(false);
     }
+  };
+
+  const renderPreviewContent = () => {
+    if (!student || !prediction) return null;
+    
+    const getRiskColor = (level: string) => {
+      switch (level?.toLowerCase()) {
+        case "low": return "text-green-600";
+        case "medium": return "text-yellow-600";
+        case "high": return "text-red-600";
+        default: return "";
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-primary">{student.student_name}</h2>
+          <p className="text-sm text-muted-foreground">
+            Roll Number: {student.roll_number || "N/A"} | Department: {student.department || "N/A"}
+          </p>
+        </div>
+
+        <div>
+          <Badge className={`${getRiskColor(prediction.final_risk_level)} text-lg px-4 py-1`}>
+            {prediction.final_risk_level?.toUpperCase()} RISK
+          </Badge>
+          <p className="text-sm mt-2">
+            Dropout Probability: <span className="font-semibold">{(prediction.ml_probability * 100).toFixed(1)}%</span>
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Attendance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold">{student.attendance_percentage?.toFixed(1)}%</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Internal Marks</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold">{student.internal_marks}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Fees Paid</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold">{student.fee_paid_percentage?.toFixed(1)}%</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Pending Fees</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold">₹{student.pending_fees}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {prediction.insights && (
+          <div className="p-4 rounded-lg bg-muted/30">
+            <h3 className="font-semibold mb-2">Key Insights</h3>
+            <p className="text-sm whitespace-pre-wrap">{prediction.insights}</p>
+          </div>
+        )}
+
+        <div className="text-xs text-muted-foreground">
+          <p>The exported PDF will include all student details, charts, and AI-powered recommendations.</p>
+        </div>
+      </div>
+    );
   };
 
   const chartData = history.map((entry) => ({
@@ -207,11 +294,21 @@ const StudentDetail = () => {
               </p>
             </div>
           </div>
-          <Button onClick={handleExportPDF} disabled={exporting}>
+          <Button onClick={handleExportClick} disabled={exporting}>
             <Download className="mr-2 h-4 w-4" />
             {exporting ? "Generating..." : "Export PDF"}
           </Button>
         </div>
+
+        <PDFPreviewModal
+          open={showPreview}
+          onOpenChange={setShowPreview}
+          title="Preview Student Report PDF"
+          description="Review the content before exporting the student report"
+          previewContent={renderPreviewContent()}
+          onConfirmExport={handleExportPDF}
+          isExporting={exporting}
+        />
 
         <div className="space-y-6">
           {/* Risk Status Card */}
