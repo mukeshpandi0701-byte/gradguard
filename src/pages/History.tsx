@@ -369,7 +369,6 @@ const History = () => {
                   <SelectItem value="student_pdf">Student PDF</SelectItem>
                   <SelectItem value="analytics_pdf">Analytics PDF</SelectItem>
                   <SelectItem value="class_report">Class Report</SelectItem>
-                  <SelectItem value="social_activity_report">Social Activity</SelectItem>
                 </SelectContent>
               </Select>
 
