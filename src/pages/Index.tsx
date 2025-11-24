@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, BarChart3, Users, Settings } from "lucide-react";
+import { BarChart3, Users, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ParallaxWrapper } from "@/components/ParallaxWrapper";
+import logo from "@/assets/logo.png";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -27,16 +28,29 @@ const Index = () => {
         <div className="max-w-4xl mx-auto text-center">
           <ParallaxWrapper speed={-0.2}>
             <div className="flex justify-center mb-8">
-              <div className="p-4 bg-gradient-to-br from-primary to-secondary rounded-3xl shadow-elevated">
-                <GraduationCap className="w-20 h-20 text-white" />
+              <div className="p-6 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-3xl shadow-elevated backdrop-blur-sm border border-primary/20">
+                <img 
+                  src={logo} 
+                  alt="GradGuard Logo" 
+                  className="w-24 h-24 object-contain"
+                />
               </div>
             </div>
           </ParallaxWrapper>
           
           <ParallaxWrapper speed={-0.1}>
-            <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            <div className="mb-4">
+              <h1 className="text-6xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                GradGuard
+              </h1>
+              <p className="text-lg text-muted-foreground italic mb-6">
+                Protecting Student Success, One Prediction at a Time
+              </p>
+            </div>
+            
+            <h2 className="text-3xl font-semibold mb-6 text-foreground">
               Student Dropout Prediction System
-            </h1>
+            </h2>
             
             <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
               AI-powered early intervention system to identify at-risk students and improve retention rates through data-driven insights
