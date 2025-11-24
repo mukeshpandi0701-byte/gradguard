@@ -82,11 +82,16 @@ export function AppSidebar() {
   };
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Error signing out");
-    } else {
+    try {
+      // Always clear local session first
+      await supabase.auth.signOut({ scope: 'local' });
       toast.success("Signed out successfully");
+      navigate("/auth");
+    } catch (error) {
+      // Even if there's an error, clear local storage and navigate
+      console.error("Error during sign out:", error);
+      localStorage.clear();
+      toast.success("Signed out");
       navigate("/auth");
     }
   };
