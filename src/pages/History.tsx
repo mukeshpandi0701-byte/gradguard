@@ -7,6 +7,8 @@ import { FileText, Download, Trash2, Calendar, Filter, Search, FileDown } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   Table,
   TableBody,
@@ -170,36 +172,62 @@ const History = () => {
     }
   };
 
-  const exportToCSV = () => {
+  const exportToPDF = () => {
     if (filteredRecords.length === 0) {
       toast.error("No records to export");
       return;
     }
 
-    const headers = ["Report Type", "Report Name", "Date", "Size (KB)"];
-    const rows = filteredRecords.map(record => [
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.setTextColor(124, 58, 237);
+    doc.text("Download History Report", 14, 20);
+    
+    // Add date
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated on: ${format(new Date(), "MMMM dd, yyyy 'at' HH:mm")}`, 14, 28);
+    
+    // Add summary
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Total Records: ${filteredRecords.length}`, 14, 36);
+    
+    // Prepare table data
+    const tableData = filteredRecords.map(record => [
       record.report_type.replace(/_/g, " ").toUpperCase(),
       record.report_name,
-      format(new Date(record.download_date), "yyyy-MM-dd HH:mm"),
-      record.file_size ? (record.file_size / 1024).toFixed(2) : "N/A"
+      format(new Date(record.download_date), "MMM dd, yyyy HH:mm"),
+      formatFileSize(record.file_size)
     ]);
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n");
+    // Add table
+    autoTable(doc, {
+      startY: 42,
+      head: [["Report Type", "Report Name", "Date", "Size"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: {
+        fillColor: [124, 58, 237],
+        textColor: [255, 255, 255],
+        fontStyle: "bold"
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 70 },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 25 }
+      }
+    });
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `download-history-${format(new Date(), "yyyy-MM-dd")}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-
-    toast.success("History exported to CSV");
+    doc.save(`download-history-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    toast.success("History exported to PDF");
   };
 
   const clearFilters = () => {
@@ -253,9 +281,9 @@ const History = () => {
               View and manage your previously downloaded reports and PDFs
             </p>
           </div>
-          <Button onClick={exportToCSV} variant="outline" className="gap-2">
+          <Button onClick={exportToPDF} variant="outline" className="gap-2">
             <FileDown className="h-4 w-4" />
-            Export CSV
+            Export PDF
           </Button>
         </div>
 
