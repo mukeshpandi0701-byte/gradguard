@@ -77,49 +77,49 @@ const Dashboard = () => {
         <ParallaxWrapper speed={0.05}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="shadow-card hover:shadow-elevated transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total Students</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="text-3xl font-bold">{stats.totalStudents}</div>
-                <Users className="w-8 h-8 text-primary opacity-50" />
+                <div className="text-2xl font-bold">{stats.totalStudents}</div>
+                <Users className="w-6 h-6 text-primary opacity-50" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="shadow-card hover:shadow-elevated transition-shadow border-l-4 border-l-success">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Low Risk</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Low Risk</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="text-3xl font-bold text-success">{stats.lowRisk}</div>
-                <CheckCircle2 className="w-8 h-8 text-success opacity-50" />
+                <div className="text-2xl font-bold text-success">{stats.lowRisk}</div>
+                <CheckCircle2 className="w-6 h-6 text-success opacity-50" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="shadow-card hover:shadow-elevated transition-shadow border-l-4 border-l-warning">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Medium Risk</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Medium Risk</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="text-3xl font-bold text-warning">{stats.mediumRisk}</div>
-                <AlertTriangle className="w-8 h-8 text-warning opacity-50" />
+                <div className="text-2xl font-bold text-warning">{stats.mediumRisk}</div>
+                <AlertTriangle className="w-6 h-6 text-warning opacity-50" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="shadow-card hover:shadow-elevated transition-shadow border-l-4 border-l-destructive">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">High Risk</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground">High Risk</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="text-3xl font-bold text-destructive">{stats.highRisk}</div>
-                <AlertCircle className="w-8 h-8 text-destructive opacity-50" />
+                <div className="text-2xl font-bold text-destructive">{stats.highRisk}</div>
+                <AlertCircle className="w-6 h-6 text-destructive opacity-50" />
               </div>
             </CardContent>
           </Card>

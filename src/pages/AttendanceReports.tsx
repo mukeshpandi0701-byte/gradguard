@@ -168,38 +168,38 @@ const AttendanceReports = () => {
             {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="shadow-card">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Total Students</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{totalStudents}</div>
+                <CardContent className="pb-3">
+                  <div className="text-2xl font-bold">{totalStudents}</div>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-card">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Average Attendance</CardTitle>
+              <Card className="shadow-card border-l-4 border-l-primary">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Average Attendance</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-primary">{averageAttendance}%</div>
+                <CardContent className="pb-3">
+                  <div className="text-2xl font-bold text-primary">{averageAttendance}%</div>
                 </CardContent>
               </Card>
 
               <Card className="shadow-card border-l-4 border-l-warning">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Below 75%</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Below 75%</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-warning">{below75}</div>
+                <CardContent className="pb-3">
+                  <div className="text-2xl font-bold text-warning">{below75}</div>
                 </CardContent>
               </Card>
 
               <Card className="shadow-card border-l-4 border-l-success">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Above 75%</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Above 75%</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-success">{totalStudents - below75}</div>
+                <CardContent className="pb-3">
+                  <div className="text-2xl font-bold text-success">{totalStudents - below75}</div>
                 </CardContent>
               </Card>
             </div>
