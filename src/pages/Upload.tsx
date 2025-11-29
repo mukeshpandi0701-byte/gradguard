@@ -6,9 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Users, Edit } from "lucide-react";
+import { Save, Users, X, Check } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface Student {
@@ -17,19 +16,20 @@ interface Student {
   roll_number: string | null;
   department: string | null;
   internal_marks: number;
-  attended_hours: number;
   paid_fees: number;
+}
+
+interface EditingStudent {
+  id: string;
+  internal_marks: string;
+  paid_fees: string;
 }
 
 const Upload = () => {
   const [departments, setDepartments] = useState<string[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [internalScore, setInternalScore] = useState<string>("");
-  const [attendedHours, setAttendedHours] = useState<string>("");
-  const [paidFees, setPaidFees] = useState<string>("");
+  const [editingStudent, setEditingStudent] = useState<EditingStudent | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -72,7 +72,7 @@ const Upload = () => {
 
       const { data, error } = await supabase
         .from("students")
-        .select("id, student_name, roll_number, department, internal_marks, attended_hours, paid_fees")
+        .select("id, student_name, roll_number, department, internal_marks, paid_fees")
         .eq("user_id", user.id)
         .eq("department", selectedDepartment)
         .order("roll_number");
@@ -87,22 +87,25 @@ const Upload = () => {
     }
   };
 
-  const handleEditStudent = (student: Student) => {
-    setSelectedStudent(student);
-    setInternalScore(student.internal_marks.toString());
-    setAttendedHours(student.attended_hours.toString());
-    setPaidFees(student.paid_fees.toString());
-    setDialogOpen(true);
+  const handleEditClick = (student: Student) => {
+    setEditingStudent({
+      id: student.id,
+      internal_marks: student.internal_marks.toString(),
+      paid_fees: student.paid_fees.toString(),
+    });
   };
 
-  const handleUpdate = async () => {
-    if (!selectedStudent) return;
+  const handleCancelEdit = () => {
+    setEditingStudent(null);
+  };
 
-    const internalScoreNum = parseFloat(internalScore);
-    const attendedHoursNum = parseFloat(attendedHours);
-    const paidFeesNum = parseFloat(paidFees);
+  const handleSaveEdit = async () => {
+    if (!editingStudent) return;
 
-    if (isNaN(internalScoreNum) || isNaN(attendedHoursNum) || isNaN(paidFeesNum)) {
+    const internalMarksNum = parseFloat(editingStudent.internal_marks);
+    const paidFeesNum = parseFloat(editingStudent.paid_fees);
+
+    if (isNaN(internalMarksNum) || isNaN(paidFeesNum)) {
       toast.error("Please enter valid numbers");
       return;
     }
@@ -112,16 +115,15 @@ const Upload = () => {
       const { error } = await supabase
         .from("students")
         .update({
-          internal_marks: internalScoreNum,
-          attended_hours: attendedHoursNum,
+          internal_marks: internalMarksNum,
           paid_fees: paidFeesNum,
         })
-        .eq("id", selectedStudent.id);
+        .eq("id", editingStudent.id);
 
       if (error) throw error;
 
       toast.success("Student details updated successfully!");
-      setDialogOpen(false);
+      setEditingStudent(null);
       fetchStudentsByDepartment();
     } catch (error: any) {
       toast.error(error.message || "Failed to update student details");
@@ -135,9 +137,9 @@ const Upload = () => {
     <DashboardLayout>
       <div className="space-y-6 w-full">
         <div>
-          <h2 className="text-3xl font-bold">Update Student Details</h2>
+          <h2 className="text-3xl font-bold">Academic Updates</h2>
           <p className="text-muted-foreground mt-2">
-            Select a class and update student information
+            Update internal scores and fees for students
           </p>
         </div>
 
@@ -181,7 +183,7 @@ const Upload = () => {
             <CardHeader>
               <CardTitle>Students in {selectedDepartment}</CardTitle>
               <CardDescription>
-                Click on a student to update their details
+                Click Edit to update, or click the check mark to save changes
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -197,31 +199,86 @@ const Upload = () => {
                         <TableHead>Roll No</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Internal Score</TableHead>
-                        <TableHead>Attended Hours</TableHead>
-                        <TableHead>Fees Paid</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
+                        <TableHead>Fees Paid (₹)</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {students.map((student) => (
-                        <TableRow key={student.id} className="hover:bg-muted/50">
-                          <TableCell className="font-medium">{student.roll_number || "—"}</TableCell>
-                          <TableCell>{student.student_name}</TableCell>
-                          <TableCell>{student.internal_marks}</TableCell>
-                          <TableCell>{student.attended_hours}</TableCell>
-                          <TableCell>₹{student.paid_fees}</TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditStudent(student)}
-                            >
-                              <Edit className="w-4 h-4 mr-2" />
-                              Update
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {students.map((student) => {
+                        const isEditing = editingStudent?.id === student.id;
+                        return (
+                          <TableRow key={student.id} className="hover:bg-muted/50">
+                            <TableCell className="font-medium">{student.roll_number || "—"}</TableCell>
+                            <TableCell>{student.student_name}</TableCell>
+                            <TableCell>
+                              {isEditing ? (
+                                <Input
+                                  type="number"
+                                  value={editingStudent.internal_marks}
+                                  onChange={(e) =>
+                                    setEditingStudent({
+                                      ...editingStudent,
+                                      internal_marks: e.target.value,
+                                    })
+                                  }
+                                  min="0"
+                                  className="w-24"
+                                />
+                              ) : (
+                                student.internal_marks
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {isEditing ? (
+                                <Input
+                                  type="number"
+                                  value={editingStudent.paid_fees}
+                                  onChange={(e) =>
+                                    setEditingStudent({
+                                      ...editingStudent,
+                                      paid_fees: e.target.value,
+                                    })
+                                  }
+                                  min="0"
+                                  className="w-32"
+                                />
+                              ) : (
+                                `₹${student.paid_fees}`
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {isEditing ? (
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleSaveEdit}
+                                    disabled={saving}
+                                  >
+                                    <Check className="w-4 h-4 text-green-600" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCancelEdit}
+                                    disabled={saving}
+                                  >
+                                    <X className="w-4 h-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditClick(student)}
+                                >
+                                  Edit
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -229,70 +286,6 @@ const Upload = () => {
             </CardContent>
           </Card>
         )}
-
-        {/* Update Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="bg-card">
-            <DialogHeader>
-              <DialogTitle>Update Student Details</DialogTitle>
-              <DialogDescription>
-                Update details for {selectedStudent?.student_name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="dialog-internal-score">Internal Score</Label>
-                <Input
-                  id="dialog-internal-score"
-                  type="number"
-                  placeholder="Enter internal score"
-                  value={internalScore}
-                  onChange={(e) => setInternalScore(e.target.value)}
-                  min="0"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="dialog-attended-hours">Attended Hours</Label>
-                <Input
-                  id="dialog-attended-hours"
-                  type="number"
-                  placeholder="Enter attended hours"
-                  value={attendedHours}
-                  onChange={(e) => setAttendedHours(e.target.value)}
-                  min="0"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="dialog-paid-fees">Fees Paid (₹)</Label>
-                <Input
-                  id="dialog-paid-fees"
-                  type="number"
-                  placeholder="Enter fees paid"
-                  value={paidFees}
-                  onChange={(e) => setPaidFees(e.target.value)}
-                  min="0"
-                />
-              </div>
-
-              <Button 
-                onClick={handleUpdate} 
-                disabled={saving}
-                className="w-full"
-              >
-                {saving ? (
-                  "Saving..."
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </DashboardLayout>
   );
