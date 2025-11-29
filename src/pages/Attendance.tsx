@@ -244,25 +244,25 @@ const Attendance = () => {
           {/* Summary Card */}
           {selectedDepartment && students.length > 0 && (
             <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Attendance Summary</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Attendance Summary</CardTitle>
+                <CardDescription className="text-xs">
                   Overview for {selectedDepartment} on {format(selectedDate, "PP")}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pb-3">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{students.length}</div>
-                    <div className="text-sm text-muted-foreground">Total</div>
+                    <div className="text-xl font-bold">{students.length}</div>
+                    <div className="text-xs text-muted-foreground">Total</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-success">{presentCount}</div>
-                    <div className="text-sm text-muted-foreground">Present</div>
+                    <div className="text-xl font-bold text-success">{presentCount}</div>
+                    <div className="text-xs text-muted-foreground">Present</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-destructive">{absentCount}</div>
-                    <div className="text-sm text-muted-foreground">Absent</div>
+                    <div className="text-xl font-bold text-destructive">{absentCount}</div>
+                    <div className="text-xs text-muted-foreground">Absent</div>
                   </div>
                 </div>
               </CardContent>
