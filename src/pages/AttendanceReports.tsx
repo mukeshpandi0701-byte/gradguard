@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Users, TrendingDown, BarChart3 } from "lucide-react";
+import { Users, TrendingDown, Download } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+
 
 interface Student {
   id: string;
@@ -88,13 +89,25 @@ const AttendanceReports = () => {
   const below75 = students.filter(s => (s.attendance_percentage || 0) < 75).length;
   const mostAbsentStudents = students.slice(0, 5);
 
-  // Prepare chart data
-  const attendanceDistribution = [
-    { range: "0-25%", count: students.filter(s => (s.attendance_percentage || 0) < 25).length },
-    { range: "25-50%", count: students.filter(s => (s.attendance_percentage || 0) >= 25 && (s.attendance_percentage || 0) < 50).length },
-    { range: "50-75%", count: students.filter(s => (s.attendance_percentage || 0) >= 50 && (s.attendance_percentage || 0) < 75).length },
-    { range: "75-100%", count: students.filter(s => (s.attendance_percentage || 0) >= 75).length },
-  ];
+  const downloadAttendanceReport = () => {
+    const csvContent = [
+      ["Roll No.", "Name", "Total Hours", "Attended Hours", "Attendance %"],
+      ...students.map(student => [
+        student.roll_number || "—",
+        student.student_name,
+        student.total_hours,
+        student.attended_hours,
+        (student.attendance_percentage || 0).toFixed(2) + "%"
+      ])
+    ].map(row => row.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedDepartment}_Attendance_Report_${new Date().toLocaleDateString()}.csv`;
+    link.click();
+  };
 
   return (
     <DashboardLayout>
@@ -118,24 +131,34 @@ const AttendanceReports = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="department-select">Department/Class</Label>
-              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger id="department-select" className="bg-background">
-                  <SelectValue placeholder="Select a department..." />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  {departments.length === 0 ? (
-                    <SelectItem value="empty" disabled>No departments found</SelectItem>
-                  ) : (
-                    departments.map(dept => (
-                      <SelectItem key={dept} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+            <div className="flex gap-4 items-end">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="department-select">Department/Class</Label>
+                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                  <SelectTrigger id="department-select" className="bg-background">
+                    <SelectValue placeholder="Select a department..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {departments.length === 0 ? (
+                      <SelectItem value="empty" disabled>No departments found</SelectItem>
+                    ) : (
+                      departments.map(dept => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                onClick={downloadAttendanceReport}
+                disabled={!selectedDepartment || students.length === 0}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download Report
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -180,31 +203,6 @@ const AttendanceReports = () => {
                 </CardContent>
               </Card>
             </div>
-
-            {/* Attendance Distribution Chart */}
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
-                  Attendance Distribution
-                </CardTitle>
-                <CardDescription>
-                  Number of students in each attendance range
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={attendanceDistribution}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="range" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" name="Students" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
 
             {/* Most Absent Students */}
             <Card className="shadow-card">
