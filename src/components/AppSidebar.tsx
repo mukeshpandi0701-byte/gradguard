@@ -25,6 +25,7 @@ const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Academic Updates", url: "/upload", icon: Upload },
   { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
+  { title: "Attendance Reports", url: "/attendance-reports", icon: BarChart3 },
   { title: "Students", url: "/students", icon: Users },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },

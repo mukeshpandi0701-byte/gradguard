@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Save, Users, Calendar as CalendarIcon, Check, X } from "lucide-react";
+import { Save, Users, Calendar as CalendarIcon, Check, X, CheckCheck, XCircle, Download } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -102,6 +102,64 @@ const Attendance = () => {
     });
   };
 
+  const markAllPresent = () => {
+    const newAttendance = new Map<string, boolean>();
+    students.forEach(student => newAttendance.set(student.id, true));
+    setAttendance(newAttendance);
+    toast.success("All students marked present");
+  };
+
+  const markAllAbsent = () => {
+    const newAttendance = new Map<string, boolean>();
+    students.forEach(student => newAttendance.set(student.id, false));
+    setAttendance(newAttendance);
+    toast.success("All students marked absent");
+  };
+
+  const downloadAttendanceReport = async () => {
+    if (!selectedDepartment) {
+      toast.error("Please select a department first");
+      return;
+    }
+
+    try {
+      // Prepare CSV data
+      const headers = ['Roll No.', 'Name', 'Total Hours', 'Attended Hours', 'Attendance %'];
+      const rows = students.map(student => {
+        const attendancePercentage = student.total_hours > 0 
+          ? ((student.attended_hours / student.total_hours) * 100).toFixed(2)
+          : '0.00';
+        
+        return [
+          student.roll_number || '—',
+          student.student_name,
+          student.total_hours,
+          student.attended_hours,
+          `${attendancePercentage}%`
+        ];
+      });
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n');
+
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `attendance-report-${selectedDepartment}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Attendance report downloaded successfully!");
+    } catch (error: any) {
+      toast.error("Failed to download report");
+      console.error(error);
+    }
+  };
+
   const handleSaveAttendance = async () => {
     if (!selectedDate) {
       toast.error("Please select a date");
@@ -170,7 +228,7 @@ const Attendance = () => {
           <Card className="shadow-elevated">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5 text-primary" />
+                <CalendarIcon className="w-5 h-5" />
                 Select Date & Class
               </CardTitle>
               <CardDescription>
@@ -260,10 +318,24 @@ const Attendance = () => {
         {selectedDepartment && (
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Mark Attendance</CardTitle>
-              <CardDescription>
-                Click on students to mark present/absent
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Mark Attendance</CardTitle>
+                  <CardDescription>
+                    Click on students to mark present/absent
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={downloadAttendanceReport}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Report
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -272,6 +344,28 @@ const Attendance = () => {
                 <div className="text-center py-8 text-muted-foreground">No students found in this class</div>
               ) : (
                 <>
+                  {/* Bulk Actions */}
+                  <div className="flex gap-2 mb-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={markAllPresent}
+                      className="flex-1"
+                    >
+                      <CheckCheck className="w-4 h-4 mr-2" />
+                      Mark All Present
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={markAllAbsent}
+                      className="flex-1"
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Mark All Absent
+                    </Button>
+                  </div>
+
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
