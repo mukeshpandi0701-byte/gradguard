@@ -23,7 +23,7 @@ import {
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Upload CSV", url: "/upload", icon: Upload },
+  { title: "Academic Updates", url: "/upload", icon: Upload },
   { title: "Students", url: "/students", icon: Users },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },

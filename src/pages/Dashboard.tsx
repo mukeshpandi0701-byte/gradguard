@@ -139,8 +139,8 @@ const Dashboard = () => {
                 className="p-6 rounded-lg border-2 border-primary/20 hover:border-primary/40 hover:bg-accent/5 transition-all group"
               >
                 <Upload className="w-8 h-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="font-semibold mb-1">Upload CSV</h3>
-                <p className="text-sm text-muted-foreground">Import student data</p>
+                <h3 className="font-semibold mb-1">Academic Updates</h3>
+                <p className="text-sm text-muted-foreground">Update scores & fees</p>
               </button>
               
               <button
