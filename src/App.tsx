@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Upload from "./pages/Upload";
+import Attendance from "./pages/Attendance";
 import Students from "./pages/Students";
 import Criteria from "./pages/Criteria";
 import Profile from "./pages/Profile";
@@ -36,6 +37,7 @@ function AnimatedRoutes() {
         <Route path="/auth" element={<Auth />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/upload" element={<Upload />} />
+        <Route path="/attendance" element={<Attendance />} />
         <Route path="/students" element={<Students />} />
         <Route path="/criteria" element={<Criteria />} />
         <Route path="/profile" element={<Profile />} />
