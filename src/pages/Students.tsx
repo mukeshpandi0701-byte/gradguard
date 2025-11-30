@@ -21,6 +21,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { AddStudentDialog } from "@/components/AddStudentDialog";
+import { AddClassDialog } from "@/components/AddClassDialog";
+import { BulkUploadDialog } from "@/components/BulkUploadDialog";
 
 type Student = {
   id: string;
@@ -256,14 +259,21 @@ const Students = () => {
               View and analyze student dropout risk predictions
             </p>
           </div>
-          <Button
-            onClick={runPredictions}
-            disabled={predicting || students.length === 0}
-            className="gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${predicting ? 'animate-spin' : ''}`} />
-            {predicting ? "Running..." : "Run Predictions"}
-          </Button>
+          <div className="flex gap-2">
+            <AddStudentDialog 
+              departments={departments} 
+              onStudentAdded={fetchStudents} 
+            />
+            <BulkUploadDialog onUploadComplete={fetchStudents} />
+            <Button
+              onClick={runPredictions}
+              disabled={predicting || students.length === 0}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${predicting ? 'animate-spin' : ''}`} />
+              {predicting ? "Running..." : "Run Predictions"}
+            </Button>
+          </div>
         </div>
 
         {students.length === 0 ? (
@@ -281,16 +291,25 @@ const Students = () => {
           </Card>
         ) : (
           <Tabs value={selectedDepartment} onValueChange={setSelectedDepartment}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="all">
-                All Departments ({students.length})
-              </TabsTrigger>
-              {departments.map(dept => (
-                <TabsTrigger key={dept} value={dept}>
-                  {dept} ({students.filter(s => s.department === dept).length})
+            <div className="flex justify-between items-center mb-4">
+              <TabsList>
+                <TabsTrigger value="all">
+                  All Departments ({students.length})
                 </TabsTrigger>
-              ))}
-            </TabsList>
+                {departments.map(dept => (
+                  <TabsTrigger key={dept} value={dept}>
+                    {dept} ({students.filter(s => s.department === dept).length})
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <AddClassDialog 
+                departments={departments} 
+                onClassAdded={(newClass) => {
+                  setDepartments([...departments, newClass]);
+                  toast.success(`Class "${newClass}" added. You can now assign students to it.`);
+                }} 
+              />
+            </div>
             
             <TabsContent value={selectedDepartment}>
               <Card>
