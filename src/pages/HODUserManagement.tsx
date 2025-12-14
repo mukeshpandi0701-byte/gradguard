@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Check, X, Trash2, Clock, UserCheck, UserX, Users, Shield } from "lucide-react";
+import { Check, X, Trash2, Clock, UserCheck, UserX, Users, Shield, GitBranch, Plus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +21,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PendingApproval {
   id: string;
@@ -53,7 +65,28 @@ interface StudentUser {
   department: string;
   college: string;
   roll_number: string;
+  branch: string;
 }
+
+interface BranchAssignment {
+  id: string;
+  staff_user_id: string;
+  branch: string;
+  assigned_at: string;
+}
+
+// Available branches based on the student panel signup options
+const AVAILABLE_BRANCHES = [
+  "I CSE-A", "I CSE-B", "I CSE(CY)", "I CSE(AIML)",
+  "II CSE-A", "II CSE-B", "II CSE(CY)", "II CSE(AIML)",
+  "III CSE-A", "III CSE-B", "III CSE(CY)", "III CSE(AIML)",
+  "IV CSE-A", "IV CSE-B", "IV CSE(CY)", "IV CSE(AIML)",
+  "I AIDS-A", "I AIDS-B",
+  "II AIDS-A", "II AIDS-B",
+  "III AIDS-A", "III AIDS-B",
+  "IV AIDS-A", "IV AIDS-B",
+  "I IT", "II IT", "III IT", "IV IT",
+];
 
 const HODUserManagement = () => {
   const navigate = useNavigate();
@@ -61,7 +94,11 @@ const HODUserManagement = () => {
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [studentUsers, setStudentUsers] = useState<StudentUser[]>([]);
+  const [branchAssignments, setBranchAssignments] = useState<BranchAssignment[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedStaff, setSelectedStaff] = useState<StaffUser | null>(null);
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
   useEffect(() => {
     checkHODAccess();
@@ -98,6 +135,7 @@ const HODUserManagement = () => {
       fetchPendingApprovals(),
       fetchStaffUsers(),
       fetchStudentUsers(),
+      fetchBranchAssignments(),
     ]);
     setLoading(false);
   };
@@ -108,12 +146,11 @@ const HODUserManagement = () => {
         .from("user_approvals")
         .select("*")
         .eq("status", "pending")
-        .eq("role", "staff") // HODs can only see staff pending approvals
+        .eq("role", "staff")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Fetch profiles for pending approvals
       const approvalsWithProfiles = await Promise.all(
         (data || []).map(async (approval) => {
           const { data: profile } = await supabase
@@ -152,13 +189,32 @@ const HODUserManagement = () => {
       const { data, error } = await supabase
         .from("student_profiles")
         .select("*")
-        .order("full_name", { ascending: true });
+        .order("branch", { ascending: true });
 
       if (error) throw error;
       setStudentUsers(data || []);
     } catch (error) {
       console.error("Error fetching student users:", error);
     }
+  };
+
+  const fetchBranchAssignments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("staff_branch_assignments")
+        .select("*");
+
+      if (error) throw error;
+      setBranchAssignments(data || []);
+    } catch (error) {
+      console.error("Error fetching branch assignments:", error);
+    }
+  };
+
+  const getStaffBranches = (staffId: string): string[] => {
+    return branchAssignments
+      .filter((a) => a.staff_user_id === staffId)
+      .map((a) => a.branch);
   };
 
   const handleApprove = async (approvalId: string, userId: string) => {
@@ -211,7 +267,6 @@ const HODUserManagement = () => {
   const handleRemoveStaff = async (userId: string) => {
     setActionLoading(userId);
     try {
-      // Delete from user_roles (cascades will handle the rest)
       const { error } = await supabase
         .from("user_roles")
         .delete()
@@ -219,14 +274,20 @@ const HODUserManagement = () => {
 
       if (error) throw error;
 
-      // Also delete from profiles
       await supabase
         .from("profiles")
         .delete()
         .eq("id", userId);
 
+      // Also remove branch assignments
+      await supabase
+        .from("staff_branch_assignments")
+        .delete()
+        .eq("staff_user_id", userId);
+
       toast.success("Staff member removed successfully!");
       fetchStaffUsers();
+      fetchBranchAssignments();
     } catch (error: any) {
       toast.error(error.message || "Failed to remove staff member");
     } finally {
@@ -237,7 +298,6 @@ const HODUserManagement = () => {
   const handleRemoveStudent = async (userId: string) => {
     setActionLoading(userId);
     try {
-      // Delete from user_roles
       const { error } = await supabase
         .from("user_roles")
         .delete()
@@ -245,7 +305,6 @@ const HODUserManagement = () => {
 
       if (error) throw error;
 
-      // Also delete from student_profiles
       await supabase
         .from("student_profiles")
         .delete()
@@ -259,6 +318,77 @@ const HODUserManagement = () => {
       setActionLoading(null);
     }
   };
+
+  const openAssignDialog = (staff: StaffUser) => {
+    setSelectedStaff(staff);
+    setSelectedBranches(getStaffBranches(staff.id));
+    setAssignDialogOpen(true);
+  };
+
+  const handleBranchToggle = (branch: string) => {
+    setSelectedBranches((prev) =>
+      prev.includes(branch)
+        ? prev.filter((b) => b !== branch)
+        : [...prev, branch]
+    );
+  };
+
+  const handleSaveBranchAssignments = async () => {
+    if (!selectedStaff) return;
+
+    setActionLoading(selectedStaff.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentBranches = getStaffBranches(selectedStaff.id);
+
+      // Branches to remove
+      const toRemove = currentBranches.filter((b) => !selectedBranches.includes(b));
+      // Branches to add
+      const toAdd = selectedBranches.filter((b) => !currentBranches.includes(b));
+
+      // Remove unselected branches
+      if (toRemove.length > 0) {
+        const { error } = await supabase
+          .from("staff_branch_assignments")
+          .delete()
+          .eq("staff_user_id", selectedStaff.id)
+          .in("branch", toRemove);
+
+        if (error) throw error;
+      }
+
+      // Add new branches
+      if (toAdd.length > 0) {
+        const insertData = toAdd.map((branch) => ({
+          staff_user_id: selectedStaff.id,
+          branch,
+          assigned_by: user?.id,
+        }));
+
+        const { error } = await supabase
+          .from("staff_branch_assignments")
+          .insert(insertData);
+
+        if (error) throw error;
+      }
+
+      toast.success("Branch assignments updated successfully!");
+      setAssignDialogOpen(false);
+      fetchBranchAssignments();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update branch assignments");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Group students by branch
+  const studentsByBranch = studentUsers.reduce((acc, student) => {
+    const branch = student.branch || "Unassigned";
+    if (!acc[branch]) acc[branch] = [];
+    acc[branch].push(student);
+    return acc;
+  }, {} as Record<string, StudentUser[]>);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -290,7 +420,7 @@ const HODUserManagement = () => {
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl font-bold">User Management</h1>
-            <p className="text-muted-foreground">Approve, manage, and remove users</p>
+            <p className="text-muted-foreground">Approve, manage, and assign branches to staff</p>
           </div>
 
           <Tabs defaultValue="pending" className="space-y-4">
@@ -307,8 +437,8 @@ const HODUserManagement = () => {
                 Staff ({staffUsers.length})
               </TabsTrigger>
               <TabsTrigger value="students" className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Students ({studentUsers.length})
+                <GitBranch className="w-4 h-4" />
+                Students by Branch
               </TabsTrigger>
             </TabsList>
 
@@ -316,7 +446,7 @@ const HODUserManagement = () => {
               <Card className="glass-card">
                 <CardHeader>
                   <CardTitle>Pending Approval Requests</CardTitle>
-                  <CardDescription>Review and approve staff and HOD registration requests</CardDescription>
+                  <CardDescription>Review and approve staff registration requests</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {loading ? (
@@ -385,7 +515,7 @@ const HODUserManagement = () => {
               <Card className="glass-card">
                 <CardHeader>
                   <CardTitle>Staff Members</CardTitle>
-                  <CardDescription>Manage registered staff accounts</CardDescription>
+                  <CardDescription>Manage staff accounts and assign branches</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {loading ? (
@@ -402,50 +532,75 @@ const HODUserManagement = () => {
                           <TableHead>Name</TableHead>
                           <TableHead>Email</TableHead>
                           <TableHead>Department</TableHead>
-                          <TableHead>College</TableHead>
+                          <TableHead>Assigned Branches</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {staffUsers.map((staff) => (
-                          <TableRow key={staff.id}>
-                            <TableCell className="font-medium">{staff.full_name}</TableCell>
-                            <TableCell>{staff.email}</TableCell>
-                            <TableCell>{staff.department}</TableCell>
-                            <TableCell>{staff.college}</TableCell>
-                            <TableCell>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
+                        {staffUsers.map((staff) => {
+                          const staffBranches = getStaffBranches(staff.id);
+                          return (
+                            <TableRow key={staff.id}>
+                              <TableCell className="font-medium">{staff.full_name}</TableCell>
+                              <TableCell>{staff.email}</TableCell>
+                              <TableCell>{staff.department}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                  {staffBranches.length > 0 ? (
+                                    staffBranches.map((branch) => (
+                                      <Badge key={branch} variant="secondary" className="text-xs">
+                                        {branch}
+                                      </Badge>
+                                    ))
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">No branches assigned</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
                                   <Button
                                     size="sm"
-                                    variant="destructive"
-                                    disabled={actionLoading === staff.id}
+                                    variant="outline"
+                                    onClick={() => openAssignDialog(staff)}
                                   >
-                                    <Trash2 className="w-4 h-4 mr-1" />
-                                    Remove
+                                    <GitBranch className="w-4 h-4 mr-1" />
+                                    Assign Branches
                                   </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Remove Staff Member?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to remove {staff.full_name}? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleRemoveStaff(staff.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Remove
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        disabled={actionLoading === staff.id}
+                                      >
+                                        <Trash2 className="w-4 h-4 mr-1" />
+                                        Remove
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Remove Staff Member?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Are you sure you want to remove {staff.full_name}? This action cannot be undone.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleRemoveStaff(staff.id)}
+                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        >
+                                          Remove
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   )}
@@ -454,81 +609,133 @@ const HODUserManagement = () => {
             </TabsContent>
 
             <TabsContent value="students">
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle>Students</CardTitle>
-                  <CardDescription>Manage registered student accounts</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <div className="text-center py-8 text-muted-foreground">Loading...</div>
-                  ) : studentUsers.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>No students registered</p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Roll Number</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Department</TableHead>
-                          <TableHead>College</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {studentUsers.map((student) => (
-                          <TableRow key={student.id}>
-                            <TableCell className="font-medium">{student.roll_number}</TableCell>
-                            <TableCell>{student.full_name}</TableCell>
-                            <TableCell>{student.email}</TableCell>
-                            <TableCell>{student.department}</TableCell>
-                            <TableCell>{student.college}</TableCell>
-                            <TableCell>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    disabled={actionLoading === student.user_id}
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-1" />
-                                    Remove
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Remove Student?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to remove {student.full_name}? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleRemoveStudent(student.user_id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Remove
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                {loading ? (
+                  <Card className="glass-card">
+                    <CardContent className="py-8">
+                      <div className="text-center text-muted-foreground">Loading...</div>
+                    </CardContent>
+                  </Card>
+                ) : Object.keys(studentsByBranch).length === 0 ? (
+                  <Card className="glass-card">
+                    <CardContent className="py-8">
+                      <div className="text-center text-muted-foreground">
+                        <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>No students registered</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  Object.entries(studentsByBranch)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([branch, students]) => (
+                      <Card key={branch} className="glass-card">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <GitBranch className="w-5 h-5" />
+                            {branch}
+                            <Badge variant="secondary" className="ml-2">{students.length} students</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Roll Number</TableHead>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>Department</TableHead>
+                                <TableHead>Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {students.map((student) => (
+                                <TableRow key={student.id}>
+                                  <TableCell className="font-medium">{student.roll_number}</TableCell>
+                                  <TableCell>{student.full_name}</TableCell>
+                                  <TableCell>{student.email}</TableCell>
+                                  <TableCell>{student.department}</TableCell>
+                                  <TableCell>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          disabled={actionLoading === student.user_id}
+                                        >
+                                          <Trash2 className="w-4 h-4 mr-1" />
+                                          Remove
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Remove Student?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Are you sure you want to remove {student.full_name}? This action cannot be undone.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => handleRemoveStudent(student.user_id)}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          >
+                                            Remove
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
+                    ))
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </div>
       </ParallaxWrapper>
+
+      {/* Branch Assignment Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Branches</DialogTitle>
+            <DialogDescription>
+              Select branches to assign to {selectedStaff?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[300px] pr-4">
+            <div className="space-y-3">
+              {AVAILABLE_BRANCHES.map((branch) => (
+                <div key={branch} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={branch}
+                    checked={selectedBranches.includes(branch)}
+                    onCheckedChange={() => handleBranchToggle(branch)}
+                  />
+                  <Label htmlFor={branch} className="cursor-pointer">{branch}</Label>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveBranchAssignments}
+              disabled={actionLoading === selectedStaff?.id}
+            >
+              Save Assignments
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

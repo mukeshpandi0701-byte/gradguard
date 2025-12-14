@@ -336,6 +336,33 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_branch_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          branch: string
+          created_at: string
+          id: string
+          staff_user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by: string
+          branch: string
+          created_at?: string
+          id?: string
+          staff_user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          branch?: string
+          created_at?: string
+          id?: string
+          staff_user_id?: string
+        }
+        Relationships: []
+      }
       student_history: {
         Row: {
           attendance_percentage: number | null
