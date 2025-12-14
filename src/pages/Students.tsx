@@ -132,7 +132,7 @@ const Students = () => {
         const uniqueDepts = Array.from(new Set(studentsFromProfiles.map(s => s.department).filter(Boolean))) as string[];
         setDepartments(uniqueDepts);
       } else {
-        // Staff: Fetch from students table, filtered by assigned branches
+        // Staff: Fetch from student_profiles, filtered by assigned branches
         const { data: branchData } = await supabase
           .from("staff_branch_assignments")
           .select("branch")
@@ -141,18 +141,20 @@ const Students = () => {
         const branches = (branchData || []).map(b => b.branch);
         setAssignedBranches(branches);
 
-        let studentsQuery = supabase
-          .from("students")
-          .select("*")
-          .order('roll_number', { ascending: true, nullsFirst: false });
-
-        if (branches.length > 0) {
-          studentsQuery = studentsQuery.in("department", branches);
+        if (branches.length === 0) {
+          setStudents([]);
+          setDepartments([]);
+          return;
         }
 
-        const { data: studentsData, error: studentsError } = await studentsQuery;
+        // Fetch student profiles from assigned branches
+        const { data: studentProfiles, error: profilesError } = await supabase
+          .from("student_profiles")
+          .select("*")
+          .in("branch", branches)
+          .order('roll_number', { ascending: true, nullsFirst: false });
 
-        if (studentsError) throw studentsError;
+        if (profilesError) throw profilesError;
 
         // Fetch all predictions for this user
         const { data: predictionsData, error: predictionsError } = await supabase
@@ -167,17 +169,25 @@ const Students = () => {
           (predictionsData || []).map(p => [p.student_id, p])
         );
 
-        // Merge students with their predictions
-        const studentsWithPredictions = (studentsData || []).map(student => ({
-          ...student,
-          riskLevel: predictionsMap.get(student.id)?.final_risk_level,
-          mlProbability: predictionsMap.get(student.id)?.ml_probability,
+        // Map student_profiles to Student type with predictions
+        const studentsFromProfiles = (studentProfiles || []).map(sp => ({
+          id: sp.id,
+          student_name: sp.full_name || sp.email,
+          roll_number: sp.roll_number,
+          email: sp.email,
+          department: sp.branch || sp.department,
+          attendance_percentage: 0,
+          fee_paid_percentage: 0,
+          pending_fees: 0,
+          internal_marks: 0,
+          riskLevel: predictionsMap.get(sp.id)?.final_risk_level,
+          mlProbability: predictionsMap.get(sp.id)?.ml_probability,
         }));
 
-        setStudents(studentsWithPredictions);
+        setStudents(studentsFromProfiles);
         
-        // Extract unique departments
-        const uniqueDepts = Array.from(new Set(studentsWithPredictions.map(s => s.department).filter(Boolean))) as string[];
+        // Extract unique departments/branches
+        const uniqueDepts = Array.from(new Set(studentsFromProfiles.map(s => s.department).filter(Boolean))) as string[];
         setDepartments(uniqueDepts);
       }
     } catch (error: any) {
