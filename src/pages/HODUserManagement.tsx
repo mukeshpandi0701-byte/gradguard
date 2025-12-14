@@ -75,9 +75,15 @@ interface BranchAssignment {
   assigned_at: string;
 }
 
-// Available branches grouped by department (matching the format in students table)
+// Available branches grouped by department (supporting both short and full department names)
 const BRANCHES_BY_DEPARTMENT: Record<string, string[]> = {
   "Computer Science and Engineering(CSE)": [
+    "I-CSE-A", "I-CSE-B", "I-CY", "I-AIML",
+    "II-CSE-A", "II-CSE-B", "II-CY", "II-AIML",
+    "III-CSE-A", "III-CSE-B", "III-CY", "III-AIML",
+    "IV-CSE-A", "IV-CSE-B", "IV-CY", "IV-AIML",
+  ],
+  "CSE": [
     "I-CSE-A", "I-CSE-B", "I-CY", "I-AIML",
     "II-CSE-A", "II-CSE-B", "II-CY", "II-AIML",
     "III-CSE-A", "III-CSE-B", "III-CY", "III-AIML",
@@ -89,7 +95,16 @@ const BRANCHES_BY_DEPARTMENT: Record<string, string[]> = {
     "III-AIDS-A", "III-AIDS-B",
     "IV-AIDS-A", "IV-AIDS-B",
   ],
+  "AIDS": [
+    "I-AIDS-A", "I-AIDS-B",
+    "II-AIDS-A", "II-AIDS-B",
+    "III-AIDS-A", "III-AIDS-B",
+    "IV-AIDS-A", "IV-AIDS-B",
+  ],
   "Information Technology(IT)": [
+    "I-IT", "II-IT", "III-IT", "IV-IT",
+  ],
+  "IT": [
     "I-IT", "II-IT", "III-IT", "IV-IT",
   ],
 };

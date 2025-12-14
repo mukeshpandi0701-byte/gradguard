@@ -11,7 +11,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-primary/5 relative">
         <AppSidebar />
         <div className="flex-1 flex flex-col relative z-10">

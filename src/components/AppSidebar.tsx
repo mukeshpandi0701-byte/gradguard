@@ -137,7 +137,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/50 backdrop-blur-sm" style={{ width: open ? '200px' : undefined }}>
+    <Sidebar collapsible="offcanvas" className="border-r border-border/50 backdrop-blur-sm" style={{ width: '220px' }}>
       <SidebarHeader className="border-b border-border/50 p-4 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="flex items-center justify-center">
           <img 
