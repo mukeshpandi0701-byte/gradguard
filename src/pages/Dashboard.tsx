@@ -35,39 +35,70 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch staff's assigned branches
-      const { data: branchData } = await supabase
-        .from("staff_branch_assignments")
-        .select("branch")
-        .eq("staff_user_id", user.id);
+      // Check if user is HOD
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "hod")
+        .maybeSingle();
 
-      const branches = (branchData || []).map(b => b.branch);
+      const isHOD = !!roleData;
 
-      if (branches.length === 0) {
-        setStats({ totalStudents: 0, lowRisk: 0, mediumRisk: 0, highRisk: 0 });
-        return;
+      let students: { id: string; branch: string | null }[] = [];
+
+      if (isHOD) {
+        // HOD: Fetch all students from their department
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("department")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profile?.department) {
+          const { data: studentProfiles } = await supabase
+            .from("student_profiles")
+            .select("id, branch, department")
+            .eq("department", profile.department);
+          
+          students = studentProfiles || [];
+        }
+      } else {
+        // Staff: Fetch students from assigned branches
+        const { data: branchData } = await supabase
+          .from("staff_branch_assignments")
+          .select("branch")
+          .eq("staff_user_id", user.id);
+
+        const branches = (branchData || []).map(b => b.branch);
+
+        if (branches.length > 0) {
+          const { data: studentProfiles } = await supabase
+            .from("student_profiles")
+            .select("id, branch")
+            .in("branch", branches);
+          
+          students = studentProfiles || [];
+        }
       }
 
-      // Fetch students from student_profiles filtered by assigned branches
-      const { data: students } = await supabase
-        .from("student_profiles")
-        .select("id, branch")
-        .in("branch", branches);
-
-      const studentIds = (students || []).map(s => s.id);
+      const studentIds = students.map(s => s.id);
 
       // Fetch predictions only for filtered students
-      let predictionsQuery = supabase.from("predictions").select("student_id, final_risk_level");
+      let predictions: { student_id: string; final_risk_level: string }[] = [];
       if (studentIds.length > 0) {
-        predictionsQuery = predictionsQuery.in("student_id", studentIds);
+        const { data: predictionsData } = await supabase
+          .from("predictions")
+          .select("student_id, final_risk_level")
+          .in("student_id", studentIds);
+        predictions = predictionsData || [];
       }
-      const { data: predictions } = await predictionsQuery;
 
       setStats({
-        totalStudents: students?.length || 0,
-        lowRisk: predictions?.filter(p => p.final_risk_level === "low").length || 0,
-        mediumRisk: predictions?.filter(p => p.final_risk_level === "medium").length || 0,
-        highRisk: predictions?.filter(p => p.final_risk_level === "high").length || 0,
+        totalStudents: students.length,
+        lowRisk: predictions.filter(p => p.final_risk_level === "low").length,
+        mediumRisk: predictions.filter(p => p.final_risk_level === "medium").length,
+        highRisk: predictions.filter(p => p.final_risk_level === "high").length,
       });
     } catch (error: any) {
       console.error("Error fetching stats:", error);
