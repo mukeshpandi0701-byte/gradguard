@@ -287,37 +287,52 @@ export type Database = {
       }
       profiles: {
         Row: {
+          branch: string | null
+          college: string | null
           created_at: string
+          department: string | null
           email: string
           full_name: string | null
           github_url: string | null
           id: string
           linkedin_url: string | null
+          panel_type: string | null
           phone_number: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
+          year: string | null
         }
         Insert: {
+          branch?: string | null
+          college?: string | null
           created_at?: string
+          department?: string | null
           email: string
           full_name?: string | null
           github_url?: string | null
           id: string
           linkedin_url?: string | null
+          panel_type?: string | null
           phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          year?: string | null
         }
         Update: {
+          branch?: string | null
+          college?: string | null
           created_at?: string
+          department?: string | null
           email?: string
           full_name?: string | null
           github_url?: string | null
           id?: string
           linkedin_url?: string | null
+          panel_type?: string | null
           phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          year?: string | null
         }
         Relationships: []
       }
