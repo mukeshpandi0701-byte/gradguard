@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Save, Calendar as CalendarIcon, CheckCheck, XCircle } from "lucide-react";
+import { Save, Calendar as CalendarIcon, CheckCheck } from "lucide-react";
 import { format, startOfWeek, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -21,24 +22,45 @@ interface Student {
   email: string;
 }
 
-type SessionKey = `${string}_${string}_${"morning" | "afternoon"}`;
+type AttendanceKey = `${string}_${string}`;
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const Attendance = () => {
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [students, setStudents] = useState<Student[]>([]);
-  const [attendance, setAttendance] = useState<Map<SessionKey, boolean>>(new Map());
+  const [attendance, setAttendance] = useState<Map<AttendanceKey, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const [maxSessionsPerDay, setMaxSessionsPerDay] = useState<number>(2);
 
   const weekDates = DAYS.map((_, index) => addDays(weekStart, index));
 
   useEffect(() => {
     fetchStudents();
+    fetchCriteria();
   }, []);
+
+  const fetchCriteria = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("dropout_criteria")
+        .select("max_sessions_per_day")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (data && (data as any).max_sessions_per_day) {
+        setMaxSessionsPerDay((data as any).max_sessions_per_day);
+      }
+    } catch (error) {
+      console.error("Error fetching criteria:", error);
+    }
+  };
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -69,7 +91,7 @@ const Attendance = () => {
       if (error) throw error;
       setStudents(studentProfiles || []);
       
-      // Initialize all sessions as present by default
+      // Initialize attendance with empty values (no input yet)
       initializeAttendance(studentProfiles || []);
     } catch (error: any) {
       toast.error("Failed to load students");
@@ -80,12 +102,12 @@ const Attendance = () => {
   };
 
   const initializeAttendance = (studentList: Student[]) => {
-    const initialAttendance = new Map<SessionKey, boolean>();
+    const initialAttendance = new Map<AttendanceKey, number>();
     studentList.forEach(student => {
       weekDates.forEach(date => {
         const dateStr = format(date, "yyyy-MM-dd");
-        initialAttendance.set(`${student.id}_${dateStr}_morning` as SessionKey, true);
-        initialAttendance.set(`${student.id}_${dateStr}_afternoon` as SessionKey, true);
+        // Initialize with max sessions (all present by default)
+        initialAttendance.set(`${student.id}_${dateStr}` as AttendanceKey, maxSessionsPerDay);
       });
     });
     setAttendance(initialAttendance);
@@ -95,52 +117,38 @@ const Attendance = () => {
     if (students.length > 0) {
       initializeAttendance(students);
     }
-  }, [weekStart]);
+  }, [weekStart, maxSessionsPerDay]);
 
-  const toggleSession = (studentId: string, date: Date, session: "morning" | "afternoon") => {
+  const updateSessionCount = (studentId: string, date: Date, value: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    const key: SessionKey = `${studentId}_${dateStr}_${session}`;
+    const key: AttendanceKey = `${studentId}_${dateStr}`;
+    const numValue = Math.max(0, Math.min(maxSessionsPerDay, parseInt(value) || 0));
+    
     setAttendance(prev => {
       const newMap = new Map(prev);
-      newMap.set(key, !prev.get(key));
+      newMap.set(key, numValue);
       return newMap;
     });
   };
 
-  const getSessionStatus = (studentId: string, date: Date, session: "morning" | "afternoon"): boolean => {
+  const getSessionCount = (studentId: string, date: Date): number => {
     const dateStr = format(date, "yyyy-MM-dd");
-    const key: SessionKey = `${studentId}_${dateStr}_${session}`;
-    return attendance.get(key) ?? true;
+    const key: AttendanceKey = `${studentId}_${dateStr}`;
+    return attendance.get(key) ?? maxSessionsPerDay;
   };
 
-  const markAllPresent = () => {
+  const markAllFull = () => {
     setAttendance(prev => {
       const newMap = new Map(prev);
       filteredStudents.forEach(student => {
         weekDates.forEach(date => {
           const dateStr = format(date, "yyyy-MM-dd");
-          newMap.set(`${student.id}_${dateStr}_morning` as SessionKey, true);
-          newMap.set(`${student.id}_${dateStr}_afternoon` as SessionKey, true);
+          newMap.set(`${student.id}_${dateStr}` as AttendanceKey, maxSessionsPerDay);
         });
       });
       return newMap;
     });
-    toast.success("All sessions marked present");
-  };
-
-  const markAllAbsent = () => {
-    setAttendance(prev => {
-      const newMap = new Map(prev);
-      filteredStudents.forEach(student => {
-        weekDates.forEach(date => {
-          const dateStr = format(date, "yyyy-MM-dd");
-          newMap.set(`${student.id}_${dateStr}_morning` as SessionKey, false);
-          newMap.set(`${student.id}_${dateStr}_afternoon` as SessionKey, false);
-        });
-      });
-      return newMap;
-    });
-    toast.success("All sessions marked absent");
+    toast.success("All students marked with full attendance");
   };
 
   const handleSaveAttendance = async () => {
@@ -161,14 +169,35 @@ const Attendance = () => {
     : students.filter(s => s.branch === selectedBranch);
 
   // Calculate summary
-  const totalSessions = filteredStudents.length * DAYS.length * 2;
-  const presentSessions = filteredStudents.reduce((count, student) => {
-    return count + weekDates.reduce((dayCount, date) => {
-      const morningPresent = getSessionStatus(student.id, date, "morning") ? 1 : 0;
-      const afternoonPresent = getSessionStatus(student.id, date, "afternoon") ? 1 : 0;
-      return dayCount + morningPresent + afternoonPresent;
-    }, 0);
-  }, 0);
+  const calculateStudentAttendance = (student: Student) => {
+    let totalSessions = 0;
+    let attendedSessions = 0;
+    let daysWithInput = 0;
+
+    weekDates.forEach(date => {
+      const sessions = getSessionCount(student.id, date);
+      if (sessions >= 0) {
+        daysWithInput++;
+        attendedSessions += sessions;
+        totalSessions += maxSessionsPerDay;
+      }
+    });
+
+    const percentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
+    return { attendedSessions, totalSessions, percentage, daysWithInput };
+  };
+
+  const overallStats = filteredStudents.reduce((acc, student) => {
+    const stats = calculateStudentAttendance(student);
+    return {
+      totalSessions: acc.totalSessions + stats.totalSessions,
+      attendedSessions: acc.attendedSessions + stats.attendedSessions,
+    };
+  }, { totalSessions: 0, attendedSessions: 0 });
+
+  const overallPercentage = overallStats.totalSessions > 0 
+    ? (overallStats.attendedSessions / overallStats.totalSessions) * 100 
+    : 0;
 
   if (loading) {
     return (
@@ -186,7 +215,7 @@ const Attendance = () => {
         <div>
           <h2 className="text-3xl font-bold">Weekly Attendance</h2>
           <p className="text-muted-foreground mt-2">
-            Mark attendance for morning and afternoon sessions
+            Enter the number of sessions attended per day (max: {maxSessionsPerDay} per day)
           </p>
         </div>
 
@@ -248,36 +277,21 @@ const Attendance = () => {
                   <CardContent className="pb-3">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center">
-                        <div className="text-xl font-bold">{totalSessions}</div>
+                        <div className="text-xl font-bold">{overallStats.totalSessions}</div>
                         <div className="text-xs text-muted-foreground">Total Sessions</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xl font-bold text-success">{presentSessions}</div>
-                        <div className="text-xs text-muted-foreground">Present</div>
+                        <div className="text-xl font-bold text-success">{overallStats.attendedSessions}</div>
+                        <div className="text-xs text-muted-foreground">Attended</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xl font-bold text-destructive">{totalSessions - presentSessions}</div>
-                        <div className="text-xs text-muted-foreground">Absent</div>
+                        <div className="text-xl font-bold text-primary">{overallPercentage.toFixed(1)}%</div>
+                        <div className="text-xs text-muted-foreground">Avg. Attendance</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               )}
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-5 rounded-full bg-success/80 border-2 border-success" />
-                <span className="text-muted-foreground">Present</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-5 rounded-full bg-destructive/20 border-2 border-destructive/50" />
-                <span className="text-muted-foreground">Absent</span>
-              </div>
-              <div className="flex items-center gap-2 ml-4">
-                <span className="text-xs text-muted-foreground">M = Morning, A = Afternoon</span>
-              </div>
             </div>
 
             {/* Attendance Grid with Branch Tabs */}
@@ -296,9 +310,9 @@ const Attendance = () => {
               <TabsContent value={selectedBranch}>
                 <Card className="shadow-card">
                   <CardHeader>
-                    <CardTitle>Mark Attendance</CardTitle>
+                    <CardTitle>Enter Attendance</CardTitle>
                     <CardDescription>
-                      Click on ovals to toggle attendance for each session
+                      Enter number of sessions attended for each day (0 to {maxSessionsPerDay})
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -306,25 +320,16 @@ const Attendance = () => {
                       <div className="text-center py-8 text-muted-foreground">No students found</div>
                     ) : (
                       <>
-                        {/* Bulk Actions */}
+                        {/* Bulk Action */}
                         <div className="flex gap-2 mb-4">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={markAllPresent}
+                            onClick={markAllFull}
                             className="flex-1"
                           >
                             <CheckCheck className="w-4 h-4 mr-2" />
-                            Mark All Present
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={markAllAbsent}
-                            className="flex-1"
-                          >
-                            <XCircle className="w-4 h-4 mr-2" />
-                            Mark All Absent
+                            Mark All Full Attendance
                           </Button>
                         </div>
 
@@ -335,65 +340,64 @@ const Attendance = () => {
                                 <TableHead className="sticky left-0 bg-background z-10 min-w-[80px]">Roll No</TableHead>
                                 <TableHead className="sticky left-[80px] bg-background z-10 min-w-[120px]">Name</TableHead>
                                 {weekDates.map((date, index) => (
-                                  <TableHead key={index} className="text-center min-w-[90px]">
+                                  <TableHead key={index} className="text-center min-w-[70px]">
                                     <div className="flex flex-col items-center">
                                       <span className="font-semibold">{DAYS[index]}</span>
                                       <span className="text-xs text-muted-foreground">{format(date, "d MMM")}</span>
                                     </div>
                                   </TableHead>
                                 ))}
+                                <TableHead className="text-center min-w-[80px]">Weekly %</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {filteredStudents.map((student) => (
-                                <TableRow key={student.id} className="hover:bg-muted/50">
-                                  <TableCell className="sticky left-0 bg-background z-10 font-medium">
-                                    {student.roll_number || "—"}
-                                  </TableCell>
-                                  <TableCell className="sticky left-[80px] bg-background z-10">
-                                    <div className="flex flex-col">
-                                      <span className="truncate max-w-[100px]">{student.full_name || student.email}</span>
-                                      <Badge variant="outline" className="w-fit text-xs mt-1">{student.branch}</Badge>
-                                    </div>
-                                  </TableCell>
-                                  {weekDates.map((date, index) => {
-                                    const morningPresent = getSessionStatus(student.id, date, "morning");
-                                    const afternoonPresent = getSessionStatus(student.id, date, "afternoon");
-                                    return (
-                                      <TableCell key={index} className="text-center">
-                                        <div className="flex flex-col items-center gap-1">
-                                          {/* Morning Session */}
-                                          <button
-                                            onClick={() => toggleSession(student.id, date, "morning")}
+                              {filteredStudents.map((student) => {
+                                const stats = calculateStudentAttendance(student);
+                                return (
+                                  <TableRow key={student.id} className="hover:bg-muted/50">
+                                    <TableCell className="sticky left-0 bg-background z-10 font-medium">
+                                      {student.roll_number || "—"}
+                                    </TableCell>
+                                    <TableCell className="sticky left-[80px] bg-background z-10">
+                                      <div className="flex flex-col">
+                                        <span className="truncate max-w-[100px]">{student.full_name || student.email}</span>
+                                        <Badge variant="outline" className="w-fit text-xs mt-1">{student.branch}</Badge>
+                                      </div>
+                                    </TableCell>
+                                    {weekDates.map((date, index) => {
+                                      const sessionCount = getSessionCount(student.id, date);
+                                      const isFullAttendance = sessionCount === maxSessionsPerDay;
+                                      const isZero = sessionCount === 0;
+                                      return (
+                                        <TableCell key={index} className="text-center p-1">
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            max={maxSessionsPerDay}
+                                            value={sessionCount}
+                                            onChange={(e) => updateSessionCount(student.id, date, e.target.value)}
                                             className={cn(
-                                              "w-10 h-5 rounded-full transition-all duration-200 flex items-center justify-center text-[10px] font-medium",
-                                              morningPresent 
-                                                ? "bg-success/80 border-2 border-success text-success-foreground hover:bg-success" 
-                                                : "bg-destructive/20 border-2 border-destructive/50 text-destructive hover:bg-destructive/30"
+                                              "w-14 h-9 text-center mx-auto text-sm font-medium",
+                                              isFullAttendance && "border-success bg-success/10 text-success",
+                                              isZero && "border-destructive bg-destructive/10 text-destructive"
                                             )}
-                                            title={`Morning - ${morningPresent ? "Present" : "Absent"}`}
-                                          >
-                                            M
-                                          </button>
-                                          {/* Afternoon Session */}
-                                          <button
-                                            onClick={() => toggleSession(student.id, date, "afternoon")}
-                                            className={cn(
-                                              "w-10 h-5 rounded-full transition-all duration-200 flex items-center justify-center text-[10px] font-medium",
-                                              afternoonPresent 
-                                                ? "bg-success/80 border-2 border-success text-success-foreground hover:bg-success" 
-                                                : "bg-destructive/20 border-2 border-destructive/50 text-destructive hover:bg-destructive/30"
-                                            )}
-                                            title={`Afternoon - ${afternoonPresent ? "Present" : "Absent"}`}
-                                          >
-                                            A
-                                          </button>
-                                        </div>
-                                      </TableCell>
-                                    );
-                                  })}
-                                </TableRow>
-                              ))}
+                                          />
+                                        </TableCell>
+                                      );
+                                    })}
+                                    <TableCell className="text-center">
+                                      <Badge 
+                                        variant={stats.percentage >= 75 ? "default" : "destructive"}
+                                        className={cn(
+                                          stats.percentage >= 75 && "bg-success hover:bg-success/80"
+                                        )}
+                                      >
+                                        {stats.percentage.toFixed(0)}%
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </div>

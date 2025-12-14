@@ -59,6 +59,7 @@ export type Database = {
           internal_weightage: number
           max_internal_marks: number
           max_pending_fees: number
+          max_sessions_per_day: number
           min_attendance_percentage: number
           min_internal_marks: number
           total_fees: number
@@ -74,6 +75,7 @@ export type Database = {
           internal_weightage?: number
           max_internal_marks?: number
           max_pending_fees?: number
+          max_sessions_per_day?: number
           min_attendance_percentage?: number
           min_internal_marks?: number
           total_fees?: number
@@ -89,6 +91,7 @@ export type Database = {
           internal_weightage?: number
           max_internal_marks?: number
           max_pending_fees?: number
+          max_sessions_per_day?: number
           min_attendance_percentage?: number
           min_internal_marks?: number
           total_fees?: number
