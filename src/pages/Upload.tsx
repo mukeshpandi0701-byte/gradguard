@@ -94,10 +94,29 @@ const Upload = () => {
     }
   };
 
-  const handleEditStudent = (student: Student) => {
+  const handleEditStudent = async (student: Student) => {
     setSelectedStudent(student);
-    setInternalScore("0");
-    setPaidFees("0");
+    
+    // Fetch current values from students table if exists
+    if (student.roll_number) {
+      const { data } = await supabase
+        .from("students")
+        .select("internal_marks, paid_fees")
+        .eq("roll_number", student.roll_number)
+        .maybeSingle();
+      
+      if (data) {
+        setInternalScore(data.internal_marks?.toString() || "0");
+        setPaidFees(data.paid_fees?.toString() || "0");
+      } else {
+        setInternalScore("0");
+        setPaidFees("0");
+      }
+    } else {
+      setInternalScore("0");
+      setPaidFees("0");
+    }
+    
     setDialogOpen(true);
   };
 
@@ -137,8 +156,55 @@ const Upload = () => {
 
     setSaving(true);
     try {
-      // Note: Academic updates would need to be stored in a separate table
-      // since student_profiles doesn't have these fields
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Check if student record exists in students table
+      const { data: existingStudent } = await supabase
+        .from("students")
+        .select("id")
+        .eq("roll_number", selectedStudent.roll_number)
+        .maybeSingle();
+
+      const pendingFees = (criteria?.total_fees || 0) - paidFeesNum;
+      const feePaidPercentage = criteria?.total_fees 
+        ? (paidFeesNum / criteria.total_fees) * 100 
+        : 0;
+
+      if (existingStudent) {
+        // Update existing record
+        const { error } = await supabase
+          .from("students")
+          .update({
+            internal_marks: internalScoreNum,
+            paid_fees: paidFeesNum,
+            pending_fees: pendingFees,
+            fee_paid_percentage: feePaidPercentage,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existingStudent.id);
+
+        if (error) throw error;
+      } else {
+        // Create new record in students table
+        const { error } = await supabase
+          .from("students")
+          .insert({
+            user_id: user.id,
+            student_name: selectedStudent.full_name || selectedStudent.email,
+            roll_number: selectedStudent.roll_number,
+            email: selectedStudent.email,
+            department: selectedStudent.branch,
+            internal_marks: internalScoreNum,
+            paid_fees: paidFeesNum,
+            total_fees: criteria?.total_fees || 0,
+            pending_fees: pendingFees,
+            fee_paid_percentage: feePaidPercentage
+          });
+
+        if (error) throw error;
+      }
+
       toast.success("Student details updated successfully!");
       setDialogOpen(false);
     } catch (error: any) {
