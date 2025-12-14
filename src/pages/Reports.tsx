@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Download, BarChart3 } from "lucide-react";
+import { Download, BarChart3, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -11,18 +11,15 @@ import { PDFPreviewModal } from "@/components/PDFPreviewModal";
 
 interface PredictionData {
   final_risk_level: string;
+  student_id: string;
 }
 
-interface Student {
+interface StudentProfile {
   id: string;
-  department: string | null;
-  student_name: string;
+  branch: string | null;
+  full_name: string | null;
   roll_number: string | null;
-  email: string | null;
-  attendance_percentage: number | null;
-  internal_marks: number;
-  fee_paid_percentage: number | null;
-  pending_fees: number | null;
+  email: string;
 }
 
 const Reports = () => {
@@ -34,56 +31,92 @@ const Reports = () => {
   });
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [departments, setDepartments] = useState<string[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [showPreview, setShowPreview] = useState(false);
+  const [students, setStudents] = useState<StudentProfile[]>([]);
   const chartsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchReportData();
-  }, [selectedDepartment]);
+    fetchData();
+  }, []);
 
-  const fetchReportData = async () => {
+  useEffect(() => {
+    calculateStats();
+  }, [selectedBranch, students]);
+
+  const fetchData = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data: students } = await supabase
-        .from("students")
-        .select("id, department, student_name, roll_number, email, attendance_percentage, internal_marks, fee_paid_percentage, pending_fees")
-        .eq("user_id", user.id);
+      // Get assigned branches for staff
+      const { data: branchData } = await supabase
+        .from("staff_branch_assignments")
+        .select("branch")
+        .eq("staff_user_id", user.id);
 
-      // Extract unique departments
-      const uniqueDepts = Array.from(new Set((students as Student[])?.map(s => s.department).filter(Boolean))) as string[];
-      setDepartments(uniqueDepts);
+      const branches = (branchData || []).map(b => b.branch);
+      setAssignedBranches(branches);
 
-      // Filter students by department if selected
-      const filteredStudentIds = selectedDepartment === "all" 
-        ? (students as Student[])?.map(s => s.id)
-        : (students as Student[])?.filter(s => s.department === selectedDepartment).map(s => s.id);
+      if (branches.length === 0) {
+        setStudents([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch students from assigned branches
+      const { data: studentProfiles, error } = await supabase
+        .from("student_profiles")
+        .select("id, branch, full_name, roll_number, email")
+        .in("branch", branches);
+
+      if (error) throw error;
+      setStudents(studentProfiles || []);
+    } catch (error) {
+      toast.error("Failed to fetch data");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStats = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Filter students by branch
+      const filteredStudents = selectedBranch === "all" 
+        ? students 
+        : students.filter(s => s.branch === selectedBranch);
+
+      const studentIds = filteredStudents.map(s => s.id);
+
+      if (studentIds.length === 0) {
+        setStats({ totalStudents: 0, lowRisk: 0, mediumRisk: 0, highRisk: 0 });
+        return;
+      }
 
       const { data: predictions } = await supabase
         .from("predictions")
         .select("final_risk_level, student_id")
         .eq("user_id", user.id)
-        .in("student_id", filteredStudentIds || []);
+        .in("student_id", studentIds);
 
       const lowRisk = (predictions as PredictionData[])?.filter(p => p.final_risk_level === "low").length || 0;
       const mediumRisk = (predictions as PredictionData[])?.filter(p => p.final_risk_level === "medium").length || 0;
       const highRisk = (predictions as PredictionData[])?.filter(p => p.final_risk_level === "high").length || 0;
 
       setStats({
-        totalStudents: filteredStudentIds?.length || 0,
+        totalStudents: filteredStudents.length,
         lowRisk,
         mediumRisk,
         highRisk,
       });
     } catch (error) {
-      toast.error("Failed to fetch report data");
-      console.error(error);
-    } finally {
-      setLoading(false);
+      console.error("Error calculating stats:", error);
     }
   };
 
@@ -103,7 +136,7 @@ const Reports = () => {
 
     try {
       const { generateAnalyticsReportPDF } = await import("@/lib/pdfExport");
-      await generateAnalyticsReportPDF(selectedDepartment, stats, chartsRef.current);
+      await generateAnalyticsReportPDF(selectedBranch === "all" ? "All Branches" : selectedBranch, stats, chartsRef.current);
       
       toast.dismiss();
       toast.success("Analytics PDF exported successfully!");
@@ -121,7 +154,7 @@ const Reports = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-primary">
-          {selectedDepartment === "all" ? "All Departments" : selectedDepartment} - Analytics Report
+          {selectedBranch === "all" ? "All Branches" : selectedBranch} - Analytics Report
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
           Generated on: {new Date().toLocaleDateString()}
@@ -214,6 +247,28 @@ const Reports = () => {
     );
   }
 
+  if (assignedBranches.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold">Reports & Analytics</h2>
+            <p className="text-muted-foreground">Comprehensive dropout risk analysis</p>
+          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Branches Assigned</h3>
+              <p className="text-muted-foreground text-center">
+                Contact your HOD to get branch assignments
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -238,17 +293,17 @@ const Reports = () => {
           isExporting={exporting}
         />
 
-        <Tabs value={selectedDepartment} onValueChange={setSelectedDepartment} className="w-full">
+        <Tabs value={selectedBranch} onValueChange={setSelectedBranch} className="w-full">
           <TabsList className="mb-4">
-            <TabsTrigger value="all">All Departments</TabsTrigger>
-            {departments.map((dept) => (
-              <TabsTrigger key={dept} value={dept}>
-                {dept}
+            <TabsTrigger value="all">All Branches ({students.length})</TabsTrigger>
+            {assignedBranches.map((branch) => (
+              <TabsTrigger key={branch} value={branch}>
+                {branch} ({students.filter(s => s.branch === branch).length})
               </TabsTrigger>
             ))}
           </TabsList>
 
-          <TabsContent value={selectedDepartment} className="space-y-6">
+          <TabsContent value={selectedBranch} className="space-y-6">
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -320,7 +375,7 @@ const Reports = () => {
             )}
             {stats.totalStudents === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No student data available. Upload student data and run predictions to see insights.
+                No student data available. Run predictions to see insights.
               </p>
             )}
           </CardContent>
