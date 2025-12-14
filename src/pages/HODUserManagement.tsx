@@ -126,16 +126,24 @@ const HODUserManagement = () => {
   const availableBranches = hodDepartment ? (BRANCHES_BY_DEPARTMENT[hodDepartment] || []) : [];
 
   useEffect(() => {
-    checkHODAccess();
-    fetchData();
+    initializeData();
   }, []);
 
-  const checkHODAccess = async () => {
+  const initializeData = async () => {
+    setLoading(true);
+    const dept = await checkHODAccess();
+    if (dept !== null) {
+      await fetchAllData(dept);
+    }
+    setLoading(false);
+  };
+
+  const checkHODAccess = async (): Promise<string | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         navigate("/auth");
-        return;
+        return null;
       }
 
       const { data: profile } = await supabase
@@ -150,29 +158,29 @@ const HODUserManagement = () => {
       if (!isHodByProfile && !isHodByEmail) {
         toast.error("Access denied. HOD privileges required.");
         navigate("/dashboard");
-        return;
+        return null;
       }
 
-      // Set HOD's department for filtering branches (may be null if profile missing)
-      setHodDepartment(profile?.department || null);
+      const department = profile?.department || null;
+      setHodDepartment(department);
+      return department;
     } catch (error) {
       console.error("Error checking HOD access:", error);
       navigate("/dashboard");
+      return null;
     }
   };
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchAllData = async (department: string | null) => {
     await Promise.all([
-      fetchPendingApprovals(),
-      fetchStaffUsers(),
-      fetchStudentUsers(),
+      fetchPendingApprovals(department),
+      fetchStaffUsers(department),
+      fetchStudentUsers(department),
       fetchBranchAssignments(),
     ]);
-    setLoading(false);
   };
 
-  const fetchPendingApprovals = async () => {
+  const fetchPendingApprovals = async (department: string | null) => {
     try {
       const { data, error } = await supabase
         .from("user_approvals")
@@ -195,19 +203,31 @@ const HODUserManagement = () => {
         })
       );
 
-      setPendingApprovals(approvalsWithProfiles);
+      // Filter by HOD's department if set
+      const filtered = department
+        ? approvalsWithProfiles.filter((a) => a.profile?.department === department)
+        : approvalsWithProfiles;
+
+      setPendingApprovals(filtered);
     } catch (error) {
       console.error("Error fetching pending approvals:", error);
     }
   };
 
-  const fetchStaffUsers = async () => {
+  const fetchStaffUsers = async (department: string | null) => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("profiles")
         .select("*")
         .eq("panel_type", "staff")
         .order("full_name", { ascending: true });
+
+      // Filter by HOD's department if set
+      if (department) {
+        query = query.eq("department", department);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setStaffUsers(data || []);
@@ -216,12 +236,19 @@ const HODUserManagement = () => {
     }
   };
 
-  const fetchStudentUsers = async () => {
+  const fetchStudentUsers = async (department: string | null) => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("student_profiles")
         .select("*")
         .order("branch", { ascending: true });
+
+      // Filter by HOD's department if set
+      if (department) {
+        query = query.eq("department", department);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setStudentUsers(data || []);
@@ -266,7 +293,7 @@ const HODUserManagement = () => {
       if (error) throw error;
 
       toast.success("User approved successfully!");
-      fetchPendingApprovals();
+      fetchPendingApprovals(hodDepartment);
     } catch (error: any) {
       toast.error(error.message || "Failed to approve user");
     } finally {
@@ -288,7 +315,7 @@ const HODUserManagement = () => {
       if (error) throw error;
 
       toast.success("User rejected");
-      fetchPendingApprovals();
+      fetchPendingApprovals(hodDepartment);
     } catch (error: any) {
       toast.error(error.message || "Failed to reject user");
     } finally {
@@ -318,7 +345,7 @@ const HODUserManagement = () => {
         .eq("staff_user_id", userId);
 
       toast.success("Staff member removed successfully!");
-      fetchStaffUsers();
+      fetchStaffUsers(hodDepartment);
       fetchBranchAssignments();
     } catch (error: any) {
       toast.error(error.message || "Failed to remove staff member");
@@ -343,7 +370,7 @@ const HODUserManagement = () => {
         .eq("user_id", userId);
 
       toast.success("Student removed successfully!");
-      fetchStudentUsers();
+      fetchStudentUsers(hodDepartment);
     } catch (error: any) {
       toast.error(error.message || "Failed to remove student");
     } finally {
