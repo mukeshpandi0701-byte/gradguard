@@ -38,12 +38,18 @@ interface Prediction {
   suggestions: string | null;
 }
 
+interface TutorInfo {
+  full_name: string;
+  email: string;
+}
+
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [prediction, setPrediction] = useState<Prediction | null>(null);
+  const [tutor, setTutor] = useState<TutorInfo | null>(null);
 
   useEffect(() => {
     checkAuthAndFetchData();
@@ -110,6 +116,9 @@ const StudentDashboard = () => {
           if (predictionData) {
             setPrediction(predictionData);
           }
+
+          // Fetch tutor info - find staff assigned to this student's branch
+          await fetchTutorInfo(profileData.branch);
         }
       }
     } catch (error) {
@@ -117,6 +126,45 @@ const StudentDashboard = () => {
       toast.error("Failed to load dashboard data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTutorInfo = async (branch: string | null) => {
+    if (!branch) return;
+
+    try {
+      // Find staff assigned to this branch
+      const { data: assignment, error: assignmentError } = await supabase
+        .from("staff_branch_assignments")
+        .select("staff_user_id")
+        .eq("branch", branch)
+        .limit(1)
+        .maybeSingle();
+
+      if (assignmentError) {
+        console.error("Error fetching tutor assignment:", assignmentError);
+        return;
+      }
+
+      if (assignment) {
+        // Fetch staff profile
+        const { data: staffProfile, error: profileError } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("id", assignment.staff_user_id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error("Error fetching tutor profile:", profileError);
+          return;
+        }
+
+        if (staffProfile) {
+          setTutor(staffProfile);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching tutor:", error);
     }
   };
 
@@ -204,7 +252,7 @@ const StudentDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div>
                 <p className="text-xs text-muted-foreground">Roll Number</p>
                 <p className="font-medium">{profile?.roll_number || "N/A"}</p>
@@ -222,6 +270,13 @@ const StudentDashboard = () => {
                 <p className="font-medium">{profile?.branch || "N/A"}</p>
               </div>
             </div>
+            {tutor && (
+              <div className="pt-4 border-t border-border/50">
+                <p className="text-xs text-muted-foreground mb-1">Your Tutor</p>
+                <p className="font-medium text-primary">{tutor.full_name}</p>
+                <p className="text-sm text-muted-foreground">{tutor.email}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
