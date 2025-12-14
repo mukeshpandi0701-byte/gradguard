@@ -233,20 +233,6 @@ const Criteria = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="totalHours">Total Class Sessions</Label>
-                <Input
-                  id="totalHours"
-                  type="number"
-                  value={criteria.total_hours}
-                  onChange={(e) => setCriteria({ ...criteria, total_hours: Number(e.target.value) })}
-                  min={1}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Total number of class sessions in the course
-                </p>
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="maxSessionsPerDay">Maximum Sessions Per Day</Label>
                 <Input
                   id="maxSessionsPerDay"
