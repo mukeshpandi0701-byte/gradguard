@@ -51,11 +51,17 @@ export function AppSidebar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [students, setStudents] = useState<Array<{ id: string; student_name: string; roll_number: string | null }>>([]);
   const [filteredStudents, setFilteredStudents] = useState<Array<{ id: string; student_name: string; roll_number: string | null }>>([]);
-  const [isHOD, setIsHOD] = useState(false);
+  const [isHOD, setIsHOD] = useState<boolean | null>(null); // null = loading
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchStudents();
-    checkHODStatus();
+    const init = async () => {
+      setIsLoading(true);
+      await checkHODStatus();
+      await fetchStudents();
+      setIsLoading(false);
+    };
+    init();
   }, []);
 
   const checkHODStatus = async () => {
@@ -82,9 +88,12 @@ export function AppSidebar() {
           .eq("id", user.id)
           .maybeSingle();
         setIsHOD(profile?.panel_type === "hod");
+      } else {
+        setIsHOD(false);
       }
     } catch (error) {
       console.error("Error checking HOD status:", error);
+      setIsHOD(false);
     }
   };
 
@@ -136,6 +145,9 @@ export function AppSidebar() {
     }
   };
 
+  // Don't render until HOD status is determined
+  const showAsHOD = isHOD === true;
+
   return (
     <Sidebar collapsible="offcanvas" className="border-r border-border/50 backdrop-blur-sm" style={{ width: '220px' }}>
       <SidebarHeader className="border-b border-border/50 p-4 bg-gradient-to-br from-primary/5 to-secondary/5">
@@ -184,7 +196,7 @@ export function AppSidebar() {
               {mainItems
                 .filter((item) => {
                   // Hide specific modules for HOD users
-                  if (isHOD) {
+                  if (showAsHOD) {
                     const hiddenForHOD = [
                       "/upload",
                       "/attendance",
@@ -215,7 +227,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isHOD && (
+        {showAsHOD && (
           <SidebarGroup>
             <SidebarGroupLabel>HOD Management</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -243,7 +255,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Settings</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {(isHOD ? hodSettingsItems : settingsItems).map((item) => (
+              {(showAsHOD ? hodSettingsItems : settingsItems).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
