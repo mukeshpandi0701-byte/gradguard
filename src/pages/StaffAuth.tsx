@@ -17,13 +17,6 @@ const COLLEGES = [
   { value: "KPRIET", label: "KPR Institute of Engineering and Technology (KPRIET)" },
 ];
 
-const YEARS = [
-  { value: "I", label: "I Year" },
-  { value: "II", label: "II Year" },
-  { value: "III", label: "III Year" },
-  { value: "IV", label: "IV Year" },
-];
-
 const DEPARTMENTS = [
   { value: "CSE", label: "Computer Science and Engineering (CSE)" },
   { value: "AIDS", label: "Artificial Intelligence and Data Science (AIDS)" },
@@ -37,7 +30,6 @@ const StaffAuth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [college, setCollege] = useState("");
-  const [year, setYear] = useState("");
   const [department, setDepartment] = useState("");
 
   const validateEmail = (email: string) => {
@@ -83,7 +75,7 @@ const StaffAuth = () => {
       return;
     }
 
-    if (!fullName || !college || !year || !department) {
+    if (!fullName || !college || !department) {
       toast.error("Please fill in all required fields");
       setLoading(false);
       return;
@@ -99,7 +91,6 @@ const StaffAuth = () => {
             role: "tutor",
             panel_type: "staff",
             college,
-            year,
             department,
           },
           emailRedirectTo: `${window.location.origin}/`,
@@ -228,37 +219,20 @@ const StaffAuth = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="year">Year *</Label>
-                      <Select value={year} onValueChange={setYear}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {YEARS.map((y) => (
-                            <SelectItem key={y.value} value={y.value}>
-                              {y.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="department">Department *</Label>
-                      <Select value={department} onValueChange={setDepartment}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select dept" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {DEPARTMENTS.map((d) => (
-                            <SelectItem key={d.value} value={d.value}>
-                              {d.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="department">Department *</Label>
+                    <Select value={department} onValueChange={setDepartment}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DEPARTMENTS.map((d) => (
+                          <SelectItem key={d.value} value={d.value}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
                 <CardFooter className="flex-col gap-4">
