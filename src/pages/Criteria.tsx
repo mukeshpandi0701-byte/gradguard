@@ -230,7 +230,7 @@ const Criteria = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="totalHours">Total Class Hours</Label>
+                <Label htmlFor="totalHours">Total Class Sessions</Label>
                 <Input
                   id="totalHours"
                   type="number"
@@ -239,7 +239,7 @@ const Criteria = () => {
                   min={1}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Total hours of classes in the course
+                  Total number of class sessions in the course
                 </p>
               </div>
             </CardContent>
