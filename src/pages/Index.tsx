@@ -46,7 +46,7 @@ const Index = () => {
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-5xl md:text-7xl font-display font-bold leading-tight">
+            <h1 className="text-3xl md:text-4xl font-display font-bold leading-tight">
               <span className="block mb-2">Protecting Student Success,</span>
               <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
                 One Prediction at a Time
@@ -54,7 +54,7 @@ const Index = () => {
             </h1>
 
             {/* Sub-heading */}
-            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Identify at-risk students early with AI-powered analytics and improve retention rates through data-driven interventions
             </p>
 
