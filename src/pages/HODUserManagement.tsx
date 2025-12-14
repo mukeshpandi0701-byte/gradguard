@@ -75,18 +75,24 @@ interface BranchAssignment {
   assigned_at: string;
 }
 
-// Available branches based on the student panel signup options
-const AVAILABLE_BRANCHES = [
-  "I CSE-A", "I CSE-B", "I CSE(CY)", "I CSE(AIML)",
-  "II CSE-A", "II CSE-B", "II CSE(CY)", "II CSE(AIML)",
-  "III CSE-A", "III CSE-B", "III CSE(CY)", "III CSE(AIML)",
-  "IV CSE-A", "IV CSE-B", "IV CSE(CY)", "IV CSE(AIML)",
-  "I AIDS-A", "I AIDS-B",
-  "II AIDS-A", "II AIDS-B",
-  "III AIDS-A", "III AIDS-B",
-  "IV AIDS-A", "IV AIDS-B",
-  "I IT", "II IT", "III IT", "IV IT",
-];
+// Available branches grouped by department
+const BRANCHES_BY_DEPARTMENT: Record<string, string[]> = {
+  "Computer Science and Engineering(CSE)": [
+    "I CSE-A", "I CSE-B", "I CSE(CY)", "I CSE(AIML)",
+    "II CSE-A", "II CSE-B", "II CSE(CY)", "II CSE(AIML)",
+    "III CSE-A", "III CSE-B", "III CSE(CY)", "III CSE(AIML)",
+    "IV CSE-A", "IV CSE-B", "IV CSE(CY)", "IV CSE(AIML)",
+  ],
+  "Artificial Intelligence and Data Science(AIDS)": [
+    "I AIDS-A", "I AIDS-B",
+    "II AIDS-A", "II AIDS-B",
+    "III AIDS-A", "III AIDS-B",
+    "IV AIDS-A", "IV AIDS-B",
+  ],
+  "Information Technology(IT)": [
+    "I IT", "II IT", "III IT", "IV IT",
+  ],
+};
 
 const HODUserManagement = () => {
   const navigate = useNavigate();
@@ -99,6 +105,10 @@ const HODUserManagement = () => {
   const [selectedStaff, setSelectedStaff] = useState<StaffUser | null>(null);
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [hodDepartment, setHodDepartment] = useState<string | null>(null);
+
+  // Get available branches based on HOD's department
+  const availableBranches = hodDepartment ? (BRANCHES_BY_DEPARTMENT[hodDepartment] || []) : [];
 
   useEffect(() => {
     checkHODAccess();
@@ -115,14 +125,18 @@ const HODUserManagement = () => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("panel_type")
+        .select("panel_type, department")
         .eq("id", user.id)
         .maybeSingle();
 
       if (profile?.panel_type !== "hod") {
         toast.error("Access denied. HOD privileges required.");
         navigate("/dashboard");
+        return;
       }
+
+      // Set HOD's department for filtering branches
+      setHodDepartment(profile.department || null);
     } catch (error) {
       console.error("Error checking HOD access:", error);
       navigate("/dashboard");
@@ -711,7 +725,7 @@ const HODUserManagement = () => {
           </DialogHeader>
           <ScrollArea className="h-[300px] pr-4">
             <div className="space-y-3">
-              {AVAILABLE_BRANCHES.map((branch) => (
+              {availableBranches.map((branch) => (
                 <div key={branch} className="flex items-center space-x-2">
                   <Checkbox
                     id={branch}
