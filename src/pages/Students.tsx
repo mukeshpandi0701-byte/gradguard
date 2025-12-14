@@ -37,6 +37,7 @@ const Students = () => {
   const [predicting, setPredicting] = useState(false);
   const [departments, setDepartments] = useState<string[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
 
   useEffect(() => {
     fetchStudents();
@@ -50,11 +51,27 @@ const Students = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Fetch students with their predictions in a single query
-      const { data: studentsData, error: studentsError } = await supabase
+      // Fetch staff's assigned branches
+      const { data: branchData } = await supabase
+        .from("staff_branch_assignments")
+        .select("branch")
+        .eq("staff_user_id", user.id);
+
+      const branches = (branchData || []).map(b => b.branch);
+      setAssignedBranches(branches);
+
+      // Fetch students - filter by assigned branches if staff has assignments
+      let studentsQuery = supabase
         .from("students")
         .select("*")
         .order('roll_number', { ascending: true, nullsFirst: false });
+
+      // If staff has assigned branches, filter students by those branches (stored in department field)
+      if (branches.length > 0) {
+        studentsQuery = studentsQuery.in("department", branches);
+      }
+
+      const { data: studentsData, error: studentsError } = await studentsQuery;
 
       if (studentsError) throw studentsError;
 

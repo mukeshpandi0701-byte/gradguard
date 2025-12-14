@@ -32,13 +32,32 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const { data: students } = await supabase
-        .from("students")
-        .select("id");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      const { data: predictions } = await supabase
-        .from("predictions")
-        .select("final_risk_level");
+      // Fetch staff's assigned branches
+      const { data: branchData } = await supabase
+        .from("staff_branch_assignments")
+        .select("branch")
+        .eq("staff_user_id", user.id);
+
+      const branches = (branchData || []).map(b => b.branch);
+
+      // Fetch students - filter by assigned branches if staff has assignments
+      let studentsQuery = supabase.from("students").select("id, department");
+      if (branches.length > 0) {
+        studentsQuery = studentsQuery.in("department", branches);
+      }
+      const { data: students } = await studentsQuery;
+
+      const studentIds = (students || []).map(s => s.id);
+
+      // Fetch predictions only for filtered students
+      let predictionsQuery = supabase.from("predictions").select("student_id, final_risk_level");
+      if (studentIds.length > 0) {
+        predictionsQuery = predictionsQuery.in("student_id", studentIds);
+      }
+      const { data: predictions } = await predictionsQuery;
 
       setStats({
         totalStudents: students?.length || 0,
