@@ -668,92 +668,101 @@ const HODUserManagement = () => {
             </TabsContent>
 
             <TabsContent value="students">
-              <div className="space-y-4">
-                {loading ? (
-                  <Card className="glass-card">
-                    <CardContent className="py-8">
-                      <div className="text-center text-muted-foreground">Loading...</div>
-                    </CardContent>
-                  </Card>
-                ) : Object.keys(studentsByBranch).length === 0 ? (
-                  <Card className="glass-card">
-                    <CardContent className="py-8">
-                      <div className="text-center text-muted-foreground">
-                        <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p>No students registered</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  Object.entries(studentsByBranch)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([branch, students]) => (
-                      <Card key={branch} className="glass-card">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <GitBranch className="w-5 h-5" />
-                            {branch}
-                            <Badge variant="secondary" className="ml-2">{students.length} students</Badge>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Roll Number</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Department</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {students.map((student) => (
-                                <TableRow key={student.id}>
-                                  <TableCell className="font-medium">{student.roll_number}</TableCell>
-                                  <TableCell>{student.full_name}</TableCell>
-                                  <TableCell>{student.email}</TableCell>
-                                  <TableCell>{student.department}</TableCell>
-                                  <TableCell>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          disabled={actionLoading === student.user_id}
-                                        >
-                                          <Trash2 className="w-4 h-4 mr-1" />
-                                          Remove
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Remove Student?</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Are you sure you want to remove {student.full_name}? This action cannot be undone.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            onClick={() => handleRemoveStudent(student.user_id)}
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                          >
-                                            Remove
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  </TableCell>
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle>Students by Branch</CardTitle>
+                  <CardDescription>View and manage students organized by their branch</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                  ) : Object.keys(studentsByBranch).length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No students registered</p>
+                    </div>
+                  ) : (
+                    <Tabs defaultValue={Object.keys(studentsByBranch).sort()[0]} className="space-y-4">
+                      <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+                        {Object.entries(studentsByBranch)
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([branch, students]) => (
+                            <TabsTrigger
+                              key={branch}
+                              value={branch}
+                              className="flex items-center gap-2 data-[state=active]:bg-background"
+                            >
+                              <GitBranch className="w-3 h-3" />
+                              {branch}
+                              <Badge variant="secondary" className="ml-1 text-xs">
+                                {students.length}
+                              </Badge>
+                            </TabsTrigger>
+                          ))}
+                      </TabsList>
+
+                      {Object.entries(studentsByBranch)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([branch, students]) => (
+                          <TabsContent key={branch} value={branch}>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Roll Number</TableHead>
+                                  <TableHead>Name</TableHead>
+                                  <TableHead>Email</TableHead>
+                                  <TableHead>Department</TableHead>
+                                  <TableHead>Actions</TableHead>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </CardContent>
-                      </Card>
-                    ))
-                )}
-              </div>
+                              </TableHeader>
+                              <TableBody>
+                                {students.map((student) => (
+                                  <TableRow key={student.id}>
+                                    <TableCell className="font-medium">{student.roll_number}</TableCell>
+                                    <TableCell>{student.full_name}</TableCell>
+                                    <TableCell>{student.email}</TableCell>
+                                    <TableCell>{student.department}</TableCell>
+                                    <TableCell>
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            disabled={actionLoading === student.user_id}
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-1" />
+                                            Remove
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Remove Student?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Are you sure you want to remove {student.full_name}? This action cannot be undone.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() => handleRemoveStudent(student.user_id)}
+                                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                              Remove
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TabsContent>
+                        ))}
+                    </Tabs>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
