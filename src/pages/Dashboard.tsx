@@ -43,12 +43,16 @@ const Dashboard = () => {
 
       const branches = (branchData || []).map(b => b.branch);
 
-      // Fetch students - filter by assigned branches if staff has assignments
-      let studentsQuery = supabase.from("students").select("id, department");
-      if (branches.length > 0) {
-        studentsQuery = studentsQuery.in("department", branches);
+      if (branches.length === 0) {
+        setStats({ totalStudents: 0, lowRisk: 0, mediumRisk: 0, highRisk: 0 });
+        return;
       }
-      const { data: students } = await studentsQuery;
+
+      // Fetch students from student_profiles filtered by assigned branches
+      const { data: students } = await supabase
+        .from("student_profiles")
+        .select("id, branch")
+        .in("branch", branches);
 
       const studentIds = (students || []).map(s => s.id);
 
