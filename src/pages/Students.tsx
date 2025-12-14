@@ -38,12 +38,53 @@ const Students = () => {
   const [departments, setDepartments] = useState<string[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
+  const [isHOD, setIsHOD] = useState(false);
+  const [roleChecked, setRoleChecked] = useState(false);
 
   useEffect(() => {
-    fetchStudents();
-    // Initialize model in background (non-blocking)
-    initializeModel().catch(console.error);
+    checkUserRole();
   }, []);
+
+  useEffect(() => {
+    if (!roleChecked) return;
+    
+    if (!isHOD) {
+      // Initialize model in background only for staff (non-blocking)
+      initializeModel().catch(console.error);
+    }
+    fetchStudents();
+  }, [roleChecked, isHOD]);
+
+  const checkUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "hod")
+          .maybeSingle();
+        
+        if (roleData) {
+          setIsHOD(true);
+          setRoleChecked(true);
+          return;
+        }
+        
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("panel_type")
+          .eq("id", user.id)
+          .maybeSingle();
+        setIsHOD(profile?.panel_type === "hod");
+      }
+      setRoleChecked(true);
+    } catch (error) {
+      console.error("Error checking user role:", error);
+      setRoleChecked(true);
+    }
+  };
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -51,55 +92,94 @@ const Students = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Fetch staff's assigned branches
-      const { data: branchData } = await supabase
-        .from("staff_branch_assignments")
-        .select("branch")
-        .eq("staff_user_id", user.id);
-
-      const branches = (branchData || []).map(b => b.branch);
-      setAssignedBranches(branches);
-
-      // Fetch students - filter by assigned branches if staff has assignments
-      let studentsQuery = supabase
-        .from("students")
-        .select("*")
-        .order('roll_number', { ascending: true, nullsFirst: false });
-
-      // If staff has assigned branches, filter students by those branches (stored in department field)
-      if (branches.length > 0) {
-        studentsQuery = studentsQuery.in("department", branches);
-      }
-
-      const { data: studentsData, error: studentsError } = await studentsQuery;
-
-      if (studentsError) throw studentsError;
-
-      // Fetch all predictions for this user
-      const { data: predictionsData, error: predictionsError } = await supabase
-        .from("predictions")
-        .select("student_id, ml_probability, final_risk_level")
-        .eq("user_id", user.id);
-
-      if (predictionsError) throw predictionsError;
-
-      // Create a map of predictions by student_id
-      const predictionsMap = new Map(
-        (predictionsData || []).map(p => [p.student_id, p])
-      );
-
-      // Merge students with their predictions
-      const studentsWithPredictions = (studentsData || []).map(student => ({
-        ...student,
-        riskLevel: predictionsMap.get(student.id)?.final_risk_level,
-        mlProbability: predictionsMap.get(student.id)?.ml_probability,
-      }));
-
-      setStudents(studentsWithPredictions);
+      // Check if HOD - if so, fetch from student_profiles (logged-in students)
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "hod")
+        .maybeSingle();
       
-      // Extract unique departments
-      const uniqueDepts = Array.from(new Set(studentsWithPredictions.map(s => s.department).filter(Boolean))) as string[];
-      setDepartments(uniqueDepts);
+      const userIsHOD = !!roleData;
+
+      if (userIsHOD) {
+        // HOD: Fetch all logged-in students from student_profiles
+        const { data: studentProfiles, error: profilesError } = await supabase
+          .from("student_profiles")
+          .select("*")
+          .order('roll_number', { ascending: true, nullsFirst: false });
+
+        if (profilesError) throw profilesError;
+
+        // Map student_profiles to Student type for display
+        const studentsFromProfiles = (studentProfiles || []).map(sp => ({
+          id: sp.id,
+          student_name: sp.full_name || sp.email,
+          roll_number: sp.roll_number,
+          email: sp.email,
+          department: sp.branch || sp.department,
+          attendance_percentage: 0,
+          fee_paid_percentage: 0,
+          pending_fees: 0,
+          internal_marks: 0,
+          riskLevel: undefined,
+          mlProbability: undefined,
+        }));
+
+        setStudents(studentsFromProfiles);
+        
+        // Extract unique departments/branches
+        const uniqueDepts = Array.from(new Set(studentsFromProfiles.map(s => s.department).filter(Boolean))) as string[];
+        setDepartments(uniqueDepts);
+      } else {
+        // Staff: Fetch from students table, filtered by assigned branches
+        const { data: branchData } = await supabase
+          .from("staff_branch_assignments")
+          .select("branch")
+          .eq("staff_user_id", user.id);
+
+        const branches = (branchData || []).map(b => b.branch);
+        setAssignedBranches(branches);
+
+        let studentsQuery = supabase
+          .from("students")
+          .select("*")
+          .order('roll_number', { ascending: true, nullsFirst: false });
+
+        if (branches.length > 0) {
+          studentsQuery = studentsQuery.in("department", branches);
+        }
+
+        const { data: studentsData, error: studentsError } = await studentsQuery;
+
+        if (studentsError) throw studentsError;
+
+        // Fetch all predictions for this user
+        const { data: predictionsData, error: predictionsError } = await supabase
+          .from("predictions")
+          .select("student_id, ml_probability, final_risk_level")
+          .eq("user_id", user.id);
+
+        if (predictionsError) throw predictionsError;
+
+        // Create a map of predictions by student_id
+        const predictionsMap = new Map(
+          (predictionsData || []).map(p => [p.student_id, p])
+        );
+
+        // Merge students with their predictions
+        const studentsWithPredictions = (studentsData || []).map(student => ({
+          ...student,
+          riskLevel: predictionsMap.get(student.id)?.final_risk_level,
+          mlProbability: predictionsMap.get(student.id)?.ml_probability,
+        }));
+
+        setStudents(studentsWithPredictions);
+        
+        // Extract unique departments
+        const uniqueDepts = Array.from(new Set(studentsWithPredictions.map(s => s.department).filter(Boolean))) as string[];
+        setDepartments(uniqueDepts);
+      }
     } catch (error: any) {
       toast.error("Failed to fetch students");
       console.error(error);
@@ -240,19 +320,24 @@ const Students = () => {
       <div className="space-y-4 w-full">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold">Student Analysis</h2>
+            <h2 className="text-3xl font-bold">{isHOD ? "Student Monitoring" : "Student Analysis"}</h2>
             <p className="text-muted-foreground mt-2">
-              View and analyze student dropout risk predictions
+              {isHOD 
+                ? "View logged-in students from your department" 
+                : "View and analyze student dropout risk predictions"
+              }
             </p>
           </div>
-          <Button
-            onClick={runPredictions}
-            disabled={predicting || students.length === 0}
-            className="gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${predicting ? 'animate-spin' : ''}`} />
-            {predicting ? "Running..." : "Run Predictions"}
-          </Button>
+          {!isHOD && (
+            <Button
+              onClick={runPredictions}
+              disabled={predicting || students.length === 0}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${predicting ? 'animate-spin' : ''}`} />
+              {predicting ? "Running..." : "Run Predictions"}
+            </Button>
+          )}
         </div>
 
         {students.length === 0 ? (
@@ -261,11 +346,16 @@ const Students = () => {
               <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Students Found</h3>
               <p className="text-muted-foreground text-center mb-4">
-                Upload student data to get started with dropout predictions
+                {isHOD 
+                  ? "No students have logged in to the system yet"
+                  : "Upload student data to get started with dropout predictions"
+                }
               </p>
-              <Button onClick={() => navigate("/upload")}>
-                Upload Student Data
-              </Button>
+              {!isHOD && (
+                <Button onClick={() => navigate("/upload")}>
+                  Upload Student Data
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
