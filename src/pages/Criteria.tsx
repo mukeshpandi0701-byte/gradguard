@@ -33,7 +33,7 @@ const Criteria = () => {
     max_internal_marks: 100,
     total_fees: 100000,
     total_hours: 100,
-    max_sessions_per_day: 2,
+    max_sessions_per_day: 7,
     attendance_weightage: 0.4,
     internal_weightage: 0.3,
     fees_weightage: 0.3,
