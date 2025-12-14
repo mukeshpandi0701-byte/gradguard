@@ -34,7 +34,7 @@ const Attendance = () => {
   const [saving, setSaving] = useState(false);
   const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
-  const [maxSessionsPerDay, setMaxSessionsPerDay] = useState<number>(2);
+  const [maxSessionsPerDay, setMaxSessionsPerDay] = useState<number>(7);
 
   const weekDates = DAYS.map((_, index) => addDays(weekStart, index));
 
