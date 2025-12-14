@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Save, Building2, GraduationCap, Users } from "lucide-react";
+import { Save, Building2, GraduationCap, Users, GitBranch } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface Profile {
@@ -24,13 +25,13 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isHOD, setIsHOD] = useState(false);
+  const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
     phone_number: "",
     college: "",
     department: "",
-    branch: "",
   });
 
   useEffect(() => {
@@ -71,8 +72,19 @@ const Profile = () => {
           phone_number: data.phone_number || "",
           college: data.college || "",
           department: data.department || "",
-          branch: data.branch || "",
         });
+
+        // Fetch assigned branches for staff
+        if (!isHodByEmail && !roleData) {
+          const { data: branchData } = await supabase
+            .from("staff_branch_assignments")
+            .select("branch")
+            .eq("staff_user_id", user.id);
+          
+          if (branchData) {
+            setAssignedBranches(branchData.map(b => b.branch));
+          }
+        }
       } else {
         // Profile might not exist yet, set email from auth
         setFormData(prev => ({
@@ -100,7 +112,6 @@ const Profile = () => {
           phone_number: formData.phone_number,
           college: formData.college,
           department: formData.department,
-          branch: formData.branch,
         })
         .eq("id", profile.id);
 
@@ -212,13 +223,23 @@ const Profile = () => {
 
               {!isHOD && (
                 <div className="space-y-2">
-                  <Label htmlFor="branch">Branch</Label>
-                  <Input
-                    id="branch"
-                    value={formData.branch}
-                    onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                    placeholder="Enter your branch"
-                  />
+                  <Label htmlFor="branch" className="flex items-center gap-2">
+                    <GitBranch className="w-4 h-4" />
+                    Assigned Branches
+                  </Label>
+                  {assignedBranches.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
+                      {assignedBranches.map((branch) => (
+                        <Badge key={branch} variant="secondary">
+                          {branch}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                      No branches assigned yet. Contact your HOD for branch assignment.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
