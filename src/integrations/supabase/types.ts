@@ -384,6 +384,51 @@ export type Database = {
           },
         ]
       }
+      student_profiles: {
+        Row: {
+          branch: string | null
+          college: string | null
+          created_at: string
+          department: string | null
+          email: string
+          full_name: string | null
+          id: string
+          phone_number: string | null
+          roll_number: string | null
+          updated_at: string
+          user_id: string
+          year: string | null
+        }
+        Insert: {
+          branch?: string | null
+          college?: string | null
+          created_at?: string
+          department?: string | null
+          email: string
+          full_name?: string | null
+          id?: string
+          phone_number?: string | null
+          roll_number?: string | null
+          updated_at?: string
+          user_id: string
+          year?: string | null
+        }
+        Update: {
+          branch?: string | null
+          college?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          phone_number?: string | null
+          roll_number?: string | null
+          updated_at?: string
+          user_id?: string
+          year?: string | null
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           attendance_percentage: number | null
