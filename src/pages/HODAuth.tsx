@@ -87,7 +87,6 @@ const HODAuth = () => {
         options: {
           data: {
             full_name: fullName,
-            role: "hod",
             panel_type: "hod",
             college,
             department,
