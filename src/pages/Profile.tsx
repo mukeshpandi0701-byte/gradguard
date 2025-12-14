@@ -20,12 +20,18 @@ interface Profile {
   panel_type: string | null;
 }
 
+interface BranchWithCount {
+  branch: string;
+  studentCount: number;
+}
+
 const Profile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isHOD, setIsHOD] = useState(false);
-  const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
+  const [assignedBranches, setAssignedBranches] = useState<BranchWithCount[]>([]);
+  const [totalStudentCount, setTotalStudentCount] = useState(0);
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -74,16 +80,34 @@ const Profile = () => {
           department: data.department || "",
         });
 
-        // Fetch assigned branches for staff
+        // Fetch assigned branches for staff with student counts
         if (!isHodByEmail && !roleData) {
           const { data: branchData } = await supabase
             .from("staff_branch_assignments")
             .select("branch")
             .eq("staff_user_id", user.id);
           
-          if (branchData) {
-            setAssignedBranches(branchData.map(b => b.branch));
+          if (branchData && branchData.length > 0) {
+            const branchesWithCounts: BranchWithCount[] = await Promise.all(
+              branchData.map(async (b) => {
+                const { count } = await supabase
+                  .from("student_profiles")
+                  .select("*", { count: "exact", head: true })
+                  .eq("branch", b.branch);
+                return { branch: b.branch, studentCount: count || 0 };
+              })
+            );
+            setAssignedBranches(branchesWithCounts);
           }
+        }
+
+        // Fetch total student count for HOD
+        if (isHodByEmail || roleData) {
+          const { count } = await supabase
+            .from("student_profiles")
+            .select("*", { count: "exact", head: true })
+            .eq("department", data.department);
+          setTotalStudentCount(count || 0);
         }
       } else {
         // Profile might not exist yet, set email from auth
@@ -221,18 +245,41 @@ const Profile = () => {
                 />
               </div>
 
+              {isHOD && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Department Statistics
+                  </Label>
+                  <div className="p-4 bg-muted rounded-md">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-primary/10 rounded-lg">
+                        <Users className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{totalStudentCount}</p>
+                        <p className="text-sm text-muted-foreground">Total Students in Department</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {!isHOD && (
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="branch" className="flex items-center gap-2">
                     <GitBranch className="w-4 h-4" />
                     Assigned Branches
                   </Label>
                   {assignedBranches.length > 0 ? (
-                    <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
-                      {assignedBranches.map((branch) => (
-                        <Badge key={branch} variant="secondary">
-                          {branch}
-                        </Badge>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {assignedBranches.map((item) => (
+                        <div key={item.branch} className="p-3 bg-muted rounded-md flex items-center justify-between">
+                          <Badge variant="secondary">{item.branch}</Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {item.studentCount} student{item.studentCount !== 1 ? "s" : ""}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   ) : (
