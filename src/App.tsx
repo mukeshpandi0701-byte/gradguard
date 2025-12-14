@@ -13,6 +13,8 @@ import AuthSelector from "./pages/AuthSelector";
 import StaffAuth from "./pages/StaffAuth";
 import StudentAuth from "./pages/StudentAuth";
 import HODAuth from "./pages/HODAuth";
+import PendingApproval from "./pages/PendingApproval";
+import HODUserManagement from "./pages/HODUserManagement";
 import StudentDashboard from "./pages/StudentDashboard";
 import Dashboard from "./pages/Dashboard";
 import Upload from "./pages/Upload";
@@ -44,6 +46,8 @@ function AnimatedRoutes() {
         <Route path="/auth/staff" element={<StaffAuth />} />
         <Route path="/auth/student" element={<StudentAuth />} />
         <Route path="/auth/hod" element={<HODAuth />} />
+        <Route path="/pending-approval" element={<PendingApproval />} />
+        <Route path="/hod/user-management" element={<HODUserManagement />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/upload" element={<Upload />} />

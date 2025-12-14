@@ -98,7 +98,7 @@ const HODAuth = () => {
 
       if (error) throw error;
 
-      toast.success("Account created! You can now login.");
+      toast.success("Account created! Your account is pending approval. Please wait for an administrator to approve your access.");
     } catch (error: any) {
       toast.error(error.message || "Failed to create account");
     } finally {
