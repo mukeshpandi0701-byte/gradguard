@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import AuthSelector from "./pages/AuthSelector";
 import StaffAuth from "./pages/StaffAuth";
 import StudentAuth from "./pages/StudentAuth";
+import HODAuth from "./pages/HODAuth";
 import StudentDashboard from "./pages/StudentDashboard";
 import Dashboard from "./pages/Dashboard";
 import Upload from "./pages/Upload";
@@ -42,6 +43,7 @@ function AnimatedRoutes() {
         <Route path="/auth" element={<AuthSelector />} />
         <Route path="/auth/staff" element={<StaffAuth />} />
         <Route path="/auth/student" element={<StudentAuth />} />
+        <Route path="/auth/hod" element={<HODAuth />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/upload" element={<Upload />} />
