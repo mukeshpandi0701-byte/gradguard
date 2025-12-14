@@ -19,7 +19,7 @@ const Index = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col">
+    <div className="h-screen relative overflow-hidden flex flex-col">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -36,9 +36,9 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="flex-1 flex items-center justify-center pt-20 pb-20 px-6">
+      <section className="flex-1 flex items-center justify-center pt-16 pb-16 px-6">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center space-y-8">
+          <div className="text-center space-y-6">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm">
               <Shield className="w-4 h-4 text-primary" />
@@ -59,7 +59,7 @@ const Index = () => {
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <Button 
                 size="lg" 
                 onClick={() => navigate("/auth")}
@@ -71,7 +71,7 @@ const Index = () => {
             </div>
 
             {/* Trust Indicators */}
-            <div className="flex items-center justify-center gap-8 pt-12 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-8 pt-8 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-success" />
                 <span>Secure & Private</span>
@@ -90,19 +90,11 @@ const Index = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 py-12 px-6 bg-muted/30">
+      <footer className="border-t border-border/50 py-4 px-6 bg-muted/30">
         <div className="container mx-auto max-w-6xl">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary p-1.5">
-                <img src={logo} alt="GradGuard" className="w-full h-full object-contain" />
-              </div>
-              <span className="font-display font-semibold text-foreground">GradGuard</span>
-            </div>
-            <p className="text-sm text-muted-foreground text-center">
-              © 2025 GradGuard. Protecting Student Success.
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            © 2025 GradGuard. Protecting Student Success.
+          </p>
         </div>
       </footer>
     </div>
