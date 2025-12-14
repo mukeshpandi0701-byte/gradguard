@@ -238,12 +238,12 @@ const Criteria = () => {
                   id="maxSessionsPerDay"
                   type="number"
                   value={criteria.max_sessions_per_day}
-                  onChange={(e) => setCriteria({ ...criteria, max_sessions_per_day: Number(e.target.value) })}
+                  onChange={(e) => setCriteria({ ...criteria, max_sessions_per_day: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })}
                   min={1}
                   max={10}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Maximum number of sessions that can be attended per day (e.g., 2 for morning + afternoon)
+                  Maximum number of class sessions per day (1-10). Attendance % is calculated as attended/total sessions.
                 </p>
               </div>
             </CardContent>
