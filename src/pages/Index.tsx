@@ -24,7 +24,7 @@ const Index = () => {
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary p-2 shadow-glow">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary p-2">
               <img src={logo} alt="GradGuard" className="w-full h-full object-contain" />
             </div>
             <span className="text-xl font-display font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
