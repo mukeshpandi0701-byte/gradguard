@@ -134,7 +134,9 @@ const Attendance = () => {
   const getSessionCount = (studentId: string, date: Date): number => {
     const dateStr = format(date, "yyyy-MM-dd");
     const key: AttendanceKey = `${studentId}_${dateStr}`;
-    return attendance.get(key) ?? maxSessionsPerDay;
+    const value = attendance.get(key) ?? maxSessionsPerDay;
+    // Cap at maxSessionsPerDay to prevent exceeding 100%
+    return Math.min(value, maxSessionsPerDay);
   };
 
   const markAllFull = () => {
@@ -178,12 +180,14 @@ const Attendance = () => {
       const sessions = getSessionCount(student.id, date);
       if (sessions >= 0) {
         daysWithInput++;
-        attendedSessions += sessions;
+        // Cap sessions at maxSessionsPerDay
+        attendedSessions += Math.min(sessions, maxSessionsPerDay);
         totalSessions += maxSessionsPerDay;
       }
     });
 
-    const percentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
+    // Cap percentage at 100%
+    const percentage = totalSessions > 0 ? Math.min(100, (attendedSessions / totalSessions) * 100) : 0;
     return { attendedSessions, totalSessions, percentage, daysWithInput };
   };
 
