@@ -168,15 +168,6 @@ const Profile = () => {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone_number">Phone Number</Label>
-                <Input
-                  id="phone_number"
-                  value={formData.phone_number}
-                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                  placeholder="Enter your phone number"
-                />
-              </div>
             </div>
           </CardContent>
         </Card>
