@@ -108,6 +108,7 @@ const HODUserManagement = () => {
         .from("user_approvals")
         .select("*")
         .eq("status", "pending")
+        .eq("role", "staff") // HODs can only see staff pending approvals
         .order("created_at", { ascending: false });
 
       if (error) throw error;
