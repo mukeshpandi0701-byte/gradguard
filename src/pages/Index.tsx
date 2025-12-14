@@ -13,7 +13,12 @@ const Index = () => {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/dashboard");
+        const panelType = session.user.user_metadata?.panel_type;
+        if (panelType === "student") {
+          navigate("/student-dashboard");
+        } else {
+          navigate("/dashboard");
+        }
       }
     });
   }, [navigate]);

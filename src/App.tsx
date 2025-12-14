@@ -9,7 +9,10 @@ import { FloatingOrbs } from "@/components/FloatingOrbs";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Auth from "./pages/Auth";
+import AuthSelector from "./pages/AuthSelector";
+import StaffAuth from "./pages/StaffAuth";
+import StudentAuth from "./pages/StudentAuth";
+import StudentDashboard from "./pages/StudentDashboard";
 import Dashboard from "./pages/Dashboard";
 import Upload from "./pages/Upload";
 import Attendance from "./pages/Attendance";
@@ -36,7 +39,10 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
+        <Route path="/auth" element={<AuthSelector />} />
+        <Route path="/auth/staff" element={<StaffAuth />} />
+        <Route path="/auth/student" element={<StudentAuth />} />
+        <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/upload" element={<Upload />} />
         <Route path="/attendance" element={<Attendance />} />
