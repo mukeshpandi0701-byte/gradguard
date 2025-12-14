@@ -29,14 +29,16 @@ const mainItems = [
   { title: "Students", url: "/students", icon: Users },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },
-  { title: "Send Notifications", url: "/notifications", icon: Bell },
 ];
 
 const settingsItems = [
+  { title: "Profile", url: "/profile", icon: Settings },
+  { title: "Download History", url: "/history", icon: HistoryIcon },
+];
+
+const hodSettingsItems = [
   { title: "Dropout Criteria", url: "/criteria", icon: FileText },
   { title: "Profile", url: "/profile", icon: Settings },
-  { title: "Notification Settings", url: "/notification-settings", icon: Bell },
-  { title: "Download History", url: "/history", icon: HistoryIcon },
 ];
 
 const hodItems = [
@@ -241,7 +243,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Settings</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {settingsItems.map((item) => (
+              {(isHOD ? hodSettingsItems : settingsItems).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
