@@ -61,14 +61,14 @@ export function AppSidebar() {
       await fetchStudents();
       setIsLoading(false);
     };
-    init();
+    void init();
   }, []);
 
   const checkHODStatus = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Check user_roles table for HOD role
+        // Primary check: user_roles table for HOD role
         const { data: roleData } = await supabase
           .from("user_roles")
           .select("role")
@@ -87,7 +87,19 @@ export function AppSidebar() {
           .select("panel_type")
           .eq("id", user.id)
           .maybeSingle();
-        setIsHOD(profile?.panel_type === "hod");
+
+        if (profile?.panel_type === "hod") {
+          setIsHOD(true);
+          return;
+        }
+
+        // Final fallback: email domain pattern for HOD accounts
+        if (user.email?.endsWith("@cietcbe.hod.edu.in")) {
+          setIsHOD(true);
+          return;
+        }
+
+        setIsHOD(false);
       } else {
         setIsHOD(false);
       }
@@ -113,6 +125,12 @@ export function AppSidebar() {
 
   const fetchStudents = async () => {
     try {
+      const { data: sessionData } = await supabase.auth.getUser();
+      const currentUser = sessionData.user;
+
+      // If we can't determine user, skip fetching students
+      if (!currentUser) return;
+
       const { data, error } = await supabase
         .from("students")
         .select("id, student_name, roll_number")
