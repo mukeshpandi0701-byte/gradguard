@@ -1,77 +1,62 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Users, TrendingDown, Download } from "lucide-react";
+import { TrendingDown, Download, AlertCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-
 
 interface Student {
   id: string;
-  student_name: string;
+  full_name: string | null;
   roll_number: string | null;
-  department: string | null;
-  attended_hours: number;
-  total_hours: number;
-  attendance_percentage: number | null;
+  branch: string | null;
+  email: string;
 }
 
 const AttendanceReports = () => {
-  const [departments, setDepartments] = useState<string[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [students, setStudents] = useState<Student[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("all");
 
   useEffect(() => {
-    fetchDepartments();
+    fetchStudents();
   }, []);
 
-  useEffect(() => {
-    if (selectedDepartment) {
-      fetchStudentsByDepartment();
-    }
-  }, [selectedDepartment]);
-
-  const fetchDepartments = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { data, error } = await supabase
-        .from("students")
-        .select("department")
-        .eq("user_id", user.id)
-        .not("department", "is", null);
-
-      if (error) throw error;
-
-      const uniqueDepartments = Array.from(new Set(data.map(s => s.department).filter(Boolean))) as string[];
-      setDepartments(uniqueDepartments);
-    } catch (error: any) {
-      toast.error("Failed to load departments");
-      console.error(error);
-    }
-  };
-
-  const fetchStudentsByDepartment = async () => {
+  const fetchStudents = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase
-        .from("students")
-        .select("id, student_name, roll_number, department, attended_hours, total_hours, attendance_percentage")
-        .eq("user_id", user.id)
-        .eq("department", selectedDepartment)
-        .order("attendance_percentage", { ascending: true });
+      // Get assigned branches for staff
+      const { data: branchData } = await supabase
+        .from("staff_branch_assignments")
+        .select("branch")
+        .eq("staff_user_id", user.id);
+
+      const branches = (branchData || []).map(b => b.branch);
+      setAssignedBranches(branches);
+
+      if (branches.length === 0) {
+        setStudents([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch students from assigned branches
+      const { data: studentProfiles, error } = await supabase
+        .from("student_profiles")
+        .select("id, full_name, roll_number, branch, email")
+        .in("branch", branches)
+        .order("roll_number");
 
       if (error) throw error;
-      setStudents(data || []);
+      setStudents(studentProfiles || []);
     } catch (error: any) {
       toast.error("Failed to load students");
       console.error(error);
@@ -80,24 +65,21 @@ const AttendanceReports = () => {
     }
   };
 
-  // Calculate statistics
-  const totalStudents = students.length;
-  const averageAttendance = totalStudents > 0
-    ? (students.reduce((sum, s) => sum + (s.attendance_percentage || 0), 0) / totalStudents).toFixed(2)
-    : "0";
+  const filteredStudents = selectedBranch === "all" 
+    ? students 
+    : students.filter(s => s.branch === selectedBranch);
 
-  const below75 = students.filter(s => (s.attendance_percentage || 0) < 75).length;
-  const mostAbsentStudents = students.slice(0, 5);
+  // Calculate statistics (placeholder since we don't have attendance data in student_profiles)
+  const totalStudents = filteredStudents.length;
 
   const downloadAttendanceReport = () => {
     const csvContent = [
-      ["Roll No.", "Name", "Total Hours", "Attended Hours", "Attendance %"],
-      ...students.map(student => [
+      ["Roll No.", "Name", "Branch", "Email"],
+      ...filteredStudents.map(student => [
         student.roll_number || "—",
-        student.student_name,
-        student.total_hours,
-        student.attended_hours,
-        (student.attendance_percentage || 0).toFixed(2) + "%"
+        student.full_name || student.email,
+        student.branch || "—",
+        student.email
       ])
     ].map(row => row.join(",")).join("\n");
 
@@ -105,155 +87,141 @@ const AttendanceReports = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${selectedDepartment}_Attendance_Report_${new Date().toLocaleDateString()}.csv`;
+    link.download = `${selectedBranch === "all" ? "All_Branches" : selectedBranch}_Students_${new Date().toLocaleDateString()}.csv`;
     link.click();
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6 w-full">
-        <div>
-          <h2 className="text-3xl font-bold">Attendance Reports</h2>
-          <p className="text-muted-foreground mt-2">
-            View attendance trends and statistics
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold">Attendance Reports</h2>
+            <p className="text-muted-foreground mt-2">
+              View attendance trends and statistics
+            </p>
+          </div>
+          <Button 
+            onClick={downloadAttendanceReport}
+            disabled={filteredStudents.length === 0}
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download Report
+          </Button>
         </div>
 
-        {/* Department Selection */}
-        <Card className="shadow-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Select Department
-            </CardTitle>
-            <CardDescription>
-              Choose a department to view attendance reports
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4 items-end">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="department-select">Department/Class</Label>
-                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                  <SelectTrigger id="department-select" className="bg-background">
-                    <SelectValue placeholder="Select a department..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    {departments.length === 0 ? (
-                      <SelectItem value="empty" disabled>No departments found</SelectItem>
-                    ) : (
-                      departments.map(dept => (
-                        <SelectItem key={dept} value={dept}>
-                          {dept}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button 
-                onClick={downloadAttendanceReport}
-                disabled={!selectedDepartment || students.length === 0}
-                className="gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Download Report
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {selectedDepartment && !loading && (
+        {assignedBranches.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Branches Assigned</h3>
+              <p className="text-muted-foreground text-center">
+                Contact your HOD to get branch assignments
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
           <>
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="shadow-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">Total Students</CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <div className="text-2xl font-bold">{totalStudents}</div>
-                </CardContent>
-              </Card>
+            <Tabs value={selectedBranch} onValueChange={setSelectedBranch}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="all">
+                  All ({students.length})
+                </TabsTrigger>
+                {assignedBranches.map(branch => (
+                  <TabsTrigger key={branch} value={branch}>
+                    {branch} ({students.filter(s => s.branch === branch).length})
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-              <Card className="shadow-card border-l-4 border-l-primary">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">Average Attendance</CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <div className="text-2xl font-bold text-primary">{averageAttendance}%</div>
-                </CardContent>
-              </Card>
+              <TabsContent value={selectedBranch}>
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <Card className="shadow-card">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium text-muted-foreground">Total Students</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                      <div className="text-2xl font-bold">{totalStudents}</div>
+                    </CardContent>
+                  </Card>
 
-              <Card className="shadow-card border-l-4 border-l-warning">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">Below 75%</CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <div className="text-2xl font-bold text-warning">{below75}</div>
-                </CardContent>
-              </Card>
+                  <Card className="shadow-card border-l-4 border-l-primary">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium text-muted-foreground">Selected Branch</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                      <div className="text-lg font-bold text-primary">
+                        {selectedBranch === "all" ? "All Branches" : selectedBranch}
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card className="shadow-card border-l-4 border-l-success">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">Above 75%</CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <div className="text-2xl font-bold text-success">{totalStudents - below75}</div>
-                </CardContent>
-              </Card>
-            </div>
+                  <Card className="shadow-card border-l-4 border-l-success">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium text-muted-foreground">Assigned Branches</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                      <div className="text-2xl font-bold text-success">{assignedBranches.length}</div>
+                    </CardContent>
+                  </Card>
+                </div>
 
-            {/* Most Absent Students */}
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingDown className="w-5 h-5" />
-                  Most Absent Students
-                </CardTitle>
-                <CardDescription>
-                  Top 5 students with lowest attendance
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {mostAbsentStudents.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">No data available</div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Rank</TableHead>
-                        <TableHead>Roll No</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Attended</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Percentage</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mostAbsentStudents.map((student, index) => (
-                        <TableRow key={student.id}>
-                          <TableCell className="font-medium">{index + 1}</TableCell>
-                          <TableCell>{student.roll_number || "—"}</TableCell>
-                          <TableCell>{student.student_name}</TableCell>
-                          <TableCell>{student.attended_hours}</TableCell>
-                          <TableCell>{student.total_hours}</TableCell>
-                          <TableCell>
-                            <span className={
-                              (student.attendance_percentage || 0) < 50 ? "text-destructive font-bold" :
-                              (student.attendance_percentage || 0) < 75 ? "text-warning font-bold" :
-                              "text-success"
-                            }>
-                              {(student.attendance_percentage || 0).toFixed(2)}%
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
+                {/* Students List */}
+                <Card className="shadow-card">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingDown className="w-5 h-5" />
+                      Student List
+                    </CardTitle>
+                    <CardDescription>
+                      Students in your assigned branches
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {filteredStudents.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">No students found</div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>#</TableHead>
+                            <TableHead>Roll No</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Branch</TableHead>
+                            <TableHead>Email</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredStudents.map((student, index) => (
+                            <TableRow key={student.id}>
+                              <TableCell className="font-medium">{index + 1}</TableCell>
+                              <TableCell>{student.roll_number || "—"}</TableCell>
+                              <TableCell>{student.full_name || student.email}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{student.branch}</Badge>
+                              </TableCell>
+                              <TableCell>{student.email}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </div>
