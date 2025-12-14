@@ -187,16 +187,15 @@ const Attendance = () => {
     return { attendedSessions, totalSessions, percentage, daysWithInput };
   };
 
-  const overallStats = filteredStudents.reduce((acc, student) => {
-    const stats = calculateStudentAttendance(student);
-    return {
-      totalSessions: acc.totalSessions + stats.totalSessions,
-      attendedSessions: acc.attendedSessions + stats.attendedSessions,
-    };
-  }, { totalSessions: 0, attendedSessions: 0 });
+  // Calculate weekly total sessions (days × max sessions per day)
+  const weeklyTotalSessions = DAYS.length * maxSessionsPerDay;
 
-  const overallPercentage = overallStats.totalSessions > 0 
-    ? (overallStats.attendedSessions / overallStats.totalSessions) * 100 
+  // Calculate average attendance percentage across all students
+  const averageAttendance = filteredStudents.length > 0
+    ? filteredStudents.reduce((sum, student) => {
+        const stats = calculateStudentAttendance(student);
+        return sum + stats.percentage;
+      }, 0) / filteredStudents.length
     : 0;
 
   if (loading) {
@@ -275,17 +274,13 @@ const Attendance = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pb-3">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="text-center">
-                        <div className="text-xl font-bold">{overallStats.totalSessions}</div>
+                        <div className="text-xl font-bold">{weeklyTotalSessions}</div>
                         <div className="text-xs text-muted-foreground">Total Sessions</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xl font-bold text-success">{overallStats.attendedSessions}</div>
-                        <div className="text-xs text-muted-foreground">Attended</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xl font-bold text-primary">{overallPercentage.toFixed(1)}%</div>
+                        <div className="text-xl font-bold text-primary">{Math.min(100, averageAttendance).toFixed(1)}%</div>
                         <div className="text-xs text-muted-foreground">Avg. Attendance</div>
                       </div>
                     </div>
