@@ -1,4 +1,4 @@
-import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, History as HistoryIcon, ClipboardCheck } from "lucide-react";
+import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, History as HistoryIcon, ClipboardCheck, Shield } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,16 +39,38 @@ const settingsItems = [
   { title: "Download History", url: "/history", icon: HistoryIcon },
 ];
 
+const hodItems = [
+  { title: "User Management", url: "/hod/user-management", icon: Shield },
+];
+
 export function AppSidebar() {
   const { open } = useSidebar();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [students, setStudents] = useState<Array<{ id: string; student_name: string; roll_number: string | null }>>([]);
   const [filteredStudents, setFilteredStudents] = useState<Array<{ id: string; student_name: string; roll_number: string | null }>>([]);
+  const [isHOD, setIsHOD] = useState(false);
 
   useEffect(() => {
     fetchStudents();
+    checkHODStatus();
   }, []);
+
+  const checkHODStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("panel_type")
+          .eq("id", user.id)
+          .maybeSingle();
+        setIsHOD(profile?.panel_type === "hod");
+      }
+    } catch (error) {
+      console.error("Error checking HOD status:", error);
+    }
+  };
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -160,6 +182,30 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isHOD && (
+          <SidebarGroup>
+            <SidebarGroupLabel>HOD Management</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {hodItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        className="hover:bg-accent hover:text-accent-foreground"
+                        activeClassName="bg-accent text-accent-foreground font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel>Settings</SidebarGroupLabel>
