@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, Shield, ArrowRight, TrendingUp, Bell, FileCheck } from "lucide-react";
+import { Shield, ArrowRight, BarChart3, TrendingUp } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logo from "@/assets/logo.png";
 
@@ -18,47 +18,8 @@ const Index = () => {
     });
   }, [navigate]);
 
-  const features = [
-    {
-      icon: BarChart3,
-      title: "ML-Powered Analytics",
-      description: "Advanced machine learning models predict dropout risk with high accuracy",
-      gradient: "from-primary/10 to-primary/5"
-    },
-    {
-      icon: Users,
-      title: "Student Tracking",
-      description: "Monitor attendance, performance, and fees in one unified dashboard",
-      gradient: "from-secondary/10 to-secondary/5"
-    },
-    {
-      icon: Settings,
-      title: "Customizable Criteria",
-      description: "Configure thresholds and weightages to match your institution's needs",
-      gradient: "from-accent/10 to-accent/5"
-    },
-    {
-      icon: Bell,
-      title: "Smart Notifications",
-      description: "Automated alerts and personalized communication for at-risk students",
-      gradient: "from-warning/10 to-warning/5"
-    },
-    {
-      icon: TrendingUp,
-      title: "Trend Analysis",
-      description: "Track student progress over time with comprehensive historical data",
-      gradient: "from-success/10 to-success/5"
-    },
-    {
-      icon: FileCheck,
-      title: "Detailed Reports",
-      description: "Generate comprehensive PDF reports with insights and recommendations",
-      gradient: "from-primary/10 to-secondary/5"
-    }
-  ];
-
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden flex flex-col">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -75,7 +36,7 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
+      <section className="flex-1 flex items-center justify-center pt-20 pb-20 px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center space-y-8">
             {/* Badge */}
@@ -123,140 +84,6 @@ const Index = () => {
                 <TrendingUp className="w-4 h-4 text-success" />
                 <span>Proven Results</span>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 px-6 bg-gradient-to-b from-background to-muted/20">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16 space-y-4">
-            <h2 className="text-4xl md:text-5xl font-display font-bold">
-              Everything You Need to
-              <span className="block bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Protect Your Investment
-              </span>
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Comprehensive tools designed to identify, analyze, and intervene for at-risk students
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <div
-                  key={index}
-                  className="group p-8 rounded-2xl bg-card border border-border hover:border-primary/50 shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1"
-                >
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                    <Icon className="w-7 h-7 text-primary" />
-                  </div>
-                  <h3 className="text-xl font-display font-semibold mb-3 group-hover:text-primary transition-colors">
-                    {feature.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {feature.description}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="py-20 px-6 bg-gradient-to-b from-muted/20 to-background">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16 space-y-4">
-            <h2 className="text-4xl md:text-5xl font-display font-bold">
-              How It Works
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Transform your student retention strategy in four simple steps
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                step: "01",
-                title: "Upload Data",
-                description: "Import student records via CSV with attendance, performance, and fee information",
-                gradient: "from-primary to-primary/50"
-              },
-              {
-                step: "02",
-                title: "AI Analysis",
-                description: "Our ML engine analyzes patterns and predicts dropout risks with high accuracy",
-                gradient: "from-secondary to-secondary/50"
-              },
-              {
-                step: "03",
-                title: "Get Insights",
-                description: "View detailed risk assessments, trends, and AI-powered recommendations",
-                gradient: "from-accent to-accent/50"
-              },
-              {
-                step: "04",
-                title: "Take Action",
-                description: "Send targeted notifications and interventions to at-risk students",
-                gradient: "from-success to-success/50"
-              }
-            ].map((item, index) => (
-              <div
-                key={index}
-                className="relative group"
-              >
-                {/* Connector line (hidden on mobile) */}
-                {index < 3 && (
-                  <div className="hidden lg:block absolute top-16 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-border to-transparent" />
-                )}
-                
-                <div className="relative p-8 rounded-2xl bg-card border border-border hover:border-primary/50 shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-2">
-                  {/* Step Number */}
-                  <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br ${item.gradient} mb-6 shadow-lg`}>
-                    <span className="text-2xl font-display font-bold text-white">
-                      {item.step}
-                    </span>
-                  </div>
-                  
-                  <h3 className="text-xl font-display font-semibold mb-3 group-hover:text-primary transition-colors">
-                    {item.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {item.description}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto max-w-4xl">
-          <div className="relative rounded-3xl bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-12 md:p-16 text-center overflow-hidden border border-primary/30 shadow-glow">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-50" />
-            <div className="relative z-10 space-y-6">
-              <h2 className="text-3xl md:text-4xl font-display font-bold">
-                Ready to Transform Your
-                <span className="block text-primary">Student Success Strategy?</span>
-              </h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Join institutions using GradGuard to improve retention rates and student outcomes
-              </p>
-              <Button 
-                size="lg" 
-                onClick={() => navigate("/auth")}
-                className="text-lg px-8 py-6 shadow-glow hover:shadow-glow-strong"
-              >
-                Start Free Today
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
             </div>
           </div>
         </div>
