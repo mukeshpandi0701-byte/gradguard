@@ -144,14 +144,17 @@ const HODUserManagement = () => {
         .eq("id", user.id)
         .maybeSingle();
 
-      if (profile?.panel_type !== "hod") {
+      const isHodByProfile = profile?.panel_type === "hod";
+      const isHodByEmail = user.email?.endsWith("@cietcbe.hod.edu.in") ?? false;
+
+      if (!isHodByProfile && !isHodByEmail) {
         toast.error("Access denied. HOD privileges required.");
         navigate("/dashboard");
         return;
       }
 
-      // Set HOD's department for filtering branches
-      setHodDepartment(profile.department || null);
+      // Set HOD's department for filtering branches (may be null if profile missing)
+      setHodDepartment(profile?.department || null);
     } catch (error) {
       console.error("Error checking HOD access:", error);
       navigate("/dashboard");
