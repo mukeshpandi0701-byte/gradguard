@@ -5,25 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RefreshCw, AlertCircle, Trash2, User } from "lucide-react";
+import { RefreshCw, AlertCircle, User } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { initializeModel, predictDropout } from "@/lib/mlModel";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { AddStudentDialog } from "@/components/AddStudentDialog";
-import { AddClassDialog } from "@/components/AddClassDialog";
-import { BulkUploadDialog } from "@/components/BulkUploadDialog";
 
 type Student = {
   id: string;
@@ -202,23 +188,6 @@ const Students = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("students")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-
-      setStudents(students.filter(s => s.id !== id));
-      toast.success("Student deleted successfully");
-    } catch (error: any) {
-      toast.error("Failed to delete student");
-      console.error(error);
-    }
-  };
-
   const getRiskBadge = (level?: string) => {
     if (!level) return <Badge variant="secondary">No Data</Badge>;
     
@@ -259,21 +228,14 @@ const Students = () => {
               View and analyze student dropout risk predictions
             </p>
           </div>
-          <div className="flex gap-2">
-            <AddStudentDialog 
-              departments={departments} 
-              onStudentAdded={fetchStudents} 
-            />
-            <BulkUploadDialog onUploadComplete={fetchStudents} />
-            <Button
-              onClick={runPredictions}
-              disabled={predicting || students.length === 0}
-              className="gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${predicting ? 'animate-spin' : ''}`} />
-              {predicting ? "Running..." : "Run Predictions"}
-            </Button>
-          </div>
+          <Button
+            onClick={runPredictions}
+            disabled={predicting || students.length === 0}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${predicting ? 'animate-spin' : ''}`} />
+            {predicting ? "Running..." : "Run Predictions"}
+          </Button>
         </div>
 
         {students.length === 0 ? (
@@ -291,7 +253,7 @@ const Students = () => {
           </Card>
         ) : (
           <Tabs value={selectedDepartment} onValueChange={setSelectedDepartment}>
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4">
               <TabsList>
                 <TabsTrigger value="all">
                   All Departments ({students.length})
@@ -302,13 +264,6 @@ const Students = () => {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <AddClassDialog 
-                departments={departments} 
-                onClassAdded={(newClass) => {
-                  setDepartments([...departments, newClass]);
-                  toast.success(`Class "${newClass}" added. You can now assign students to it.`);
-                }} 
-              />
             </div>
             
             <TabsContent value={selectedDepartment}>
@@ -353,37 +308,11 @@ const Students = () => {
                           </TableCell>
                           <TableCell>{getRiskBadge(student.riskLevel)}</TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
-                              <Link to={`/students/${student.id}/profile`}>
-                                <Button variant="outline" size="sm" title="View Profile">
-                                  <User className="w-4 h-4" />
-                                </Button>
-                              </Link>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="outline" size="sm" title="Delete Student">
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Student</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete {student.student_name}? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDelete(student.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
+                            <Link to={`/students/${student.id}/profile`}>
+                              <Button variant="outline" size="sm" title="View Profile">
+                                <User className="w-4 h-4" />
+                              </Button>
+                            </Link>
                           </TableCell>
                         </TableRow>
                       ))}
