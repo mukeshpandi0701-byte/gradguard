@@ -16,6 +16,7 @@ interface Criteria {
   max_internal_marks: number;
   total_fees: number;
   total_hours: number;
+  max_sessions_per_day: number;
   attendance_weightage: number;
   internal_weightage: number;
   fees_weightage: number;
@@ -32,6 +33,7 @@ const Criteria = () => {
     max_internal_marks: 100,
     total_fees: 100000,
     total_hours: 100,
+    max_sessions_per_day: 2,
     attendance_weightage: 0.4,
     internal_weightage: 0.3,
     fees_weightage: 0.3,
@@ -61,6 +63,7 @@ const Criteria = () => {
           max_internal_marks: data.max_internal_marks,
           total_fees: data.total_fees,
           total_hours: data.total_hours,
+          max_sessions_per_day: (data as any).max_sessions_per_day ?? 2,
           attendance_weightage: data.attendance_weightage,
           internal_weightage: data.internal_weightage,
           fees_weightage: data.fees_weightage,
@@ -240,6 +243,21 @@ const Criteria = () => {
                 />
                 <p className="text-sm text-muted-foreground">
                   Total number of class sessions in the course
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="maxSessionsPerDay">Maximum Sessions Per Day</Label>
+                <Input
+                  id="maxSessionsPerDay"
+                  type="number"
+                  value={criteria.max_sessions_per_day}
+                  onChange={(e) => setCriteria({ ...criteria, max_sessions_per_day: Number(e.target.value) })}
+                  min={1}
+                  max={10}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Maximum number of sessions that can be attended per day (e.g., 2 for morning + afternoon)
                 </p>
               </div>
             </CardContent>
