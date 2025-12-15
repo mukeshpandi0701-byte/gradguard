@@ -8,8 +8,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Lock, AlertTriangle } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import SubjectManagement from "@/components/SubjectManagement";
 
 interface Criteria {
   min_attendance_percentage: number;
@@ -31,8 +29,6 @@ const Criteria = () => {
   const [isHOD, setIsHOD] = useState(false);
   const [hodName, setHodName] = useState<string | null>(null);
   const [hodCriteriaExists, setHodCriteriaExists] = useState(true);
-  const [userDepartment, setUserDepartment] = useState<string>("");
-  const [activeTab, setActiveTab] = useState("criteria");
   const [criteria, setCriteria] = useState<Criteria>({
     min_attendance_percentage: 75,
     min_internal_marks: 40,
@@ -74,9 +70,7 @@ const Criteria = () => {
           .eq("id", user.id)
           .maybeSingle();
         
-        if (hodProfile?.department) {
-          setUserDepartment(hodProfile.department);
-        }
+        // No need to fetch department for Subject Management (moved to separate page)
 
         // HOD fetches their own criteria
         const { data, error } = await supabase
@@ -219,11 +213,11 @@ const Criteria = () => {
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">
-            {isHOD ? "Department Settings" : "Dropout Criteria Settings"}
+            {isHOD ? "Dropout Criteria Settings" : "Dropout Criteria Settings"}
           </h1>
           <p className="text-muted-foreground">
             {isHOD 
-              ? "Configure dropout criteria and subject codes for your department"
+              ? "Configure dropout criteria for your department"
               : "View the criteria settings configured by your HOD"}
           </p>
           {!isHOD && hodCriteriaExists && hodName && (
@@ -241,17 +235,7 @@ const Criteria = () => {
         </div>
 
         {isHOD ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="criteria">Dropout Criteria</TabsTrigger>
-              <TabsTrigger value="subjects">Subject Codes</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="subjects" className="space-y-6">
-              {userDepartment && <SubjectManagement userDepartment={userDepartment} />}
-            </TabsContent>
-            
-            <TabsContent value="criteria" className="space-y-6">
+          <div className="space-y-6">
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -445,8 +429,7 @@ const Criteria = () => {
               </Button>
             </div>
           )}
-            </TabsContent>
-          </Tabs>
+          </div>
         ) : (
           <div className="space-y-6">
             <Card className="shadow-card">

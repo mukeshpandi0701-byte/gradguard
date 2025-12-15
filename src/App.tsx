@@ -31,6 +31,7 @@ import StudentDetail from "./pages/StudentDetail";
 import StudentProfile from "./pages/StudentProfile";
 import SocialProfiles from "./pages/SocialProfiles";
 import History from "./pages/History";
+import SubjectManagementPage from "./pages/SubjectManagement";
 
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ function AnimatedRoutes() {
         <Route path="/auth/hod" element={<HODAuth />} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/hod/user-management" element={<HODUserManagement />} />
+        <Route path="/hod/subjects" element={<SubjectManagementPage />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/upload" element={<Upload />} />
