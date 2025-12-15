@@ -54,17 +54,41 @@ const Attendance = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
-        .from("dropout_criteria")
-        .select("max_sessions_per_day")
-        .eq("user_id", user.id)
+      // Get staff's department to find HOD's criteria
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("department")
+        .eq("id", user.id)
         .maybeSingle();
 
-      if (data && (data as any).max_sessions_per_day) {
-        setMaxSessionsPerDay((data as any).max_sessions_per_day);
+      if (profile?.department) {
+        // Find HOD from the same department
+        const { data: hodProfiles } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("department", profile.department)
+          .eq("panel_type", "hod");
+
+        if (hodProfiles && hodProfiles.length > 0) {
+          const hodId = hodProfiles[0].id;
+          const { data: hodCriteria } = await supabase
+            .from("dropout_criteria")
+            .select("max_sessions_per_day")
+            .eq("user_id", hodId)
+            .maybeSingle();
+
+          if (hodCriteria && (hodCriteria as any).max_sessions_per_day) {
+            setMaxSessionsPerDay((hodCriteria as any).max_sessions_per_day);
+            return;
+          }
+        }
       }
+
+      // Fallback to default if HOD criteria not found
+      setMaxSessionsPerDay(7);
     } catch (error) {
       console.error("Error fetching criteria:", error);
+      setMaxSessionsPerDay(7);
     }
   };
 
