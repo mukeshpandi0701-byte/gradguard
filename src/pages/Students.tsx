@@ -111,20 +111,43 @@ const Students = () => {
 
         if (profilesError) throw profilesError;
 
+        // Fetch attendance records aggregated by student_id
+        const profileIds = (studentProfiles || []).map(sp => sp.id);
+        const { data: attendanceRecords } = await supabase
+          .from("attendance_records")
+          .select("student_id, sessions_attended, max_sessions")
+          .in("student_id", profileIds);
+
+        // Aggregate attendance per student
+        const attendanceMap = new Map<string, { attended: number; total: number }>();
+        (attendanceRecords || []).forEach((record: any) => {
+          const current = attendanceMap.get(record.student_id) || { attended: 0, total: 0 };
+          current.attended += record.sessions_attended;
+          current.total += record.max_sessions;
+          attendanceMap.set(record.student_id, current);
+        });
+
         // Map student_profiles to Student type for display
-        const studentsFromProfiles = (studentProfiles || []).map(sp => ({
-          id: sp.id,
-          student_name: sp.full_name || sp.email,
-          roll_number: sp.roll_number,
-          email: sp.email,
-          department: sp.branch || sp.department,
-          attendance_percentage: 0,
-          fee_paid_percentage: 0,
-          pending_fees: 0,
-          internal_marks: 0,
-          riskLevel: undefined,
-          mlProbability: undefined,
-        }));
+        const studentsFromProfiles = (studentProfiles || []).map(sp => {
+          const attendanceData = attendanceMap.get(sp.id);
+          const attendancePercentage = attendanceData && attendanceData.total > 0
+            ? Math.min(100, (attendanceData.attended / attendanceData.total) * 100)
+            : 0;
+
+          return {
+            id: sp.id,
+            student_name: sp.full_name || sp.email,
+            roll_number: sp.roll_number,
+            email: sp.email,
+            department: sp.branch || sp.department,
+            attendance_percentage: attendancePercentage,
+            fee_paid_percentage: 0,
+            pending_fees: 0,
+            internal_marks: 0,
+            riskLevel: undefined,
+            mlProbability: undefined,
+          };
+        });
 
         setStudents(studentsFromProfiles);
         
@@ -168,6 +191,22 @@ const Students = () => {
           (studentsData || []).map(s => [s.roll_number, s])
         );
 
+        // Fetch attendance records aggregated by student_id (student_profiles.id)
+        const profileIds = (studentProfiles || []).map(sp => sp.id);
+        const { data: attendanceRecords } = await supabase
+          .from("attendance_records")
+          .select("student_id, sessions_attended, max_sessions")
+          .in("student_id", profileIds);
+
+        // Aggregate attendance per student
+        const attendanceMap = new Map<string, { attended: number; total: number }>();
+        (attendanceRecords || []).forEach((record: any) => {
+          const current = attendanceMap.get(record.student_id) || { attended: 0, total: 0 };
+          current.attended += record.sessions_attended;
+          current.total += record.max_sessions;
+          attendanceMap.set(record.student_id, current);
+        });
+
         // Fetch all predictions for this user
         const { data: predictionsData, error: predictionsError } = await supabase
           .from("predictions")
@@ -184,13 +223,20 @@ const Students = () => {
         // Map student_profiles to Student type with predictions and academic data
         const studentsFromProfiles = (studentProfiles || []).map(sp => {
           const academicData = studentsDataMap.get(sp.roll_number);
+          const attendanceData = attendanceMap.get(sp.id);
+          
+          // Calculate attendance percentage from attendance_records
+          const attendancePercentage = attendanceData && attendanceData.total > 0
+            ? Math.min(100, (attendanceData.attended / attendanceData.total) * 100)
+            : (academicData?.attendance_percentage || 0);
+
           return {
             id: sp.id,
             student_name: sp.full_name || sp.email,
             roll_number: sp.roll_number,
             email: sp.email,
             department: sp.branch || sp.department,
-            attendance_percentage: academicData?.attendance_percentage || 0,
+            attendance_percentage: attendancePercentage,
             fee_paid_percentage: academicData?.fee_paid_percentage || 0,
             pending_fees: academicData?.pending_fees || 0,
             internal_marks: academicData?.internal_marks || 0,
