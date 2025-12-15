@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Plus, Trash2, BookOpen, Loader2, Copy } from "lucide-react";
-
 interface Subject {
   id: string;
   branch: string;
@@ -45,6 +45,7 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
   const [copyTo, setCopyTo] = useState("");
   const [sourceBranches, setSourceBranches] = useState<string[]>([]);
   const [sourceSubjects, setSourceSubjects] = useState<Subject[]>([]);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchSubjectsAndBranches();
@@ -118,17 +119,40 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
     }
   };
 
+  const branchSubjectsForCopy = sourceSubjects.filter(s => s.branch === copyFrom.branch);
+
+  const toggleSubjectSelection = (subjectId: string) => {
+    setSelectedSubjectIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(subjectId)) {
+        newSet.delete(subjectId);
+      } else {
+        newSet.add(subjectId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllSubjects = () => {
+    if (selectedSubjectIds.size === branchSubjectsForCopy.length) {
+      setSelectedSubjectIds(new Set());
+    } else {
+      setSelectedSubjectIds(new Set(branchSubjectsForCopy.map(s => s.id)));
+    }
+  };
+
   const handleCopySubjects = async () => {
     if (!copyFrom.branch || !copyTo) {
       toast.error("Please select source and target branches");
       return;
     }
 
-    const subjectsToCopy = sourceSubjects.filter(s => s.branch === copyFrom.branch);
-    if (subjectsToCopy.length === 0) {
-      toast.error("No subjects found in the source branch");
+    if (selectedSubjectIds.size === 0) {
+      toast.error("Please select at least one subject to copy");
       return;
     }
+
+    const subjectsToCopy = branchSubjectsForCopy.filter(s => selectedSubjectIds.has(s.id));
 
     setCopying(true);
     try {
@@ -160,6 +184,7 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
       setCopyDialogOpen(false);
       setCopyFrom({ department: "", branch: "" });
       setCopyTo("");
+      setSelectedSubjectIds(new Set());
       fetchSubjectsAndBranches();
     } catch (error: any) {
       toast.error(error.message || "Failed to copy subjects");
@@ -302,18 +327,25 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+            <Dialog open={copyDialogOpen} onOpenChange={(open) => {
+              setCopyDialogOpen(open);
+              if (!open) {
+                setCopyFrom({ department: "", branch: "" });
+                setCopyTo("");
+                setSelectedSubjectIds(new Set());
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
                   <Copy className="w-4 h-4 mr-2" />
                   Copy From
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-card">
+              <DialogContent className="bg-card max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Copy Subjects from Another Branch</DialogTitle>
                   <DialogDescription>
-                    Copy all subjects from one branch to another
+                    Select specific subjects to copy from one branch to another
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -323,6 +355,7 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
                       value={copyFrom.department}
                       onValueChange={(value) => {
                         setCopyFrom({ department: value, branch: "" });
+                        setSelectedSubjectIds(new Set());
                         fetchSourceBranches(value);
                       }}
                     >
@@ -342,7 +375,10 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
                     <Label>Source Branch</Label>
                     <Select
                       value={copyFrom.branch}
-                      onValueChange={(value) => setCopyFrom({ ...copyFrom, branch: value })}
+                      onValueChange={(value) => {
+                        setCopyFrom({ ...copyFrom, branch: value });
+                        setSelectedSubjectIds(new Set());
+                      }}
                       disabled={!copyFrom.department}
                     >
                       <SelectTrigger>
@@ -360,6 +396,44 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {copyFrom.branch && branchSubjectsForCopy.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Select Subjects to Copy</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={toggleAllSubjects}
+                          className="text-xs"
+                        >
+                          {selectedSubjectIds.size === branchSubjectsForCopy.length ? "Deselect All" : "Select All"}
+                        </Button>
+                      </div>
+                      <div className="border rounded-md max-h-40 overflow-y-auto">
+                        {branchSubjectsForCopy.map(subject => (
+                          <label
+                            key={subject.id}
+                            className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                          >
+                            <Checkbox
+                              checked={selectedSubjectIds.has(subject.id)}
+                              onCheckedChange={() => toggleSubjectSelection(subject.id)}
+                            />
+                            <span className="font-mono text-sm">{subject.subject_code}</span>
+                            <span className="text-sm text-muted-foreground truncate">
+                              {subject.subject_name || "—"}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedSubjectIds.size} of {branchSubjectsForCopy.length} selected
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="space-y-2">
                     <Label>Target Branch (in {userDepartment})</Label>
                     <Select value={copyTo} onValueChange={setCopyTo}>
@@ -375,13 +449,13 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
                       </SelectContent>
                     </Select>
                   </div>
-                  {copyFrom.branch && (
-                    <div className="text-sm text-muted-foreground">
-                      {sourceSubjects.filter(s => s.branch === copyFrom.branch).length} subjects will be copied
-                    </div>
-                  )}
-                  <Button onClick={handleCopySubjects} disabled={copying} className="w-full">
-                    {copying ? "Copying..." : "Copy Subjects"}
+                  
+                  <Button 
+                    onClick={handleCopySubjects} 
+                    disabled={copying || selectedSubjectIds.size === 0} 
+                    className="w-full"
+                  >
+                    {copying ? "Copying..." : `Copy ${selectedSubjectIds.size} Subject(s)`}
                   </Button>
                 </div>
               </DialogContent>
