@@ -27,35 +27,100 @@ const StudentsWithSelection = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Fetch students
-      const { data: studentsData, error: studentsError } = await supabase
-        .from("students")
+      // Fetch assigned branches for staff
+      const { data: branchData } = await supabase
+        .from("staff_branch_assignments")
+        .select("branch")
+        .eq("staff_user_id", user.id);
+
+      const branches = (branchData || []).map(b => b.branch);
+
+      if (branches.length === 0) {
+        setStudents([]);
+        return;
+      }
+
+      // Fetch student profiles from assigned branches
+      const { data: studentProfiles, error: profilesError } = await supabase
+        .from("student_profiles")
         .select("*")
-        .eq("user_id", user.id);
+        .in("branch", branches)
+        .order('roll_number', { ascending: true, nullsFirst: false });
 
-      if (studentsError) throw studentsError;
+      if (profilesError) throw profilesError;
 
-      // Fetch predictions separately
-      const studentIds = (studentsData || []).map(s => s.id);
+      // Fetch student academic data from students table
+      const rollNumbers = (studentProfiles || []).map(sp => sp.roll_number).filter(Boolean);
+      const { data: studentsData } = await supabase
+        .from("students")
+        .select("roll_number, attendance_percentage, fee_paid_percentage, pending_fees, internal_marks")
+        .in("roll_number", rollNumbers);
+
+      // Create a map of student data by roll_number
+      const studentsDataMap = new Map(
+        (studentsData || []).map(s => [s.roll_number, s])
+      );
+
+      // Fetch attendance records aggregated by student_id
+      const profileIds = (studentProfiles || []).map(sp => sp.id);
+      const { data: attendanceRecords } = await supabase
+        .from("attendance_records")
+        .select("student_id, sessions_attended, max_sessions")
+        .in("student_id", profileIds);
+
+      // Aggregate attendance per student
+      const attendanceMap = new Map<string, { attended: number; total: number }>();
+      (attendanceRecords || []).forEach((record: any) => {
+        const current = attendanceMap.get(record.student_id) || { attended: 0, total: 0 };
+        current.attended += record.sessions_attended;
+        current.total += record.max_sessions;
+        attendanceMap.set(record.student_id, current);
+      });
+
+      // Fetch predictions
       const { data: predictionsData } = await supabase
         .from("predictions")
         .select("student_id, final_risk_level, ml_probability, suggestions, insights")
-        .in("student_id", studentIds);
+        .eq("user_id", user.id);
 
-      // Merge predictions with students
-      const studentsWithPredictions = (studentsData || []).map(student => ({
-        ...student,
-        predictions: (predictionsData || [])
-          .filter(p => p.student_id === student.id)
-          .map(p => ({
-            final_risk_level: p.final_risk_level,
-            ml_probability: p.ml_probability,
-            suggestions: p.suggestions,
-            insights: p.insights
-          }))
-      }));
+      const predictionsMap = new Map(
+        (predictionsData || []).map(p => [p.student_id, p])
+      );
 
-      setStudents(studentsWithPredictions);
+      // Map student_profiles with all data
+      const studentsWithData = (studentProfiles || []).map(sp => {
+        const academicData = studentsDataMap.get(sp.roll_number);
+        const attendanceData = attendanceMap.get(sp.id);
+        const prediction = predictionsMap.get(sp.id);
+
+        // Calculate attendance from records, fallback to students table
+        let attendancePercentage = 0;
+        if (attendanceData && attendanceData.total > 0) {
+          attendancePercentage = Math.min(100, (attendanceData.attended / attendanceData.total) * 100);
+        } else if (academicData?.attendance_percentage != null) {
+          attendancePercentage = Number(academicData.attendance_percentage);
+        }
+
+        return {
+          id: sp.id,
+          student_name: sp.full_name || sp.email,
+          roll_number: sp.roll_number,
+          email: sp.email,
+          department: sp.branch || sp.department,
+          attendance_percentage: attendancePercentage,
+          fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
+          pending_fees: academicData?.pending_fees ?? 0,
+          internal_marks: academicData?.internal_marks ?? 0,
+          predictions: prediction ? [{
+            final_risk_level: prediction.final_risk_level,
+            ml_probability: prediction.ml_probability,
+            suggestions: prediction.suggestions,
+            insights: prediction.insights
+          }] : []
+        };
+      });
+
+      setStudents(studentsWithData);
     } catch (error: any) {
       toast.error("Failed to fetch students");
       console.error(error);
