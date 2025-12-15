@@ -15,6 +15,9 @@ interface Student {
   roll_number: string | null;
   branch: string | null;
   email: string;
+  attendancePercentage: number;
+  totalSessions: number;
+  attendedSessions: number;
 }
 
 const AttendanceReports = () => {
@@ -56,7 +59,37 @@ const AttendanceReports = () => {
         .order("roll_number");
 
       if (error) throw error;
-      setStudents(studentProfiles || []);
+
+      // Fetch attendance records for all students
+      const studentIds = (studentProfiles || []).map(s => s.id);
+      const { data: attendanceRecords } = await supabase
+        .from("attendance_records")
+        .select("student_id, sessions_attended, max_sessions")
+        .in("student_id", studentIds);
+
+      // Calculate attendance metrics per student
+      const attendanceMap = new Map<string, { totalSessions: number; attendedSessions: number }>();
+      (attendanceRecords || []).forEach(record => {
+        const current = attendanceMap.get(record.student_id) || { totalSessions: 0, attendedSessions: 0 };
+        current.totalSessions += record.max_sessions;
+        current.attendedSessions += record.sessions_attended;
+        attendanceMap.set(record.student_id, current);
+      });
+
+      const studentsWithAttendance: Student[] = (studentProfiles || []).map(sp => {
+        const attendance = attendanceMap.get(sp.id) || { totalSessions: 0, attendedSessions: 0 };
+        const percentage = attendance.totalSessions > 0 
+          ? Math.min((attendance.attendedSessions / attendance.totalSessions) * 100, 100)
+          : 0;
+        return {
+          ...sp,
+          attendancePercentage: percentage,
+          totalSessions: attendance.totalSessions,
+          attendedSessions: attendance.attendedSessions,
+        };
+      });
+
+      setStudents(studentsWithAttendance);
     } catch (error: any) {
       toast.error("Failed to load students");
       console.error(error);
@@ -69,8 +102,11 @@ const AttendanceReports = () => {
     ? students 
     : students.filter(s => s.branch === selectedBranch);
 
-  // Calculate statistics (placeholder since we don't have attendance data in student_profiles)
   const totalStudents = filteredStudents.length;
+  const avgAttendance = totalStudents > 0 
+    ? filteredStudents.reduce((sum, s) => sum + s.attendancePercentage, 0) / totalStudents 
+    : 0;
+  const lowAttendanceCount = filteredStudents.filter(s => s.attendancePercentage < 75).length;
 
   const downloadAttendanceReport = () => {
     const csvContent = [
@@ -147,7 +183,7 @@ const AttendanceReports = () => {
 
               <TabsContent value={selectedBranch}>
                 {/* Statistics Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                   <Card className="shadow-card">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-xs font-medium text-muted-foreground">Total Students</CardTitle>
@@ -159,21 +195,30 @@ const AttendanceReports = () => {
 
                   <Card className="shadow-card border-l-4 border-l-primary">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-xs font-medium text-muted-foreground">Selected Branch</CardTitle>
+                      <CardTitle className="text-xs font-medium text-muted-foreground">Average Attendance</CardTitle>
                     </CardHeader>
                     <CardContent className="pb-3">
-                      <div className="text-lg font-bold text-primary">
-                        {selectedBranch === "all" ? "All Branches" : selectedBranch}
+                      <div className="text-2xl font-bold text-primary">
+                        {avgAttendance.toFixed(1)}%
                       </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="shadow-card border-l-4 border-l-destructive">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium text-muted-foreground">Low Attendance (&lt;75%)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                      <div className="text-2xl font-bold text-destructive">{lowAttendanceCount}</div>
                     </CardContent>
                   </Card>
 
                   <Card className="shadow-card border-l-4 border-l-success">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-xs font-medium text-muted-foreground">Assigned Branches</CardTitle>
+                      <CardTitle className="text-xs font-medium text-muted-foreground">Good Attendance (≥75%)</CardTitle>
                     </CardHeader>
                     <CardContent className="pb-3">
-                      <div className="text-2xl font-bold text-success">{assignedBranches.length}</div>
+                      <div className="text-2xl font-bold text-success">{totalStudents - lowAttendanceCount}</div>
                     </CardContent>
                   </Card>
                 </div>
@@ -200,7 +245,9 @@ const AttendanceReports = () => {
                             <TableHead>Roll No</TableHead>
                             <TableHead>Name</TableHead>
                             <TableHead>Branch</TableHead>
-                            <TableHead>Email</TableHead>
+                            <TableHead>Sessions Attended</TableHead>
+                            <TableHead>Total Sessions</TableHead>
+                            <TableHead>Attendance %</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -212,7 +259,13 @@ const AttendanceReports = () => {
                               <TableCell>
                                 <Badge variant="outline">{student.branch}</Badge>
                               </TableCell>
-                              <TableCell>{student.email}</TableCell>
+                              <TableCell>{student.attendedSessions}</TableCell>
+                              <TableCell>{student.totalSessions}</TableCell>
+                              <TableCell>
+                                <Badge variant={student.attendancePercentage >= 75 ? "default" : "destructive"}>
+                                  {student.attendancePercentage.toFixed(1)}%
+                                </Badge>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>

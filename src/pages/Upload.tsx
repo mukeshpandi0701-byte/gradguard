@@ -166,26 +166,22 @@ const Upload = () => {
         .eq("roll_number", selectedStudent.roll_number)
         .maybeSingle();
 
-      const feePaidPercentage = criteria?.total_fees 
-        ? (paidFeesNum / criteria.total_fees) * 100 
-        : 0;
 
       if (existingStudent) {
-        // Update existing record (pending_fees is auto-calculated by DB)
+        // Update existing record (fee_paid_percentage and pending_fees are auto-calculated by DB)
         const { error } = await supabase
           .from("students")
           .update({
             internal_marks: internalScoreNum,
             paid_fees: paidFeesNum,
             total_fees: criteria?.total_fees || 0,
-            fee_paid_percentage: feePaidPercentage,
             updated_at: new Date().toISOString()
           })
           .eq("id", existingStudent.id);
 
         if (error) throw error;
       } else {
-        // Create new record in students table (pending_fees is auto-calculated by DB)
+        // Create new record in students table (fee_paid_percentage and pending_fees are auto-calculated by DB)
         const { error } = await supabase
           .from("students")
           .insert({
@@ -196,8 +192,7 @@ const Upload = () => {
             department: selectedStudent.branch,
             internal_marks: internalScoreNum,
             paid_fees: paidFeesNum,
-            total_fees: criteria?.total_fees || 0,
-            fee_paid_percentage: feePaidPercentage
+            total_fees: criteria?.total_fees || 0
           });
 
         if (error) throw error;

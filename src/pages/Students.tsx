@@ -156,6 +156,18 @@ const Students = () => {
 
         if (profilesError) throw profilesError;
 
+        // Fetch student academic data from students table
+        const rollNumbers = (studentProfiles || []).map(sp => sp.roll_number).filter(Boolean);
+        const { data: studentsData } = await supabase
+          .from("students")
+          .select("roll_number, attendance_percentage, fee_paid_percentage, pending_fees, internal_marks")
+          .in("roll_number", rollNumbers);
+
+        // Create a map of student data by roll_number
+        const studentsDataMap = new Map(
+          (studentsData || []).map(s => [s.roll_number, s])
+        );
+
         // Fetch all predictions for this user
         const { data: predictionsData, error: predictionsError } = await supabase
           .from("predictions")
@@ -169,20 +181,23 @@ const Students = () => {
           (predictionsData || []).map(p => [p.student_id, p])
         );
 
-        // Map student_profiles to Student type with predictions
-        const studentsFromProfiles = (studentProfiles || []).map(sp => ({
-          id: sp.id,
-          student_name: sp.full_name || sp.email,
-          roll_number: sp.roll_number,
-          email: sp.email,
-          department: sp.branch || sp.department,
-          attendance_percentage: 0,
-          fee_paid_percentage: 0,
-          pending_fees: 0,
-          internal_marks: 0,
-          riskLevel: predictionsMap.get(sp.id)?.final_risk_level,
-          mlProbability: predictionsMap.get(sp.id)?.ml_probability,
-        }));
+        // Map student_profiles to Student type with predictions and academic data
+        const studentsFromProfiles = (studentProfiles || []).map(sp => {
+          const academicData = studentsDataMap.get(sp.roll_number);
+          return {
+            id: sp.id,
+            student_name: sp.full_name || sp.email,
+            roll_number: sp.roll_number,
+            email: sp.email,
+            department: sp.branch || sp.department,
+            attendance_percentage: academicData?.attendance_percentage || 0,
+            fee_paid_percentage: academicData?.fee_paid_percentage || 0,
+            pending_fees: academicData?.pending_fees || 0,
+            internal_marks: academicData?.internal_marks || 0,
+            riskLevel: predictionsMap.get(sp.id)?.final_risk_level,
+            mlProbability: predictionsMap.get(sp.id)?.ml_probability,
+          };
+        });
 
         setStudents(studentsFromProfiles);
         
