@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Lock, AlertTriangle } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SubjectManagement from "@/components/SubjectManagement";
 
 interface Criteria {
   min_attendance_percentage: number;
@@ -29,6 +31,8 @@ const Criteria = () => {
   const [isHOD, setIsHOD] = useState(false);
   const [hodName, setHodName] = useState<string | null>(null);
   const [hodCriteriaExists, setHodCriteriaExists] = useState(true);
+  const [userDepartment, setUserDepartment] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("criteria");
   const [criteria, setCriteria] = useState<Criteria>({
     min_attendance_percentage: 75,
     min_internal_marks: 40,
@@ -63,6 +67,17 @@ const Criteria = () => {
       setIsHOD(userIsHOD);
 
       if (userIsHOD) {
+        // Fetch HOD's department
+        const { data: hodProfile } = await supabase
+          .from("profiles")
+          .select("department")
+          .eq("id", user.id)
+          .maybeSingle();
+        
+        if (hodProfile?.department) {
+          setUserDepartment(hodProfile.department);
+        }
+
         // HOD fetches their own criteria
         const { data, error } = await supabase
           .from("dropout_criteria")
@@ -201,12 +216,14 @@ const Criteria = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-3xl">
+      <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Dropout Criteria Settings</h1>
+          <h1 className="text-3xl font-bold mb-2">
+            {isHOD ? "Department Settings" : "Dropout Criteria Settings"}
+          </h1>
           <p className="text-muted-foreground">
             {isHOD 
-              ? "Configure the thresholds and weightages for dropout risk prediction"
+              ? "Configure dropout criteria and subject codes for your department"
               : "View the criteria settings configured by your HOD"}
           </p>
           {!isHOD && hodCriteriaExists && hodName && (
@@ -223,7 +240,18 @@ const Criteria = () => {
           )}
         </div>
 
-        <div className="space-y-6">
+        {isHOD ? (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="criteria">Dropout Criteria</TabsTrigger>
+              <TabsTrigger value="subjects">Subject Codes</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="subjects" className="space-y-6">
+              {userDepartment && <SubjectManagement userDepartment={userDepartment} />}
+            </TabsContent>
+            
+            <TabsContent value="criteria" className="space-y-6">
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -417,7 +445,111 @@ const Criteria = () => {
               </Button>
             </div>
           )}
-        </div>
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <div className="space-y-6">
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Minimum Thresholds
+                  <Lock className="w-4 h-4 text-muted-foreground" />
+                </CardTitle>
+                <CardDescription>
+                  Minimum acceptable values set by HOD
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label>Minimum Attendance Percentage</Label>
+                  <Input
+                    type="number"
+                    value={criteria.min_attendance_percentage}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Minimum Internal Marks</Label>
+                  <Input
+                    type="number"
+                    value={criteria.min_internal_marks}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Maximum Allowed Pending Fees (₹)</Label>
+                  <Input
+                    type="number"
+                    value={criteria.max_pending_fees}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Course Maximums
+                  <Lock className="w-4 h-4 text-muted-foreground" />
+                </CardTitle>
+                <CardDescription>Maximum values set by HOD</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label>Maximum Internal Marks</Label>
+                  <Input type="number" value={criteria.max_internal_marks} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Total Course Fees (₹)</Label>
+                  <Input type="number" value={criteria.total_fees} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Maximum Sessions Per Day</Label>
+                  <Input type="number" value={criteria.max_sessions_per_day} disabled className="bg-muted" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Risk Calculation Weightages
+                  <Lock className="w-4 h-4 text-muted-foreground" />
+                </CardTitle>
+                <CardDescription>Weightages set by HOD</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Attendance Weightage</Label>
+                      <span className="text-sm font-medium">{(criteria.attendance_weightage * 100).toFixed(0)}%</span>
+                    </div>
+                    <Slider value={[criteria.attendance_weightage * 100]} max={100} disabled className="opacity-60" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Internal Marks Weightage</Label>
+                      <span className="text-sm font-medium">{(criteria.internal_weightage * 100).toFixed(0)}%</span>
+                    </div>
+                    <Slider value={[criteria.internal_weightage * 100]} max={100} disabled className="opacity-60" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Fees Weightage</Label>
+                      <span className="text-sm font-medium">{(criteria.fees_weightage * 100).toFixed(0)}%</span>
+                    </div>
+                    <Slider value={[criteria.fees_weightage * 100]} max={100} disabled className="opacity-60" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </main>
     </div>
   );
