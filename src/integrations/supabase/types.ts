@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_records: {
+        Row: {
+          attendance_date: string
+          created_at: string
+          id: string
+          max_sessions: number
+          sessions_attended: number
+          student_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendance_date: string
+          created_at?: string
+          id?: string
+          max_sessions?: number
+          sessions_attended?: number
+          student_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendance_date?: string
+          created_at?: string
+          id?: string
+          max_sessions?: number
+          sessions_attended?: number
+          student_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       download_history: {
         Row: {
           created_at: string

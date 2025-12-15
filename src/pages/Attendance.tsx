@@ -43,6 +43,12 @@ const Attendance = () => {
     fetchCriteria();
   }, []);
 
+  useEffect(() => {
+    if (students.length > 0) {
+      loadAttendanceRecords();
+    }
+  }, [weekStart, students]);
+
   const fetchCriteria = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -90,9 +96,6 @@ const Attendance = () => {
 
       if (error) throw error;
       setStudents(studentProfiles || []);
-      
-      // Initialize attendance with empty values (no input yet)
-      initializeAttendance(studentProfiles || []);
     } catch (error: any) {
       toast.error("Failed to load students");
       console.error(error);
@@ -101,23 +104,51 @@ const Attendance = () => {
     }
   };
 
-  const initializeAttendance = (studentList: Student[]) => {
-    const initialAttendance = new Map<AttendanceKey, number>();
-    studentList.forEach(student => {
-      weekDates.forEach(date => {
-        const dateStr = format(date, "yyyy-MM-dd");
-        // Initialize with max sessions (all present by default)
-        initialAttendance.set(`${student.id}_${dateStr}` as AttendanceKey, maxSessionsPerDay);
+  const loadAttendanceRecords = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const startDate = format(weekStart, "yyyy-MM-dd");
+      const endDate = format(addDays(weekStart, 5), "yyyy-MM-dd");
+
+      // First initialize with default values
+      const initialAttendance = new Map<AttendanceKey, number>();
+      students.forEach(student => {
+        weekDates.forEach(date => {
+          const dateStr = format(date, "yyyy-MM-dd");
+          initialAttendance.set(`${student.id}_${dateStr}` as AttendanceKey, maxSessionsPerDay);
+        });
       });
-    });
-    setAttendance(initialAttendance);
+
+      // Fetch saved attendance records using any type to bypass type checking
+      const { data: records, error } = await (supabase as any)
+        .from("attendance_records")
+        .select("student_id, attendance_date, sessions_attended")
+        .gte("attendance_date", startDate)
+        .lte("attendance_date", endDate);
+
+      if (error) {
+        console.error("Error loading attendance records:", error);
+      } else if (records) {
+        // Override with saved values
+        records.forEach((record: any) => {
+          const key: AttendanceKey = `${record.student_id}_${record.attendance_date}`;
+          initialAttendance.set(key, record.sessions_attended);
+        });
+      }
+
+      setAttendance(initialAttendance);
+    } catch (error) {
+      console.error("Error loading attendance:", error);
+    }
   };
 
   useEffect(() => {
     if (students.length > 0) {
-      initializeAttendance(students);
+      loadAttendanceRecords();
     }
-  }, [weekStart, maxSessionsPerDay]);
+  }, [maxSessionsPerDay]);
 
   const updateSessionCount = (studentId: string, date: Date, value: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -156,6 +187,37 @@ const Attendance = () => {
   const handleSaveAttendance = async () => {
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Prepare records for upsert
+      const records: any[] = [];
+      filteredStudents.forEach(student => {
+        weekDates.forEach(date => {
+          const dateStr = format(date, "yyyy-MM-dd");
+          const key: AttendanceKey = `${student.id}_${dateStr}`;
+          const sessions = attendance.get(key) ?? maxSessionsPerDay;
+          
+          records.push({
+            student_id: student.id,
+            user_id: user.id,
+            attendance_date: dateStr,
+            sessions_attended: Math.min(sessions, maxSessionsPerDay),
+            max_sessions: maxSessionsPerDay
+          });
+        });
+      });
+
+      // Upsert records using any type to bypass type checking
+      const { error } = await (supabase as any)
+        .from("attendance_records")
+        .upsert(records, { 
+          onConflict: 'student_id,attendance_date,user_id',
+          ignoreDuplicates: false 
+        });
+
+      if (error) throw error;
+
       const weekEndDate = addDays(weekStart, 5);
       toast.success(`Attendance saved for week ${format(weekStart, "MMM d")} - ${format(weekEndDate, "MMM d, yyyy")}`);
     } catch (error: any) {
