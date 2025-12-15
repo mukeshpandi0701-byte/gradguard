@@ -24,15 +24,38 @@ const StudentsWithSelection = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("students")
-        .select(`
-          *,
-          predictions(final_risk_level, ml_probability, suggestions, insights)
-        `);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-      if (error) throw error;
-      setStudents(data || []);
+      // Fetch students
+      const { data: studentsData, error: studentsError } = await supabase
+        .from("students")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (studentsError) throw studentsError;
+
+      // Fetch predictions separately
+      const studentIds = (studentsData || []).map(s => s.id);
+      const { data: predictionsData } = await supabase
+        .from("predictions")
+        .select("student_id, final_risk_level, ml_probability, suggestions, insights")
+        .in("student_id", studentIds);
+
+      // Merge predictions with students
+      const studentsWithPredictions = (studentsData || []).map(student => ({
+        ...student,
+        predictions: (predictionsData || [])
+          .filter(p => p.student_id === student.id)
+          .map(p => ({
+            final_risk_level: p.final_risk_level,
+            ml_probability: p.ml_probability,
+            suggestions: p.suggestions,
+            insights: p.insights
+          }))
+      }));
+
+      setStudents(studentsWithPredictions);
     } catch (error: any) {
       toast.error("Failed to fetch students");
       console.error(error);
