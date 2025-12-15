@@ -127,9 +127,22 @@ const Students = () => {
           attendanceMap.set(record.student_id, current);
         });
 
+        // Fetch student academic data from students table
+        const rollNumbers = (studentProfiles || []).map(sp => sp.roll_number).filter(Boolean);
+        const { data: studentsData } = await supabase
+          .from("students")
+          .select("roll_number, fee_paid_percentage, pending_fees, internal_marks")
+          .in("roll_number", rollNumbers);
+
+        // Create a map of student data by roll_number
+        const studentsDataMap = new Map(
+          (studentsData || []).map(s => [s.roll_number, s])
+        );
+
         // Map student_profiles to Student type for display
         const studentsFromProfiles = (studentProfiles || []).map(sp => {
           const attendanceData = attendanceMap.get(sp.id);
+          const academicData = studentsDataMap.get(sp.roll_number);
           const attendancePercentage = attendanceData && attendanceData.total > 0
             ? Math.min(100, (attendanceData.attended / attendanceData.total) * 100)
             : 0;
@@ -141,9 +154,9 @@ const Students = () => {
             email: sp.email,
             department: sp.branch || sp.department,
             attendance_percentage: attendancePercentage,
-            fee_paid_percentage: 0,
-            pending_fees: 0,
-            internal_marks: 0,
+            fee_paid_percentage: academicData?.fee_paid_percentage || 0,
+            pending_fees: academicData?.pending_fees || 0,
+            internal_marks: academicData?.internal_marks || 0,
             riskLevel: undefined,
             mlProbability: undefined,
           };
