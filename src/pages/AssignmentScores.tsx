@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, ClipboardList, Save, Users } from "lucide-react";
+import { Loader2, ClipboardList, Save, Users, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
@@ -17,6 +17,7 @@ interface Assignment {
   assignment_name: string;
   max_marks: number;
   subject_id: string;
+  platform: string | null;
   subject?: {
     subject_code: string;
     subject_name: string | null;
@@ -99,7 +100,6 @@ const AssignmentScores = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get subjects for branch
       const { data: subjectsData } = await supabase
         .from("branch_subjects")
         .select("id, subject_code, subject_name, branch")
@@ -170,7 +170,6 @@ const AssignmentScores = () => {
 
       setExistingScores(scoresData || []);
 
-      // Initialize scores state
       const scoresMap: Record<string, string> = {};
       students.forEach(student => {
         const existingScore = (scoresData || []).find(s => s.student_id === student.id);
@@ -256,7 +255,13 @@ const AssignmentScores = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Assignment Scores</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold">Assignment Scores</h1>
+            <Badge variant="secondary" className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
+              <Sparkles className="w-3 h-3 mr-1" />
+              SkillSyncX Exclusive
+            </Badge>
+          </div>
           <p className="text-muted-foreground text-sm">View and grade student assignment submissions</p>
         </div>
 
@@ -289,6 +294,7 @@ const AssignmentScores = () => {
                   {assignments.map((assignment) => (
                     <SelectItem key={assignment.id} value={assignment.id}>
                       {assignment.assignment_name} ({assignment.subject?.subject_code})
+                      {assignment.platform && ` - ${assignment.platform}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -326,7 +332,7 @@ const AssignmentScores = () => {
                     <p className="text-xl font-bold">{gradedCount} / {students.length}</p>
                   </div>
                 </div>
-                <Progress value={(gradedCount / students.length) * 100} className="mt-2 h-2" />
+                <Progress value={students.length > 0 ? (gradedCount / students.length) * 100 : 0} className="mt-2 h-2" />
               </CardContent>
             </Card>
             <Card>
@@ -345,11 +351,18 @@ const AssignmentScores = () => {
         {currentAssignment && students.length > 0 && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="w-5 h-5" />
-                {currentAssignment.assignment_name}
-                <Badge variant="outline">{currentAssignment.subject?.subject_code}</Badge>
-              </CardTitle>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5" />
+                  {currentAssignment.assignment_name}
+                  <Badge variant="outline">{currentAssignment.subject?.subject_code}</Badge>
+                </CardTitle>
+                {currentAssignment.platform && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Platform: {currentAssignment.platform}
+                  </p>
+                )}
+              </div>
               <Button onClick={handleSaveScores} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Save Scores

@@ -22,6 +22,7 @@ export type Database = {
           due_date: string | null
           id: string
           max_marks: number
+          platform: string | null
           staff_user_id: string
           subject_id: string
           updated_at: string
@@ -33,6 +34,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           max_marks?: number
+          platform?: string | null
           staff_user_id: string
           subject_id: string
           updated_at?: string
@@ -44,6 +46,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           max_marks?: number
+          platform?: string | null
           staff_user_id?: string
           subject_id?: string
           updated_at?: string
