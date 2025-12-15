@@ -131,7 +131,7 @@ const Students = () => {
         const rollNumbers = (studentProfiles || []).map(sp => sp.roll_number).filter(Boolean);
         const { data: studentsData } = await supabase
           .from("students")
-          .select("roll_number, fee_paid_percentage, pending_fees, internal_marks")
+          .select("roll_number, attendance_percentage, fee_paid_percentage, pending_fees, internal_marks")
           .in("roll_number", rollNumbers);
 
         // Create a map of student data by roll_number
@@ -139,13 +139,29 @@ const Students = () => {
           (studentsData || []).map(s => [s.roll_number, s])
         );
 
+        // Fetch all predictions for display
+        const { data: predictionsData } = await supabase
+          .from("predictions")
+          .select("student_id, ml_probability, final_risk_level")
+          .in("student_id", profileIds);
+
+        const predictionsMap = new Map(
+          (predictionsData || []).map(p => [p.student_id, p])
+        );
+
         // Map student_profiles to Student type for display
         const studentsFromProfiles = (studentProfiles || []).map(sp => {
           const attendanceData = attendanceMap.get(sp.id);
           const academicData = studentsDataMap.get(sp.roll_number);
-          const attendancePercentage = attendanceData && attendanceData.total > 0
-            ? Math.min(100, (attendanceData.attended / attendanceData.total) * 100)
-            : 0;
+          const predictionData = predictionsMap.get(sp.id);
+          
+          // Calculate attendance from records, fallback to students table
+          let attendancePercentage = 0;
+          if (attendanceData && attendanceData.total > 0) {
+            attendancePercentage = Math.min(100, (attendanceData.attended / attendanceData.total) * 100);
+          } else if (academicData?.attendance_percentage != null) {
+            attendancePercentage = Number(academicData.attendance_percentage);
+          }
 
           return {
             id: sp.id,
@@ -154,11 +170,11 @@ const Students = () => {
             email: sp.email,
             department: sp.branch || sp.department,
             attendance_percentage: attendancePercentage,
-            fee_paid_percentage: academicData?.fee_paid_percentage || 0,
-            pending_fees: academicData?.pending_fees || 0,
-            internal_marks: academicData?.internal_marks || 0,
-            riskLevel: undefined,
-            mlProbability: undefined,
+            fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
+            pending_fees: academicData?.pending_fees ?? 0,
+            internal_marks: academicData?.internal_marks ?? 0,
+            riskLevel: predictionData?.final_risk_level as "low" | "medium" | "high" | undefined,
+            mlProbability: predictionData?.ml_probability,
           };
         });
 
