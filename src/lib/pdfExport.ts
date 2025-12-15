@@ -256,62 +256,107 @@ export const generateAnalyticsReportPDF = async (
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
+  const contentWidth = pageWidth - (margin * 2);
 
   let yPosition = margin;
 
-  // Department name in bold
-  pdf.setFontSize(24);
+  // Header with gradient-like background
+  pdf.setFillColor(99, 102, 241); // Indigo
+  pdf.rect(0, 0, pageWidth, 35, 'F');
+  
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(22);
   pdf.setFont("helvetica", "bold");
-  pdf.text(department === "all" ? "All Departments" : department, pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 15;
-
-  // Generated date
+  pdf.text(department === "all" ? "All Branches Analytics" : `${department} Analytics`, pageWidth / 2, 18, { align: "center" });
+  
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "normal");
-  pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 15;
-
-  // Statistics summary
-  pdf.setFontSize(14);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Statistics Summary", margin, yPosition);
-  yPosition += 10;
-
-  pdf.setFontSize(11);
-  pdf.setFont("helvetica", "normal");
-  pdf.text(`Total Students: ${stats.totalStudents}`, margin + 5, yPosition);
-  yPosition += 7;
-  pdf.setTextColor(34, 197, 94);
-  pdf.text(`Low Risk: ${stats.lowRisk}`, margin + 5, yPosition);
-  yPosition += 7;
-  pdf.setTextColor(251, 191, 36);
-  pdf.text(`Medium Risk: ${stats.mediumRisk}`, margin + 5, yPosition);
-  yPosition += 7;
-  pdf.setTextColor(239, 68, 68);
-  pdf.text(`High Risk: ${stats.highRisk}`, margin + 5, yPosition);
-  yPosition += 12;
+  pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 28, { align: "center" });
+  
+  yPosition = 45;
   pdf.setTextColor(0, 0, 0);
 
-  // Capture charts as image
+  // Statistics summary in a card-like box
+  pdf.setFillColor(248, 250, 252);
+  pdf.roundedRect(margin, yPosition, contentWidth, 35, 3, 3, 'F');
+  pdf.setDrawColor(226, 232, 240);
+  pdf.roundedRect(margin, yPosition, contentWidth, 35, 3, 3, 'S');
+  
+  // Stats grid - 4 columns
+  const colWidth = contentWidth / 4;
+  const statsY = yPosition + 10;
+  
+  // Total Students
+  pdf.setFontSize(20);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(51, 65, 85);
+  pdf.text(stats.totalStudents.toString(), margin + colWidth * 0.5, statsY, { align: "center" });
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(100, 116, 139);
+  pdf.text("Total Students", margin + colWidth * 0.5, statsY + 10, { align: "center" });
+  
+  // Low Risk
+  pdf.setFontSize(20);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(34, 197, 94);
+  pdf.text(stats.lowRisk.toString(), margin + colWidth * 1.5, statsY, { align: "center" });
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(100, 116, 139);
+  pdf.text("Low Risk", margin + colWidth * 1.5, statsY + 10, { align: "center" });
+  
+  // Medium Risk
+  pdf.setFontSize(20);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(251, 191, 36);
+  pdf.text(stats.mediumRisk.toString(), margin + colWidth * 2.5, statsY, { align: "center" });
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(100, 116, 139);
+  pdf.text("Medium Risk", margin + colWidth * 2.5, statsY + 10, { align: "center" });
+  
+  // High Risk
+  pdf.setFontSize(20);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(239, 68, 68);
+  pdf.text(stats.highRisk.toString(), margin + colWidth * 3.5, statsY, { align: "center" });
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(100, 116, 139);
+  pdf.text("High Risk", margin + colWidth * 3.5, statsY + 10, { align: "center" });
+  
+  yPosition += 45;
+  pdf.setTextColor(0, 0, 0);
+
+  // Section title for charts
+  pdf.setFontSize(14);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Risk Distribution Charts", margin, yPosition);
+  yPosition += 8;
+
+  // Capture charts as image - scaled to fit on first page
   try {
     const canvas = await html2canvas(chartsElement, {
-      scale: 2,
+      scale: 1.5,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
     });
     
     const imgData = canvas.toDataURL("image/png");
-    const imgWidth = pageWidth - (margin * 2);
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const imgWidth = contentWidth;
+    // Calculate height to fit remaining page space
+    const maxHeight = pageHeight - yPosition - 20;
+    let imgHeight = (canvas.height * imgWidth) / canvas.width;
     
-    // Check if we need a new page
-    if (yPosition + imgHeight > pageHeight - margin) {
-      pdf.addPage();
-      yPosition = margin;
+    // Scale down if needed to fit on one page
+    if (imgHeight > maxHeight) {
+      imgHeight = maxHeight;
     }
     
     pdf.addImage(imgData, "PNG", margin, yPosition, imgWidth, imgHeight);
+    yPosition += imgHeight + 5;
   } catch (error) {
     console.error("Error capturing charts:", error);
     pdf.setTextColor(128, 128, 128);
@@ -320,8 +365,18 @@ export const generateAnalyticsReportPDF = async (
     pdf.setTextColor(0, 0, 0);
   }
 
+  // Footer
+  pdf.setFontSize(8);
+  pdf.setTextColor(128, 128, 128);
+  pdf.text(
+    "Generated by GradGuard - Student Dropout Prediction System",
+    pageWidth / 2,
+    pageHeight - 10,
+    { align: "center" }
+  );
+
   // Save PDF
-  const filename = `analytics-report-${department}-${new Date().toISOString().split("T")[0]}.pdf`;
+  const filename = `analytics-report-${department === "all" ? "all-branches" : department}-${new Date().toISOString().split("T")[0]}.pdf`;
   
   // Upload to storage
   const storagePath = await uploadPDFToStorage(pdf, filename);
