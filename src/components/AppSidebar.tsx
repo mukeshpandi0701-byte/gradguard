@@ -1,4 +1,4 @@
-import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, History as HistoryIcon, ClipboardCheck, Shield } from "lucide-react";
+import { Home, Upload, Users, FileText, Settings, BarChart3, Bell, LogOut, FileDown, Search, History as HistoryIcon, ClipboardCheck, Shield, BookOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +43,7 @@ const hodSettingsItems = [
 
 const hodItems = [
   { title: "User Management", url: "/hod/user-management", icon: Shield },
+  { title: "Subject Management", url: "/hod/subjects", icon: BookOpen },
 ];
 
 export function AppSidebar() {
