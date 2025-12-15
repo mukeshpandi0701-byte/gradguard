@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignments: {
+        Row: {
+          assignment_name: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          max_marks: number
+          staff_user_id: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_name: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          max_marks?: number
+          staff_user_id: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_name?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          max_marks?: number
+          staff_user_id?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "branch_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           attendance_date: string
@@ -423,6 +467,57 @@ export type Database = {
           staff_user_id?: string
         }
         Relationships: []
+      }
+      student_assignment_scores: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          graded_at: string | null
+          graded_by: string | null
+          id: string
+          marks_obtained: number | null
+          student_id: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          marks_obtained?: number | null
+          student_id: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          marks_obtained?: number | null
+          student_id?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_assignment_scores_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_assignment_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_history: {
         Row: {

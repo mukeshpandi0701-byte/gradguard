@@ -26,6 +26,7 @@ const mainItems = [
   { title: "Academic Updates", url: "/upload", icon: Upload },
   { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
   { title: "Attendance Reports", url: "/attendance-reports", icon: BarChart3 },
+  { title: "Assignment Scores", url: "/assignment-scores", icon: ClipboardCheck },
   { title: "Students", url: "/students", icon: Users },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },
@@ -34,6 +35,7 @@ const mainItems = [
 const settingsItems = [
   { title: "Profile", url: "/profile", icon: Settings },
   { title: "Download History", url: "/history", icon: HistoryIcon },
+  { title: "Assignment Management", url: "/assignment-management", icon: BookOpen },
 ];
 
 const hodSettingsItems = [
@@ -220,6 +222,7 @@ export function AppSidebar() {
                       "/upload",
                       "/attendance",
                       "/attendance-reports",
+                      "/assignment-scores",
                       "/students-export",
                       "/reports",
                       "/notifications",
