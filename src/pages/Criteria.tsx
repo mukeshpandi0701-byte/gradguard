@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Lock } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 
 interface Criteria {
@@ -26,6 +26,7 @@ const Criteria = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isHOD, setIsHOD] = useState(false);
   const [criteria, setCriteria] = useState<Criteria>({
     min_attendance_percentage: 75,
     min_internal_marks: 40,
@@ -40,34 +41,87 @@ const Criteria = () => {
   });
 
   useEffect(() => {
-    fetchCriteria();
+    checkRoleAndFetchCriteria();
   }, []);
 
-  const fetchCriteria = async () => {
+  const checkRoleAndFetchCriteria = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase
-        .from("dropout_criteria")
-        .select("*")
+      // Check if user is HOD
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
         .eq("user_id", user.id)
         .single();
 
-      if (data) {
-        setCriteria({
-          min_attendance_percentage: data.min_attendance_percentage,
-          min_internal_marks: data.min_internal_marks,
-          max_pending_fees: data.max_pending_fees,
-          max_internal_marks: data.max_internal_marks,
-          total_fees: data.total_fees,
-          total_hours: data.total_hours,
-          max_sessions_per_day: (data as any).max_sessions_per_day ?? 2,
-          attendance_weightage: data.attendance_weightage,
-          internal_weightage: data.internal_weightage,
-          fees_weightage: data.fees_weightage,
-        });
+      const userIsHOD = roleData?.role === "hod";
+      setIsHOD(userIsHOD);
+
+      if (userIsHOD) {
+        // HOD fetches their own criteria
+        const { data, error } = await supabase
+          .from("dropout_criteria")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (data) {
+          setCriteria({
+            min_attendance_percentage: data.min_attendance_percentage,
+            min_internal_marks: data.min_internal_marks,
+            max_pending_fees: data.max_pending_fees,
+            max_internal_marks: data.max_internal_marks,
+            total_fees: data.total_fees,
+            total_hours: data.total_hours,
+            max_sessions_per_day: (data as any).max_sessions_per_day ?? 7,
+            attendance_weightage: data.attendance_weightage,
+            internal_weightage: data.internal_weightage,
+            fees_weightage: data.fees_weightage,
+          });
+        }
+      } else {
+        // Staff fetches HOD's criteria from their department
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("department")
+          .eq("id", user.id)
+          .single();
+
+        if (profile?.department) {
+          // Find HOD from the same department
+          const { data: hodProfiles } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("department", profile.department)
+            .eq("panel_type", "hod");
+
+          if (hodProfiles && hodProfiles.length > 0) {
+            const hodId = hodProfiles[0].id;
+            const { data: hodCriteria } = await supabase
+              .from("dropout_criteria")
+              .select("*")
+              .eq("user_id", hodId)
+              .single();
+
+            if (hodCriteria) {
+              setCriteria({
+                min_attendance_percentage: hodCriteria.min_attendance_percentage,
+                min_internal_marks: hodCriteria.min_internal_marks,
+                max_pending_fees: hodCriteria.max_pending_fees,
+                max_internal_marks: hodCriteria.max_internal_marks,
+                total_fees: hodCriteria.total_fees,
+                total_hours: hodCriteria.total_hours,
+                max_sessions_per_day: (hodCriteria as any).max_sessions_per_day ?? 7,
+                attendance_weightage: hodCriteria.attendance_weightage,
+                internal_weightage: hodCriteria.internal_weightage,
+                fees_weightage: hodCriteria.fees_weightage,
+              });
+            }
+          }
+        }
       }
     } catch (error: any) {
       if (error.code !== "PGRST116") {
@@ -79,6 +133,11 @@ const Criteria = () => {
   };
 
   const handleSave = async () => {
+    if (!isHOD) {
+      toast.error("Only HODs can modify criteria settings");
+      return;
+    }
+
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -137,16 +196,27 @@ const Criteria = () => {
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Dropout Criteria Settings</h1>
           <p className="text-muted-foreground">
-            Configure the thresholds and weightages for dropout risk prediction
+            {isHOD 
+              ? "Configure the thresholds and weightages for dropout risk prediction"
+              : "View the criteria settings configured by your HOD"}
           </p>
+          {!isHOD && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
+              <Lock className="w-4 h-4" />
+              <span>These settings are managed by your HOD and are read-only</span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Minimum Thresholds</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Minimum Thresholds
+                {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
+              </CardTitle>
               <CardDescription>
-                Set the minimum acceptable values for each metric
+                {isHOD ? "Set the minimum acceptable values for each metric" : "Minimum acceptable values set by HOD"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -159,6 +229,8 @@ const Criteria = () => {
                   onChange={(e) => setCriteria({ ...criteria, min_attendance_percentage: Number(e.target.value) })}
                   min={0}
                   max={100}
+                  disabled={!isHOD}
+                  className={!isHOD ? "bg-muted" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
                   Students below this attendance % will be flagged
@@ -174,6 +246,8 @@ const Criteria = () => {
                   onChange={(e) => setCriteria({ ...criteria, min_internal_marks: Number(e.target.value) })}
                   min={0}
                   max={criteria.max_internal_marks}
+                  disabled={!isHOD}
+                  className={!isHOD ? "bg-muted" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
                   Students scoring below this will be flagged
@@ -188,6 +262,8 @@ const Criteria = () => {
                   value={criteria.max_pending_fees}
                   onChange={(e) => setCriteria({ ...criteria, max_pending_fees: Number(e.target.value) })}
                   min={0}
+                  disabled={!isHOD}
+                  className={!isHOD ? "bg-muted" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
                   Students with higher pending fees will be flagged
@@ -198,9 +274,12 @@ const Criteria = () => {
 
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Course Maximums</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Course Maximums
+                {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
+              </CardTitle>
               <CardDescription>
-                Set the maximum values for calculating percentages from CSV data
+                {isHOD ? "Set the maximum values for calculating percentages from CSV data" : "Maximum values set by HOD"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -212,6 +291,8 @@ const Criteria = () => {
                   value={criteria.max_internal_marks}
                   onChange={(e) => setCriteria({ ...criteria, max_internal_marks: Number(e.target.value) })}
                   min={1}
+                  disabled={!isHOD}
+                  className={!isHOD ? "bg-muted" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
                   Total marks out of which internal marks are scored
@@ -226,6 +307,8 @@ const Criteria = () => {
                   value={criteria.total_fees}
                   onChange={(e) => setCriteria({ ...criteria, total_fees: Number(e.target.value) })}
                   min={0}
+                  disabled={!isHOD}
+                  className={!isHOD ? "bg-muted" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
                   Total fees for the entire course
@@ -241,6 +324,8 @@ const Criteria = () => {
                   onChange={(e) => setCriteria({ ...criteria, max_sessions_per_day: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })}
                   min={1}
                   max={10}
+                  disabled={!isHOD}
+                  className={!isHOD ? "bg-muted" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
                   Maximum number of class sessions per day (1-10). Attendance % is calculated as attended/total sessions.
@@ -251,9 +336,12 @@ const Criteria = () => {
 
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Risk Calculation Weightages</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Risk Calculation Weightages
+                {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
+              </CardTitle>
               <CardDescription>
-                Adjust the importance of each factor (will be automatically normalized)
+                {isHOD ? "Adjust the importance of each factor (will be automatically normalized)" : "Weightages set by HOD"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -268,6 +356,8 @@ const Criteria = () => {
                     onValueChange={(value) => setCriteria({ ...criteria, attendance_weightage: value[0] / 100 })}
                     max={100}
                     step={5}
+                    disabled={!isHOD}
+                    className={!isHOD ? "opacity-60" : ""}
                   />
                 </div>
 
@@ -281,6 +371,8 @@ const Criteria = () => {
                     onValueChange={(value) => setCriteria({ ...criteria, internal_weightage: value[0] / 100 })}
                     max={100}
                     step={5}
+                    disabled={!isHOD}
+                    className={!isHOD ? "opacity-60" : ""}
                   />
                 </div>
 
@@ -294,18 +386,22 @@ const Criteria = () => {
                     onValueChange={(value) => setCriteria({ ...criteria, fees_weightage: value[0] / 100 })}
                     max={100}
                     step={5}
+                    disabled={!isHOD}
+                    className={!isHOD ? "opacity-60" : ""}
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving} size="lg">
-              <Save className="w-4 h-4 mr-2" />
-              {saving ? "Saving..." : "Save Criteria"}
-            </Button>
-          </div>
+          {isHOD && (
+            <div className="flex justify-end">
+              <Button onClick={handleSave} disabled={saving} size="lg">
+                <Save className="w-4 h-4 mr-2" />
+                {saving ? "Saving..." : "Save Criteria"}
+              </Button>
+            </div>
+          )}
         </div>
       </main>
     </div>
