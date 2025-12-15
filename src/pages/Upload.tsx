@@ -42,17 +42,41 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from("dropout_criteria")
-        .select("max_internal_marks, total_fees")
-        .eq("user_id", user.id)
+      // Get staff's department to find HOD's criteria
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("department")
+        .eq("id", user.id)
         .maybeSingle();
 
-      if (!error && data) {
-        setCriteria(data);
+      if (profile?.department) {
+        // Find HOD from the same department
+        const { data: hodProfiles } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("department", profile.department)
+          .eq("panel_type", "hod");
+
+        if (hodProfiles && hodProfiles.length > 0) {
+          const hodId = hodProfiles[0].id;
+          const { data: hodCriteria } = await supabase
+            .from("dropout_criteria")
+            .select("max_internal_marks, total_fees")
+            .eq("user_id", hodId)
+            .maybeSingle();
+
+          if (hodCriteria) {
+            setCriteria(hodCriteria);
+            return;
+          }
+        }
       }
+
+      // Fallback to default values if HOD criteria not found
+      setCriteria({ max_internal_marks: 100, total_fees: 100000 });
     } catch (error) {
       console.error("Error fetching criteria:", error);
+      setCriteria({ max_internal_marks: 100, total_fees: 100000 });
     }
   };
 
