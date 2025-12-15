@@ -34,12 +34,11 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [copying, setCopying] = useState(false);
   
-  // New subject form state
-  const [newSubject, setNewSubject] = useState({
-    branch: "",
-    subject_code: "",
-    subject_name: "",
-  });
+  // New subjects form state
+  const [addStep, setAddStep] = useState<"count" | "details">("count");
+  const [subjectCount, setSubjectCount] = useState<number>(1);
+  const [selectedAddBranch, setSelectedAddBranch] = useState("");
+  const [newSubjects, setNewSubjects] = useState<{ subject_code: string; subject_name: string }[]>([]);
   
   // Copy subjects form state
   const [copyFrom, setCopyFrom] = useState({ department: "", branch: "" });
@@ -170,9 +169,33 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
     }
   };
 
-  const handleAddSubject = async () => {
-    if (!newSubject.branch || !newSubject.subject_code) {
-      toast.error("Branch and Subject Code are required");
+  const handleProceedToDetails = () => {
+    if (!selectedAddBranch) {
+      toast.error("Please select a branch");
+      return;
+    }
+    if (subjectCount < 1 || subjectCount > 20) {
+      toast.error("Number of subjects must be between 1 and 20");
+      return;
+    }
+    // Initialize empty subject entries
+    setNewSubjects(Array(subjectCount).fill(null).map(() => ({ subject_code: "", subject_name: "" })));
+    setAddStep("details");
+  };
+
+  const updateSubjectField = (index: number, field: "subject_code" | "subject_name", value: string) => {
+    setNewSubjects(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleAddSubjects = async () => {
+    // Validate all subjects have codes
+    const invalidSubjects = newSubjects.filter(s => !s.subject_code.trim());
+    if (invalidSubjects.length > 0) {
+      toast.error("All subjects must have a subject code");
       return;
     }
 
@@ -181,35 +204,44 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const subjectsToInsert = newSubjects.map(s => ({
+        branch: selectedAddBranch,
+        subject_code: s.subject_code.toUpperCase().trim(),
+        subject_name: s.subject_name.trim() || null,
+        department: userDepartment,
+        created_by: user.id,
+      }));
+
       const { error } = await supabase
         .from("branch_subjects")
-        .insert({
-          branch: newSubject.branch,
-          subject_code: newSubject.subject_code.toUpperCase(),
-          subject_name: newSubject.subject_name || null,
-          department: userDepartment,
-          created_by: user.id,
-        });
+        .insert(subjectsToInsert);
 
       if (error) {
         if (error.code === "23505") {
-          toast.error("This subject code already exists for this branch");
+          toast.error("Some subject codes already exist for this branch");
         } else {
           throw error;
         }
         return;
       }
 
-      toast.success("Subject added successfully");
-      setNewSubject({ branch: "", subject_code: "", subject_name: "" });
-      setDialogOpen(false);
+      toast.success(`${newSubjects.length} subject(s) added successfully`);
+      resetAddDialog();
       fetchSubjectsAndBranches();
     } catch (error: any) {
-      toast.error(error.message || "Failed to add subject");
+      toast.error(error.message || "Failed to add subjects");
       console.error(error);
     } finally {
       setSaving(false);
     }
+  };
+
+  const resetAddDialog = () => {
+    setDialogOpen(false);
+    setAddStep("count");
+    setSubjectCount(1);
+    setSelectedAddBranch("");
+    setNewSubjects([]);
   };
 
   const handleDeleteSubject = async (subjectId: string) => {
@@ -354,60 +386,104 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
                 </div>
               </DialogContent>
             </Dialog>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              if (!open) resetAddDialog();
+              else setDialogOpen(true);
+            }}>
               <DialogTrigger asChild>
                 <Button size="sm">
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Subject
+                  Add Subjects
                 </Button>
               </DialogTrigger>
-            <DialogContent className="bg-card">
-              <DialogHeader>
-                <DialogTitle>Add New Subject</DialogTitle>
-                <DialogDescription>
-                  Add a subject for a specific branch
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Branch</Label>
-                  <Select
-                    value={newSubject.branch}
-                    onValueChange={(value) => setNewSubject({ ...newSubject, branch: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map(branch => (
-                        <SelectItem key={branch} value={branch}>
-                          {branch}
-                        </SelectItem>
+              <DialogContent className="bg-card max-w-lg max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {addStep === "count" ? "Add New Subjects" : `Enter Subject Details (${newSubjects.length})`}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {addStep === "count" 
+                      ? "Select branch and specify how many subjects to add"
+                      : `Enter details for ${newSubjects.length} subject(s) in ${selectedAddBranch}`
+                    }
+                  </DialogDescription>
+                </DialogHeader>
+                
+                {addStep === "count" ? (
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Branch *</Label>
+                      <Select
+                        value={selectedAddBranch}
+                        onValueChange={setSelectedAddBranch}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches.map(branch => (
+                            <SelectItem key={branch} value={branch}>
+                              {branch}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Number of Subjects *</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={subjectCount}
+                        onChange={(e) => setSubjectCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+                      />
+                      <p className="text-xs text-muted-foreground">Enter between 1 and 20 subjects</p>
+                    </div>
+                    <Button onClick={handleProceedToDetails} className="w-full">
+                      Next
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-3">
+                      {newSubjects.map((subject, index) => (
+                        <div key={index} className="p-3 border rounded-lg space-y-2 bg-muted/30">
+                          <div className="text-xs font-medium text-muted-foreground">Subject {index + 1}</div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs">Code *</Label>
+                              <Input
+                                placeholder="e.g., CS101"
+                                value={subject.subject_code}
+                                onChange={(e) => updateSubjectField(index, "subject_code", e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Name</Label>
+                              <Input
+                                placeholder="e.g., Data Structures"
+                                value={subject.subject_name}
+                                onChange={(e) => updateSubjectField(index, "subject_name", e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Subject Code *</Label>
-                  <Input
-                    placeholder="e.g., CS101, MA201"
-                    value={newSubject.subject_code}
-                    onChange={(e) => setNewSubject({ ...newSubject, subject_code: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Subject Name (Optional)</Label>
-                  <Input
-                    placeholder="e.g., Data Structures"
-                    value={newSubject.subject_name}
-                    onChange={(e) => setNewSubject({ ...newSubject, subject_name: e.target.value })}
-                  />
-                </div>
-                <Button onClick={handleAddSubject} disabled={saving} className="w-full">
-                  {saving ? "Adding..." : "Add Subject"}
-                </Button>
-              </div>
-            </DialogContent>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setAddStep("count")} className="flex-1">
+                        Back
+                      </Button>
+                      <Button onClick={handleAddSubjects} disabled={saving} className="flex-1">
+                        {saving ? "Adding..." : `Add ${newSubjects.length} Subject(s)`}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
             </Dialog>
           </div>
         </div>
