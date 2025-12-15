@@ -110,12 +110,15 @@ const AttendanceReports = () => {
 
   const downloadAttendanceReport = () => {
     const csvContent = [
-      ["Roll No.", "Name", "Branch", "Email"],
+      ["Roll No.", "Name", "Branch", "Email", "Sessions Attended", "Total Sessions", "Attendance %"],
       ...filteredStudents.map(student => [
         student.roll_number || "—",
         student.full_name || student.email,
         student.branch || "—",
-        student.email
+        student.email,
+        student.attendedSessions.toString(),
+        student.totalSessions.toString(),
+        student.attendancePercentage.toFixed(1) + "%"
       ])
     ].map(row => row.join(",")).join("\n");
 
@@ -123,7 +126,7 @@ const AttendanceReports = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${selectedBranch === "all" ? "All_Branches" : selectedBranch}_Students_${new Date().toLocaleDateString()}.csv`;
+    link.download = `${selectedBranch === "all" ? "All_Branches" : selectedBranch}_Attendance_Report_${new Date().toLocaleDateString()}.csv`;
     link.click();
   };
 

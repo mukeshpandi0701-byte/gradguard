@@ -311,15 +311,7 @@ export type Database = {
           suggestions?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "predictions_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {

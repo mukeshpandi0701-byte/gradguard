@@ -44,24 +44,28 @@ const StudentProfile = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase
+      // Fetch student data
+      const { data: studentData, error: studentError } = await supabase
         .from("students")
-        .select(`
-          *,
-          predictions(
-            final_risk_level,
-            ml_probability,
-            insights,
-            suggestions
-          )
-        `)
+        .select("*")
         .eq("id", id)
         .eq("user_id", user.id)
         .single();
 
-      if (error) throw error;
+      if (studentError) throw studentError;
 
-      setStudent(data as StudentProfile);
+      // Fetch predictions separately
+      const { data: predictionsData } = await supabase
+        .from("predictions")
+        .select("final_risk_level, ml_probability, insights, suggestions")
+        .eq("student_id", id);
+
+      const studentWithPredictions = {
+        ...studentData,
+        predictions: predictionsData || []
+      };
+
+      setStudent(studentWithPredictions as StudentProfile);
     } catch (error: any) {
       toast.error("Failed to fetch student profile");
       console.error(error);

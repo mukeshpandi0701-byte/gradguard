@@ -39,22 +39,33 @@ const Notifications = () => {
 
   const fetchStudents = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch students
+      const { data: studentsData, error: studentsError } = await supabase
         .from("students")
-        .select(`
-          id,
-          student_name,
-          email,
-          department,
-          predictions(final_risk_level)
-        `)
+        .select("id, student_name, email, department")
         .order('student_name');
 
-      if (error) throw error;
-      setStudents(data as StudentWithPrediction[] || []);
+      if (studentsError) throw studentsError;
+
+      // Fetch predictions separately
+      const studentIds = (studentsData || []).map(s => s.id);
+      const { data: predictionsData } = await supabase
+        .from("predictions")
+        .select("student_id, final_risk_level")
+        .in("student_id", studentIds);
+
+      // Merge predictions with students
+      const studentsWithPredictions = (studentsData || []).map(student => ({
+        ...student,
+        predictions: (predictionsData || [])
+          .filter(p => p.student_id === student.id)
+          .map(p => ({ final_risk_level: p.final_risk_level }))
+      }));
+
+      setStudents(studentsWithPredictions);
       
       // Extract unique departments
-      const uniqueDepts = Array.from(new Set((data as StudentWithPrediction[])?.map(s => s.department).filter(Boolean))) as string[];
+      const uniqueDepts = Array.from(new Set(studentsWithPredictions.map(s => s.department).filter(Boolean))) as string[];
       setDepartments(uniqueDepts);
     } catch (error: any) {
       toast.error("Failed to fetch students");
