@@ -10,6 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { initializeModel, predictDropout } from "@/lib/mlModel";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+type SubjectMark = {
+  subject_code: string;
+  subject_name: string | null;
+  marks: number;
+};
 
 type Student = {
   id: string;
@@ -21,6 +28,7 @@ type Student = {
   fee_paid_percentage: number;
   pending_fees: number;
   internal_marks: number;
+  subjectMarks?: SubjectMark[];
   riskLevel?: "low" | "medium" | "high";
   mlProbability?: number;
 };
@@ -149,11 +157,37 @@ const Students = () => {
           (predictionsData || []).map(p => [p.student_id, p])
         );
 
+        // Fetch subject marks for all students
+        const { data: subjectMarksData } = await supabase
+          .from("student_subject_marks")
+          .select(`
+            student_id,
+            internal_marks,
+            branch_subjects (
+              subject_code,
+              subject_name
+            )
+          `)
+          .in("student_id", profileIds);
+
+        // Group subject marks by student_id
+        const subjectMarksMap = new Map<string, SubjectMark[]>();
+        (subjectMarksData || []).forEach((sm: any) => {
+          const current = subjectMarksMap.get(sm.student_id) || [];
+          current.push({
+            subject_code: sm.branch_subjects?.subject_code || "Unknown",
+            subject_name: sm.branch_subjects?.subject_name,
+            marks: sm.internal_marks,
+          });
+          subjectMarksMap.set(sm.student_id, current);
+        });
+
         // Map student_profiles to Student type for display
         const studentsFromProfiles = (studentProfiles || []).map(sp => {
           const attendanceData = attendanceMap.get(sp.id);
           const academicData = studentsDataMap.get(sp.roll_number);
           const predictionData = predictionsMap.get(sp.id);
+          const subjectMarks = subjectMarksMap.get(sp.id) || [];
           
           // Calculate attendance from records, fallback to students table
           let attendancePercentage = 0;
@@ -161,6 +195,12 @@ const Students = () => {
             attendancePercentage = Math.min(100, (attendanceData.attended / attendanceData.total) * 100);
           } else if (academicData?.attendance_percentage != null) {
             attendancePercentage = Number(academicData.attendance_percentage);
+          }
+
+          // Calculate average marks from subject marks, fallback to stored value
+          let averageMarks = academicData?.internal_marks ?? 0;
+          if (subjectMarks.length > 0) {
+            averageMarks = subjectMarks.reduce((sum, sm) => sum + sm.marks, 0) / subjectMarks.length;
           }
 
           return {
@@ -172,7 +212,8 @@ const Students = () => {
             attendance_percentage: attendancePercentage,
             fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
             pending_fees: academicData?.pending_fees ?? 0,
-            internal_marks: academicData?.internal_marks ?? 0,
+            internal_marks: averageMarks,
+            subjectMarks,
             riskLevel: predictionData?.final_risk_level as "low" | "medium" | "high" | undefined,
             mlProbability: predictionData?.ml_probability,
           };
@@ -249,15 +290,47 @@ const Students = () => {
           (predictionsData || []).map(p => [p.student_id, p])
         );
 
+        // Fetch subject marks for staff's students
+        const { data: subjectMarksData } = await supabase
+          .from("student_subject_marks")
+          .select(`
+            student_id,
+            internal_marks,
+            branch_subjects (
+              subject_code,
+              subject_name
+            )
+          `)
+          .in("student_id", profileIds);
+
+        // Group subject marks by student_id
+        const subjectMarksMap = new Map<string, SubjectMark[]>();
+        (subjectMarksData || []).forEach((sm: any) => {
+          const current = subjectMarksMap.get(sm.student_id) || [];
+          current.push({
+            subject_code: sm.branch_subjects?.subject_code || "Unknown",
+            subject_name: sm.branch_subjects?.subject_name,
+            marks: sm.internal_marks,
+          });
+          subjectMarksMap.set(sm.student_id, current);
+        });
+
         // Map student_profiles to Student type with predictions and academic data
         const studentsFromProfiles = (studentProfiles || []).map(sp => {
           const academicData = studentsDataMap.get(sp.roll_number);
           const attendanceData = attendanceMap.get(sp.id);
+          const subjectMarks = subjectMarksMap.get(sp.id) || [];
           
           // Calculate attendance percentage from attendance_records
           const attendancePercentage = attendanceData && attendanceData.total > 0
             ? Math.min(100, (attendanceData.attended / attendanceData.total) * 100)
             : (academicData?.attendance_percentage || 0);
+
+          // Calculate average marks from subject marks, fallback to stored value
+          let averageMarks = academicData?.internal_marks || 0;
+          if (subjectMarks.length > 0) {
+            averageMarks = subjectMarks.reduce((sum, sm) => sum + sm.marks, 0) / subjectMarks.length;
+          }
 
           return {
             id: sp.id,
@@ -268,7 +341,8 @@ const Students = () => {
             attendance_percentage: attendancePercentage,
             fee_paid_percentage: academicData?.fee_paid_percentage || 0,
             pending_fees: academicData?.pending_fees || 0,
-            internal_marks: academicData?.internal_marks || 0,
+            internal_marks: averageMarks,
+            subjectMarks,
             riskLevel: predictionsMap.get(sp.id)?.final_risk_level,
             mlProbability: predictionsMap.get(sp.id)?.ml_probability,
           };
@@ -520,7 +594,36 @@ const Students = () => {
                           <TableCell>
                             {student.attendance_percentage?.toFixed(1)}%
                           </TableCell>
-                          <TableCell>{student.internal_marks}</TableCell>
+                          <TableCell>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help underline decoration-dotted">
+                                    {student.internal_marks?.toFixed(1)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  {student.subjectMarks && student.subjectMarks.length > 0 ? (
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-xs mb-1">Subject-wise Marks:</p>
+                                      {student.subjectMarks.map((sm, idx) => (
+                                        <div key={idx} className="flex justify-between gap-4 text-xs">
+                                          <span>{sm.subject_code}</span>
+                                          <span className="font-medium">{sm.marks}</span>
+                                        </div>
+                                      ))}
+                                      <div className="border-t pt-1 mt-1 flex justify-between gap-4 text-xs font-semibold">
+                                        <span>Average</span>
+                                        <span>{student.internal_marks?.toFixed(1)}</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs">No subject-wise data available</p>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
                           <TableCell>
                             {student.fee_paid_percentage?.toFixed(1)}%
                           </TableCell>

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, BookOpen, Loader2 } from "lucide-react";
+import { Plus, Trash2, BookOpen, Loader2, Copy } from "lucide-react";
 
 interface Subject {
   id: string;
@@ -26,10 +26,13 @@ interface SubjectManagementProps {
 const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
+  const [allDepartments, setAllDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const [copying, setCopying] = useState(false);
   
   // New subject form state
   const [newSubject, setNewSubject] = useState({
@@ -37,6 +40,12 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
     subject_code: "",
     subject_name: "",
   });
+  
+  // Copy subjects form state
+  const [copyFrom, setCopyFrom] = useState({ department: "", branch: "" });
+  const [copyTo, setCopyTo] = useState("");
+  const [sourceBranches, setSourceBranches] = useState<string[]>([]);
+  const [sourceSubjects, setSourceSubjects] = useState<Subject[]>([]);
 
   useEffect(() => {
     fetchSubjectsAndBranches();
@@ -66,11 +75,98 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
       
       const uniqueBranches = Array.from(new Set((branchData || []).map(b => b.branch).filter(Boolean))) as string[];
       setBranches(uniqueBranches);
+
+      // Fetch all departments for copy functionality
+      const { data: allDepts } = await supabase
+        .from("student_profiles")
+        .select("department");
+      
+      const uniqueDepts = Array.from(new Set((allDepts || []).map(d => d.department).filter(Boolean))) as string[];
+      setAllDepartments(uniqueDepts);
     } catch (error) {
       console.error("Error fetching subjects:", error);
       toast.error("Failed to load subjects");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSourceBranches = async (department: string) => {
+    if (!department) {
+      setSourceBranches([]);
+      setSourceSubjects([]);
+      return;
+    }
+    
+    try {
+      const { data: branchData } = await supabase
+        .from("student_profiles")
+        .select("branch")
+        .eq("department", department);
+      
+      const uniqueBranches = Array.from(new Set((branchData || []).map(b => b.branch).filter(Boolean))) as string[];
+      setSourceBranches(uniqueBranches);
+      
+      // Fetch subjects for the department
+      const { data: subjectsData } = await supabase
+        .from("branch_subjects")
+        .select("*")
+        .eq("department", department);
+      
+      setSourceSubjects(subjectsData || []);
+    } catch (error) {
+      console.error("Error fetching source branches:", error);
+    }
+  };
+
+  const handleCopySubjects = async () => {
+    if (!copyFrom.branch || !copyTo) {
+      toast.error("Please select source and target branches");
+      return;
+    }
+
+    const subjectsToCopy = sourceSubjects.filter(s => s.branch === copyFrom.branch);
+    if (subjectsToCopy.length === 0) {
+      toast.error("No subjects found in the source branch");
+      return;
+    }
+
+    setCopying(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const newSubjects = subjectsToCopy.map(s => ({
+        branch: copyTo,
+        subject_code: s.subject_code,
+        subject_name: s.subject_name,
+        department: userDepartment,
+        created_by: user.id,
+      }));
+
+      const { error } = await supabase
+        .from("branch_subjects")
+        .insert(newSubjects);
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("Some subjects already exist in the target branch");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success(`Copied ${subjectsToCopy.length} subjects successfully`);
+      setCopyDialogOpen(false);
+      setCopyFrom({ department: "", branch: "" });
+      setCopyTo("");
+      fetchSubjectsAndBranches();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to copy subjects");
+      console.error(error);
+    } finally {
+      setCopying(false);
     }
   };
 
@@ -173,13 +269,98 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
               Configure subjects for each branch. Staff will use these to enter marks.
             </CardDescription>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Subject
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy From
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-card">
+                <DialogHeader>
+                  <DialogTitle>Copy Subjects from Another Branch</DialogTitle>
+                  <DialogDescription>
+                    Copy all subjects from one branch to another
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Source Department</Label>
+                    <Select
+                      value={copyFrom.department}
+                      onValueChange={(value) => {
+                        setCopyFrom({ department: value, branch: "" });
+                        fetchSourceBranches(value);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allDepartments.map(dept => (
+                          <SelectItem key={dept} value={dept}>
+                            {dept}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Source Branch</Label>
+                    <Select
+                      value={copyFrom.branch}
+                      onValueChange={(value) => setCopyFrom({ ...copyFrom, branch: value })}
+                      disabled={!copyFrom.department}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sourceBranches.map(branch => {
+                          const count = sourceSubjects.filter(s => s.branch === branch).length;
+                          return (
+                            <SelectItem key={branch} value={branch}>
+                              {branch} ({count} subjects)
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Target Branch (in {userDepartment})</Label>
+                    <Select value={copyTo} onValueChange={setCopyTo}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select target branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map(branch => (
+                          <SelectItem key={branch} value={branch}>
+                            {branch}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {copyFrom.branch && (
+                    <div className="text-sm text-muted-foreground">
+                      {sourceSubjects.filter(s => s.branch === copyFrom.branch).length} subjects will be copied
+                    </div>
+                  )}
+                  <Button onClick={handleCopySubjects} disabled={copying} className="w-full">
+                    {copying ? "Copying..." : "Copy Subjects"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Subject
+                </Button>
+              </DialogTrigger>
             <DialogContent className="bg-card">
               <DialogHeader>
                 <DialogTitle>Add New Subject</DialogTitle>
@@ -227,7 +408,8 @@ const SubjectManagement = ({ userDepartment }: SubjectManagementProps) => {
                 </Button>
               </div>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

@@ -90,11 +90,37 @@ const StudentsWithSelection = () => {
         (predictionsData || []).map(p => [p.student_id, p])
       );
 
+      // Fetch subject marks for all students
+      const { data: subjectMarksData } = await supabase
+        .from("student_subject_marks")
+        .select(`
+          student_id,
+          internal_marks,
+          branch_subjects (
+            subject_code,
+            subject_name
+          )
+        `)
+        .in("student_id", profileIds);
+
+      // Group subject marks by student_id
+      const subjectMarksMap = new Map<string, { subject_code: string; subject_name: string | null; marks: number }[]>();
+      (subjectMarksData || []).forEach((sm: any) => {
+        const current = subjectMarksMap.get(sm.student_id) || [];
+        current.push({
+          subject_code: sm.branch_subjects?.subject_code || "Unknown",
+          subject_name: sm.branch_subjects?.subject_name,
+          marks: sm.internal_marks,
+        });
+        subjectMarksMap.set(sm.student_id, current);
+      });
+
       // Map student_profiles with all data
       const studentsWithData = (studentProfiles || []).map(sp => {
         const academicData = studentsDataMap.get(sp.roll_number);
         const attendanceData = attendanceMap.get(sp.id);
         const prediction = predictionsMap.get(sp.id);
+        const subjectMarks = subjectMarksMap.get(sp.id) || [];
 
         // Calculate attendance from records, fallback to students table
         let attendancePercentage = 0;
@@ -102,6 +128,12 @@ const StudentsWithSelection = () => {
           attendancePercentage = Math.min(100, (attendanceData.attended / attendanceData.total) * 100);
         } else if (academicData?.attendance_percentage != null) {
           attendancePercentage = Number(academicData.attendance_percentage);
+        }
+
+        // Calculate average marks from subject marks
+        let averageMarks = academicData?.internal_marks ?? 0;
+        if (subjectMarks.length > 0) {
+          averageMarks = subjectMarks.reduce((sum, sm) => sum + sm.marks, 0) / subjectMarks.length;
         }
 
         return {
@@ -113,7 +145,8 @@ const StudentsWithSelection = () => {
           attendance_percentage: attendancePercentage,
           fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
           pending_fees: academicData?.pending_fees ?? 0,
-          internal_marks: academicData?.internal_marks ?? 0,
+          internal_marks: averageMarks,
+          subjectMarks,
           predictions: prediction ? [{
             final_risk_level: prediction.final_risk_level,
             ml_probability: prediction.ml_probability,
@@ -156,6 +189,7 @@ const StudentsWithSelection = () => {
         .map(s => ({
           student_name: s.student_name,
           roll_number: s.roll_number,
+          department: s.department,
           attendance_percentage: s.attendance_percentage || 0,
           internal_marks: s.internal_marks || 0,
           fee_paid_percentage: s.fee_paid_percentage || 0,
@@ -165,6 +199,7 @@ const StudentsWithSelection = () => {
           email: s.email,
           suggestions: s.predictions?.[0]?.suggestions,
           insights: s.predictions?.[0]?.insights,
+          subjectMarks: s.subjectMarks,
         }));
 
       await generateStudentReportPDF(selectedData);
@@ -338,7 +373,7 @@ const StudentsWithSelection = () => {
                       <TableCell className="text-sm">{student.student_name}</TableCell>
                       <TableCell className="text-sm">{student.roll_number || "—"}</TableCell>
                       <TableCell className="text-sm">{student.attendance_percentage?.toFixed(1)}%</TableCell>
-                      <TableCell className="text-sm">{student.internal_marks}</TableCell>
+                      <TableCell className="text-sm">{student.internal_marks?.toFixed(1)}</TableCell>
                       <TableCell className="text-sm">{student.fee_paid_percentage?.toFixed(1)}%</TableCell>
                       <TableCell className="text-sm">{student.predictions?.[0]?.final_risk_level?.toUpperCase() || "—"}</TableCell>
                     </TableRow>

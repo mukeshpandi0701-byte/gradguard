@@ -44,6 +44,7 @@ export interface StudentReportData {
   email?: string;
   suggestions?: string;
   insights?: string;
+  subjectMarks?: { subject_code: string; subject_name: string | null; marks: number }[];
 }
 
 export interface SocialActivityData {
@@ -803,16 +804,16 @@ export const generateStudentReportPDF = async (
     pdf.text(student.attendance_percentage.toFixed(1) + "%", margin + 5, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
-    // Internal Marks box
+    // Internal Marks box (Average)
     pdf.setFillColor(240, 240, 240);
     pdf.roundedRect(margin + boxWidth + 10, yPosition, boxWidth, boxHeight, 3, 3, 'F');
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(11);
-    pdf.text("Internal Marks", margin + boxWidth + 15, yPosition + 7);
+    pdf.text("Avg Internal Marks", margin + boxWidth + 15, yPosition + 7);
     pdf.setFontSize(16);
     const marksColor = student.internal_marks >= 40 ? [34, 197, 94] : student.internal_marks >= 25 ? [251, 191, 36] : [239, 68, 68];
     pdf.setTextColor(marksColor[0], marksColor[1], marksColor[2]);
-    pdf.text(`${student.internal_marks.toFixed(0)}/100`, margin + boxWidth + 15, yPosition + 16);
+    pdf.text(`${student.internal_marks.toFixed(1)}`, margin + boxWidth + 15, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
     yPosition += boxHeight + 8;
@@ -842,6 +843,44 @@ export const generateStudentReportPDF = async (
     pdf.setTextColor(0, 0, 0);
 
     yPosition += boxHeight + 12;
+
+    // Subject-wise Marks Section (if available)
+    if (student.subjectMarks && student.subjectMarks.length > 0) {
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Subject-wise Internal Marks", margin, yPosition);
+      yPosition += 8;
+
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      
+      // Table header
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(margin, yPosition, contentWidth, 8, 'F');
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Subject Code", margin + 3, yPosition + 5.5);
+      pdf.text("Subject Name", margin + 40, yPosition + 5.5);
+      pdf.text("Marks", margin + contentWidth - 25, yPosition + 5.5);
+      yPosition += 8;
+
+      pdf.setFont("helvetica", "normal");
+      student.subjectMarks.forEach((subj, idx) => {
+        if (idx % 2 === 0) {
+          pdf.setFillColor(250, 250, 250);
+          pdf.rect(margin, yPosition, contentWidth, 7, 'F');
+        }
+        pdf.text(subj.subject_code, margin + 3, yPosition + 5);
+        pdf.text(subj.subject_name || "—", margin + 40, yPosition + 5);
+        
+        const markColor = subj.marks >= 40 ? [34, 197, 94] : subj.marks >= 25 ? [251, 191, 36] : [239, 68, 68];
+        pdf.setTextColor(markColor[0], markColor[1], markColor[2]);
+        pdf.text(`${subj.marks.toFixed(0)}`, margin + contentWidth - 25, yPosition + 5);
+        pdf.setTextColor(0, 0, 0);
+        
+        yPosition += 7;
+      });
+      yPosition += 5;
+    }
 
     // Risk Assessment Section
     pdf.setFontSize(16);
