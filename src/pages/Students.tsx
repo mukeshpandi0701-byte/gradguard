@@ -301,29 +301,40 @@ const Students = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      let { data: criteria } = await supabase
-        .from("dropout_criteria")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
+      // Get staff's department to find HOD's criteria
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("department")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      let criteria = null;
+
+      if (profile?.department) {
+        // Find HOD from the same department
+        const { data: hodProfiles } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("department", profile.department)
+          .eq("panel_type", "hod");
+
+        if (hodProfiles && hodProfiles.length > 0) {
+          const hodId = hodProfiles[0].id;
+          const { data: hodCriteria } = await supabase
+            .from("dropout_criteria")
+            .select("*")
+            .eq("user_id", hodId)
+            .maybeSingle();
+
+          criteria = hodCriteria;
+        }
+      }
 
       if (!criteria) {
-        const { data: newCriteria, error } = await supabase
-          .from("dropout_criteria")
-          .insert({
-            user_id: user.id,
-            min_attendance_percentage: 75,
-            min_internal_marks: 40,
-            max_pending_fees: 10000,
-            attendance_weightage: 0.4,
-            internal_weightage: 0.3,
-            fees_weightage: 0.3,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        criteria = newCriteria;
+        toast.dismiss(loadingToast);
+        toast.error("Your HOD has not configured the dropout criteria yet. Please contact your HOD to set up the criteria before running predictions.");
+        setPredicting(false);
+        return;
       }
 
       await supabase
