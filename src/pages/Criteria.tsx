@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Lock } from "lucide-react";
+import { ArrowLeft, Save, Lock, AlertTriangle } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 
 interface Criteria {
@@ -27,6 +27,8 @@ const Criteria = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isHOD, setIsHOD] = useState(false);
+  const [hodName, setHodName] = useState<string | null>(null);
+  const [hodCriteriaExists, setHodCriteriaExists] = useState(true);
   const [criteria, setCriteria] = useState<Criteria>({
     min_attendance_percentage: 75,
     min_internal_marks: 40,
@@ -88,25 +90,28 @@ const Criteria = () => {
           .from("profiles")
           .select("department")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (profile?.department) {
           // Find HOD from the same department
           const { data: hodProfiles } = await supabase
             .from("profiles")
-            .select("id")
+            .select("id, full_name, email")
             .eq("department", profile.department)
             .eq("panel_type", "hod");
 
           if (hodProfiles && hodProfiles.length > 0) {
-            const hodId = hodProfiles[0].id;
+            const hod = hodProfiles[0];
+            setHodName(hod.full_name || hod.email || "HOD");
+            
             const { data: hodCriteria } = await supabase
               .from("dropout_criteria")
               .select("*")
-              .eq("user_id", hodId)
-              .single();
+              .eq("user_id", hod.id)
+              .maybeSingle();
 
             if (hodCriteria) {
+              setHodCriteriaExists(true);
               setCriteria({
                 min_attendance_percentage: hodCriteria.min_attendance_percentage,
                 min_internal_marks: hodCriteria.min_internal_marks,
@@ -119,7 +124,11 @@ const Criteria = () => {
                 internal_weightage: hodCriteria.internal_weightage,
                 fees_weightage: hodCriteria.fees_weightage,
               });
+            } else {
+              setHodCriteriaExists(false);
             }
+          } else {
+            setHodCriteriaExists(false);
           }
         }
       }
@@ -200,10 +209,16 @@ const Criteria = () => {
               ? "Configure the thresholds and weightages for dropout risk prediction"
               : "View the criteria settings configured by your HOD"}
           </p>
-          {!isHOD && (
+          {!isHOD && hodCriteriaExists && hodName && (
             <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
               <Lock className="w-4 h-4" />
-              <span>These settings are managed by your HOD and are read-only</span>
+              <span>These settings are configured by <strong>{hodName}</strong> and are read-only</span>
+            </div>
+          )}
+          {!isHOD && !hodCriteriaExists && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              <AlertTriangle className="w-4 h-4" />
+              <span>Your HOD has not configured the dropout criteria yet. Prediction features will be unavailable until criteria are set.</span>
             </div>
           )}
         </div>
