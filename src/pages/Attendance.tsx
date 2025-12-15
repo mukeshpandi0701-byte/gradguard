@@ -184,6 +184,56 @@ const Attendance = () => {
     toast.success("All students marked with full attendance");
   };
 
+  const syncAttendanceToStudents = async (userId: string) => {
+    try {
+      if (students.length === 0) return;
+
+      const profileIds = students.map((s) => s.id);
+
+      const { data: attendanceRecords, error } = await supabase
+        .from("attendance_records")
+        .select("student_id, sessions_attended, max_sessions")
+        .in("student_id", profileIds);
+
+      if (error) {
+        console.error("Error fetching attendance for sync:", error);
+        return;
+      }
+
+      const totals = new Map<string, { attended: number; total: number }>();
+
+      (attendanceRecords || []).forEach((record: any) => {
+        const current = totals.get(record.student_id) || { attended: 0, total: 0 };
+        current.attended += record.sessions_attended;
+        current.total += record.max_sessions;
+        totals.set(record.student_id, current);
+      });
+
+      const updates = students.map(async (student) => {
+        const totalData = totals.get(student.id) || { attended: 0, total: 0 };
+        const percentage = totalData.total > 0
+          ? Math.min(100, (totalData.attended / totalData.total) * 100)
+          : 0;
+
+        if (!student.roll_number) return;
+
+        const { error: updateError } = await supabase
+          .from("students")
+          .update({ attendance_percentage: percentage })
+          .eq("user_id", userId)
+          .eq("roll_number", student.roll_number);
+
+        if (updateError) {
+          console.error("Error updating student attendance:", updateError);
+        }
+      });
+
+      await Promise.all(updates);
+    } catch (err) {
+      console.error("Unexpected error syncing attendance to students:", err);
+    }
+  };
+
   const handleSaveAttendance = async () => {
     setSaving(true);
     try {
@@ -218,6 +268,9 @@ const Attendance = () => {
 
       if (error) throw error;
 
+      // Sync aggregated attendance percentage to students table
+      await syncAttendanceToStudents(user.id);
+
       const weekEndDate = addDays(weekStart, 5);
       toast.success(`Attendance saved for week ${format(weekStart, "MMM d")} - ${format(weekEndDate, "MMM d, yyyy")}`);
     } catch (error: any) {
@@ -227,7 +280,6 @@ const Attendance = () => {
       setSaving(false);
     }
   };
-
   const filteredStudents = selectedBranch === "all" 
     ? students 
     : students.filter(s => s.branch === selectedBranch);
