@@ -47,6 +47,39 @@ export type Database = {
         }
         Relationships: []
       }
+      branch_subjects: {
+        Row: {
+          branch: string
+          created_at: string
+          created_by: string
+          department: string
+          id: string
+          subject_code: string
+          subject_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          branch: string
+          created_at?: string
+          created_by: string
+          department: string
+          id?: string
+          subject_code: string
+          subject_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          branch?: string
+          created_at?: string
+          created_by?: string
+          department?: string
+          id?: string
+          subject_code?: string
+          subject_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       download_history: {
         Row: {
           created_at: string
@@ -483,6 +516,51 @@ export type Database = {
           year?: string | null
         }
         Relationships: []
+      }
+      student_subject_marks: {
+        Row: {
+          created_at: string
+          id: string
+          internal_marks: number
+          student_id: string
+          subject_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          internal_marks?: number
+          student_id: string
+          subject_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          internal_marks?: number
+          student_id?: string
+          subject_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_subject_marks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subject_marks_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "branch_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {
