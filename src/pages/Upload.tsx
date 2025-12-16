@@ -58,6 +58,7 @@ const Upload = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [criteria, setCriteria] = useState<Criteria | null>(null);
+  const [criteriaFromHOD, setCriteriaFromHOD] = useState<boolean>(false);
   const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("internal-marks");
@@ -137,15 +138,18 @@ const Upload = () => {
               total_fees: hodCriteria.total_fees,
               num_internal_exams: (hodCriteria as any).num_internal_exams ?? 3
             });
+            setCriteriaFromHOD(true);
             return;
           }
         }
       }
 
       setCriteria({ max_internal_marks: 100, total_fees: 100000, num_internal_exams: 3 });
+      setCriteriaFromHOD(false);
     } catch (error) {
       console.error("Error fetching criteria:", error);
       setCriteria({ max_internal_marks: 100, total_fees: 100000, num_internal_exams: 3 });
+      setCriteriaFromHOD(false);
     }
   };
 
@@ -957,6 +961,12 @@ const Upload = () => {
 
               {/* Bulk Internal Marks Tab */}
               <TabsContent value="bulk-marks">
+                {!criteriaFromHOD && (
+                  <div className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    Using default criteria. Your HOD has not configured the criteria for this department yet.
+                  </div>
+                )}
                 <Card className="shadow-card">
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -1061,6 +1071,12 @@ const Upload = () => {
 
               {/* Bulk Fees Tab */}
               <TabsContent value="bulk-fees">
+                {!criteriaFromHOD && (
+                  <div className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    Using default criteria. Your HOD has not configured the criteria for this department yet.
+                  </div>
+                )}
                 <Card className="shadow-card">
                   <CardHeader>
                     <div className="flex items-center justify-between">

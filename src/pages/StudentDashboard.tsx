@@ -86,6 +86,21 @@ const StudentDashboard = () => {
       if (profileData) {
         setProfile(profileData);
 
+        // Fetch attendance from attendance_records (student_profiles.id is the student_id)
+        const { data: attendanceRecords } = await supabase
+          .from("attendance_records")
+          .select("sessions_attended, max_sessions")
+          .eq("student_id", profileData.id);
+
+        let computedAttendance = 0;
+        if (attendanceRecords && attendanceRecords.length > 0) {
+          const totalAttended = attendanceRecords.reduce((sum, r) => sum + (r.sessions_attended || 0), 0);
+          const totalMax = attendanceRecords.reduce((sum, r) => sum + (r.max_sessions || 0), 0);
+          if (totalMax > 0) {
+            computedAttendance = Math.min(100, (totalAttended / totalMax) * 100);
+          }
+        }
+
         // Try to find matching student data by roll number
         const { data: studentDataResult, error: studentError } = await supabase
           .from("students")
@@ -98,7 +113,11 @@ const StudentDashboard = () => {
         }
 
         if (studentDataResult) {
-          setStudentData(studentDataResult);
+          // Override attendance_percentage with computed value from attendance_records
+          setStudentData({
+            ...studentDataResult,
+            attendance_percentage: computedAttendance
+          });
 
           // Fetch prediction for this student
           const { data: predictionData, error: predictionError } = await supabase
@@ -118,6 +137,19 @@ const StudentDashboard = () => {
           }
 
           // Fetch tutor info - find staff assigned to this student's branch
+          await fetchTutorInfo(profileData.branch);
+        } else {
+          // Create a minimal student data from attendance records if students table has no entry
+          setStudentData({
+            id: profileData.id,
+            student_name: profileData.full_name || profileData.email,
+            roll_number: profileData.roll_number || "",
+            attendance_percentage: computedAttendance,
+            internal_marks: 0,
+            fee_paid_percentage: 0,
+            pending_fees: 0,
+            department: profileData.branch
+          });
           await fetchTutorInfo(profileData.branch);
         }
       }
