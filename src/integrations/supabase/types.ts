@@ -561,29 +561,35 @@ export type Database = {
       student_branch_assignment_marks: {
         Row: {
           assignment_id: string
+          assignment_title: string | null
           created_at: string
           id: string
           marks_obtained: number
           student_id: string
           subject_id: string
+          submission_date: string | null
           updated_at: string
         }
         Insert: {
           assignment_id: string
+          assignment_title?: string | null
           created_at?: string
           id?: string
           marks_obtained?: number
           student_id: string
           subject_id: string
+          submission_date?: string | null
           updated_at?: string
         }
         Update: {
           assignment_id?: string
+          assignment_title?: string | null
           created_at?: string
           id?: string
           marks_obtained?: number
           student_id?: string
           subject_id?: string
+          submission_date?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -706,6 +712,7 @@ export type Database = {
       student_subject_marks: {
         Row: {
           created_at: string
+          exam_date: string | null
           exam_number: string | null
           id: string
           internal_marks: number
@@ -716,6 +723,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          exam_date?: string | null
           exam_number?: string | null
           id?: string
           internal_marks?: number
@@ -726,6 +734,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          exam_date?: string | null
           exam_number?: string | null
           id?: string
           internal_marks?: number

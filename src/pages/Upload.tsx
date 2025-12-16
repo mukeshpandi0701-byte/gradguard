@@ -30,8 +30,9 @@ interface Subject {
 
 interface AssignmentData {
   number: string;
-  title: string;
+  titles: Record<string, string>;  // per-subject titles
   marks: Record<string, string>;
+  submissionDates: Record<string, string>;  // per-subject submission dates
 }
 
 interface Criteria {
@@ -65,21 +66,26 @@ const Upload = () => {
   // Multi-subject state
   const [branchSubjects, setBranchSubjects] = useState<Subject[]>([]);
   const [subjectMarks, setSubjectMarks] = useState<Record<string, string>>({});
+  const [subjectExamDates, setSubjectExamDates] = useState<Record<string, string>>({});
   const [selectedCIA, setSelectedCIA] = useState<string>("CIA-I");
   
   // Assignment state
   const [assignmentData, setAssignmentData] = useState<AssignmentData>({
     number: "",
-    title: "",
-    marks: {}
+    titles: {},
+    marks: {},
+    submissionDates: {}
   });
 
   // Bulk update state (attendance-style)
   const [bulkMarks, setBulkMarks] = useState<Map<MarksKey, string>>(new Map());
+  const [bulkExamDates, setBulkExamDates] = useState<Map<string, string>>(new Map()); // per subject exam date
   const [bulkCIA, setBulkCIA] = useState<string>("CIA-I");
   const [bulkFees, setBulkFees] = useState<Map<string, string>>(new Map());
-  const [bulkAssignment, setBulkAssignment] = useState<{ number: string; title: string }>({ number: "", title: "" });
+  const [bulkAssignment, setBulkAssignment] = useState<{ number: string }>({ number: "" });
   const [bulkAssignmentMarks, setBulkAssignmentMarks] = useState<Map<MarksKey, string>>(new Map());
+  const [bulkAssignmentTitles, setBulkAssignmentTitles] = useState<Map<string, string>>(new Map());
+  const [bulkAssignmentDates, setBulkAssignmentDates] = useState<Map<string, string>>(new Map());
 
   // CIA Comparison state
   const [comparisonDialogOpen, setComparisonDialogOpen] = useState(false);
@@ -383,7 +389,8 @@ const Upload = () => {
   const handleEditStudent = async (student: Student) => {
     setSelectedStudent(student);
     setSubjectMarks({});
-    setAssignmentData({ number: "", title: "", marks: {} });
+    setSubjectExamDates({});
+    setAssignmentData({ number: "", titles: {}, marks: {}, submissionDates: {} });
     setActiveTab("internal-marks");
     setSelectedCIA("CIA-I");
     
@@ -405,6 +412,10 @@ const Upload = () => {
 
   const handleSubjectMarkChange = (subjectId: string, value: string) => {
     setSubjectMarks(prev => ({ ...prev, [subjectId]: value }));
+  };
+
+  const handleSubjectExamDateChange = (subjectId: string, value: string) => {
+    setSubjectExamDates(prev => ({ ...prev, [subjectId]: value }));
   };
 
   const handleAssignmentMarkChange = (subjectId: string, value: string) => {
@@ -490,6 +501,7 @@ const Upload = () => {
           subject_id: subject.id,
           internal_marks: parseFloat(subjectMarks[subject.id] || "0"),
           exam_number: selectedCIA,
+          exam_date: subjectExamDates[subject.id] || null,
           updated_by: user.id
         }));
 
@@ -512,8 +524,15 @@ const Upload = () => {
   const handleSaveAssignment = async () => {
     if (!selectedStudent) return;
 
-    if (!assignmentData.number.trim() || !assignmentData.title.trim()) {
-      toast.error("Please enter assignment number and title");
+    if (!assignmentData.number.trim()) {
+      toast.error("Please enter assignment number");
+      return;
+    }
+
+    // Check if at least one subject has a title
+    const hasTitles = branchSubjects.some(s => assignmentData.titles[s.id]?.trim());
+    if (!hasTitles) {
+      toast.error("Please enter at least one subject assignment title");
       return;
     }
 
@@ -538,7 +557,7 @@ const Upload = () => {
           .insert({
             branch: selectedStudent.branch,
             assignment_number: assignmentData.number,
-            assignment_title: assignmentData.title,
+            assignment_title: "Multiple Subjects", // Generic title since per-subject
             staff_user_id: user.id,
             max_marks: criteria?.max_internal_marks || 100
           })
@@ -565,7 +584,9 @@ const Upload = () => {
         assignment_id: assignmentId,
         student_id: studentRecord.id,
         subject_id: subject.id,
-        marks_obtained: parseFloat(assignmentData.marks[subject.id] || "0")
+        marks_obtained: parseFloat(assignmentData.marks[subject.id] || "0"),
+        assignment_title: assignmentData.titles[subject.id] || null,
+        submission_date: assignmentData.submissionDates[subject.id] || null
       }));
 
       const { error: marksError } = await supabase
@@ -575,7 +596,7 @@ const Upload = () => {
       if (marksError) throw marksError;
 
       toast.success(`Assignment saved successfully!`);
-      setAssignmentData({ number: "", title: "", marks: {} });
+      setAssignmentData({ number: "", titles: {}, marks: {}, submissionDates: {} });
     } catch (error: any) {
       toast.error(error.message || "Failed to save assignment");
       console.error(error);
@@ -661,6 +682,7 @@ const Upload = () => {
               subject_id: subject.id,
               internal_marks: parseFloat(bulkMarks.get(key) || "0"),
               exam_number: bulkCIA,
+              exam_date: bulkExamDates.get(subject.id) || null,
               updated_by: user.id
             };
           });
@@ -724,8 +746,15 @@ const Upload = () => {
   };
 
   const handleSaveBulkAssignment = async () => {
-    if (!bulkAssignment.number.trim() || !bulkAssignment.title.trim()) {
-      toast.error("Please enter assignment number and title");
+    if (!bulkAssignment.number.trim()) {
+      toast.error("Please enter assignment number");
+      return;
+    }
+
+    // Check if at least one subject has a title
+    const hasTitles = branchSubjects.some(s => bulkAssignmentTitles.get(s.id)?.trim());
+    if (!hasTitles) {
+      toast.error("Please enter at least one subject assignment title");
       return;
     }
 
@@ -752,7 +781,7 @@ const Upload = () => {
           .insert({
             branch: branch,
             assignment_number: bulkAssignment.number,
-            assignment_title: bulkAssignment.title,
+            assignment_title: "Multiple Subjects",
             staff_user_id: user.id,
             max_marks: criteria?.max_internal_marks || 100
           })
@@ -780,7 +809,9 @@ const Upload = () => {
               assignment_id: assignmentId,
               student_id: studentRecord.id,
               subject_id: subject.id,
-              marks_obtained: parseFloat(bulkAssignmentMarks.get(key) || "0")
+              marks_obtained: parseFloat(bulkAssignmentMarks.get(key) || "0"),
+              assignment_title: bulkAssignmentTitles.get(subject.id) || null,
+              submission_date: bulkAssignmentDates.get(subject.id) || null
             };
           });
 
@@ -795,7 +826,9 @@ const Upload = () => {
       }
 
       toast.success(`Assignment saved for ${successCount} students!`);
-      setBulkAssignment({ number: "", title: "" });
+      setBulkAssignment({ number: "" });
+      setBulkAssignmentTitles(new Map());
+      setBulkAssignmentDates(new Map());
     } catch (error: any) {
       toast.error(error.message || "Failed to save assignment");
       console.error(error);
@@ -956,47 +989,70 @@ const Upload = () => {
                     {branchSubjects.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">No subjects configured for this branch</div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="sticky left-0 bg-card z-10">Roll No</TableHead>
-                              <TableHead className="sticky left-20 bg-card z-10">Name</TableHead>
-                              {branchSubjects.map(subject => (
-                                <TableHead key={subject.id} className="text-center min-w-[100px]">
-                                  {subject.subject_code}
-                                </TableHead>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredStudents.map((student) => (
-                              <TableRow key={student.id}>
-                                <TableCell className="sticky left-0 bg-card font-medium">{student.roll_number}</TableCell>
-                                <TableCell className="sticky left-20 bg-card">{student.full_name || student.email}</TableCell>
-                                {branchSubjects.map(subject => {
-                                  const key: MarksKey = `${student.id}_${subject.id}`;
-                                  return (
-                                    <TableCell key={subject.id} className="p-1">
-                                      <Input
-                                        type="number"
-                                        className="w-20 h-8 text-center"
-                                        value={bulkMarks.get(key) || ""}
-                                        onChange={(e) => {
-                                          const newMap = new Map(bulkMarks);
-                                          newMap.set(key, e.target.value);
-                                          setBulkMarks(newMap);
-                                        }}
-                                        min="0"
-                                        max={criteria?.max_internal_marks}
-                                      />
-                                    </TableCell>
-                                  );
-                                })}
+                      <div className="space-y-6">
+                        {/* Per-Subject Exam Date Inputs */}
+                        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
+                          {branchSubjects.map(subject => (
+                            <div key={subject.id} className="border rounded-lg p-2 space-y-1">
+                              <Label className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{subject.subject_code}</Label>
+                              <Input
+                                type="date"
+                                className="h-8 text-sm"
+                                placeholder="Exam Date"
+                                value={bulkExamDates.get(subject.id) || ""}
+                                onChange={(e) => {
+                                  const newMap = new Map(bulkExamDates);
+                                  newMap.set(subject.id, e.target.value);
+                                  setBulkExamDates(newMap);
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Student Marks Table */}
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="sticky left-0 bg-card z-10">Roll No</TableHead>
+                                <TableHead className="sticky left-20 bg-card z-10">Name</TableHead>
+                                {branchSubjects.map(subject => (
+                                  <TableHead key={subject.id} className="text-center min-w-[100px]">
+                                    {subject.subject_code}
+                                  </TableHead>
+                                ))}
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredStudents.map((student) => (
+                                <TableRow key={student.id}>
+                                  <TableCell className="sticky left-0 bg-card font-medium">{student.roll_number}</TableCell>
+                                  <TableCell className="sticky left-20 bg-card">{student.full_name || student.email}</TableCell>
+                                  {branchSubjects.map(subject => {
+                                    const key: MarksKey = `${student.id}_${subject.id}`;
+                                    return (
+                                      <TableCell key={subject.id} className="p-1">
+                                        <Input
+                                          type="number"
+                                          className="w-20 h-8 text-center"
+                                          value={bulkMarks.get(key) || ""}
+                                          onChange={(e) => {
+                                            const newMap = new Map(bulkMarks);
+                                            newMap.set(key, e.target.value);
+                                            setBulkMarks(newMap);
+                                          }}
+                                          min="0"
+                                          max={criteria?.max_internal_marks}
+                                        />
+                                      </TableCell>
+                                    );
+                                  })}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </div>
                     )}
                   </CardContent>
@@ -1071,25 +1127,16 @@ const Upload = () => {
                     <div className="flex items-center justify-between flex-wrap gap-4">
                       <div>
                         <CardTitle>Bulk Assignment Entry</CardTitle>
-                        <CardDescription>Enter assignment marks for all students</CardDescription>
+                        <CardDescription>Enter assignment marks for all students with per-subject titles and dates</CardDescription>
                       </div>
                       <div className="flex items-center gap-4 flex-wrap">
                         <div className="flex items-center gap-2">
-                          <Label>No:</Label>
+                          <Label>Assignment No:</Label>
                           <Input
                             className="w-20"
                             placeholder="1"
                             value={bulkAssignment.number}
                             onChange={(e) => setBulkAssignment(prev => ({ ...prev, number: e.target.value }))}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Label>Title:</Label>
-                          <Input
-                            className="w-40"
-                            placeholder="Assignment Title"
-                            value={bulkAssignment.title}
-                            onChange={(e) => setBulkAssignment(prev => ({ ...prev, title: e.target.value }))}
                           />
                         </div>
                         <Button onClick={handleSaveBulkAssignment} disabled={saving}>
@@ -1103,47 +1150,77 @@ const Upload = () => {
                     {branchSubjects.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">No subjects configured</div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="sticky left-0 bg-card z-10">Roll No</TableHead>
-                              <TableHead className="sticky left-20 bg-card z-10">Name</TableHead>
-                              {branchSubjects.map(subject => (
-                                <TableHead key={subject.id} className="text-center min-w-[100px]">
-                                  {subject.subject_code}
-                                </TableHead>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredStudents.map((student) => (
-                              <TableRow key={student.id}>
-                                <TableCell className="sticky left-0 bg-card font-medium">{student.roll_number}</TableCell>
-                                <TableCell className="sticky left-20 bg-card">{student.full_name || student.email}</TableCell>
-                                {branchSubjects.map(subject => {
-                                  const key: MarksKey = `${student.id}_${subject.id}`;
-                                  return (
-                                    <TableCell key={subject.id} className="p-1">
-                                      <Input
-                                        type="number"
-                                        className="w-20 h-8 text-center"
-                                        value={bulkAssignmentMarks.get(key) || ""}
-                                        onChange={(e) => {
-                                          const newMap = new Map(bulkAssignmentMarks);
-                                          newMap.set(key, e.target.value);
-                                          setBulkAssignmentMarks(newMap);
-                                        }}
-                                        min="0"
-                                        max={criteria?.max_internal_marks}
-                                      />
-                                    </TableCell>
-                                  );
-                                })}
+                      <div className="space-y-6">
+                        {/* Per-Subject Title and Date Inputs */}
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {branchSubjects.map(subject => (
+                            <div key={subject.id} className="border rounded-lg p-3 space-y-2">
+                              <Label className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{subject.subject_code}</Label>
+                              <Input
+                                placeholder="Assignment Title"
+                                value={bulkAssignmentTitles.get(subject.id) || ""}
+                                onChange={(e) => {
+                                  const newMap = new Map(bulkAssignmentTitles);
+                                  newMap.set(subject.id, e.target.value);
+                                  setBulkAssignmentTitles(newMap);
+                                }}
+                              />
+                              <Input
+                                type="date"
+                                value={bulkAssignmentDates.get(subject.id) || ""}
+                                onChange={(e) => {
+                                  const newMap = new Map(bulkAssignmentDates);
+                                  newMap.set(subject.id, e.target.value);
+                                  setBulkAssignmentDates(newMap);
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Student Marks Table */}
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="sticky left-0 bg-card z-10">Roll No</TableHead>
+                                <TableHead className="sticky left-20 bg-card z-10">Name</TableHead>
+                                {branchSubjects.map(subject => (
+                                  <TableHead key={subject.id} className="text-center min-w-[100px]">
+                                    {subject.subject_code}
+                                  </TableHead>
+                                ))}
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredStudents.map((student) => (
+                                <TableRow key={student.id}>
+                                  <TableCell className="sticky left-0 bg-card font-medium">{student.roll_number}</TableCell>
+                                  <TableCell className="sticky left-20 bg-card">{student.full_name || student.email}</TableCell>
+                                  {branchSubjects.map(subject => {
+                                    const key: MarksKey = `${student.id}_${subject.id}`;
+                                    return (
+                                      <TableCell key={subject.id} className="p-1">
+                                        <Input
+                                          type="number"
+                                          className="w-20 h-8 text-center"
+                                          value={bulkAssignmentMarks.get(key) || ""}
+                                          onChange={(e) => {
+                                            const newMap = new Map(bulkAssignmentMarks);
+                                            newMap.set(key, e.target.value);
+                                            setBulkAssignmentMarks(newMap);
+                                          }}
+                                          min="0"
+                                          max={criteria?.max_internal_marks}
+                                        />
+                                      </TableCell>
+                                    );
+                                  })}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </div>
                     )}
                   </CardContent>
@@ -1192,18 +1269,31 @@ const Upload = () => {
                     {branchSubjects.length > 0 ? (
                       <>
                         {branchSubjects.map(subject => (
-                          <div key={subject.id} className="grid gap-2">
+                          <div key={subject.id} className="border rounded-lg p-3 space-y-2">
                             <Label className="flex items-center gap-2">
                               <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{subject.subject_code}</span>
                               {subject.subject_name && <span className="text-muted-foreground text-sm">{subject.subject_name}</span>}
                             </Label>
-                            <Input
-                              type="number"
-                              value={subjectMarks[subject.id] || ""}
-                              onChange={(e) => handleSubjectMarkChange(subject.id, e.target.value)}
-                              min="0"
-                              max={criteria?.max_internal_marks}
-                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Marks</Label>
+                                <Input
+                                  type="number"
+                                  value={subjectMarks[subject.id] || ""}
+                                  onChange={(e) => handleSubjectMarkChange(subject.id, e.target.value)}
+                                  min="0"
+                                  max={criteria?.max_internal_marks}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Exam Date</Label>
+                                <Input
+                                  type="date"
+                                  value={subjectExamDates[subject.id] || ""}
+                                  onChange={(e) => handleSubjectExamDateChange(subject.id, e.target.value)}
+                                />
+                              </div>
+                            </div>
                           </div>
                         ))}
                         <div className="bg-muted/50 p-3 rounded-lg flex justify-between">
@@ -1226,39 +1316,60 @@ const Upload = () => {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg">Assignment Details</CardTitle>
+                    <CardDescription>Enter per-subject assignment titles, dates, and marks</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Assignment Number</Label>
-                        <Input
-                          value={assignmentData.number}
-                          onChange={(e) => setAssignmentData(prev => ({ ...prev, number: e.target.value }))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Assignment Title</Label>
-                        <Input
-                          value={assignmentData.title}
-                          onChange={(e) => setAssignmentData(prev => ({ ...prev, title: e.target.value }))}
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <Label>Assignment Number</Label>
+                      <Input
+                        value={assignmentData.number}
+                        onChange={(e) => setAssignmentData(prev => ({ ...prev, number: e.target.value }))}
+                        placeholder="e.g., 1, 2, 3..."
+                      />
                     </div>
 
                     {branchSubjects.length > 0 && (
                       <>
-                        <div className="border-t pt-4 space-y-3">
+                        <div className="border-t pt-4 space-y-4">
                           {branchSubjects.map(subject => (
-                            <div key={subject.id} className="grid gap-2">
+                            <div key={subject.id} className="border rounded-lg p-3 space-y-3">
                               <Label className="flex items-center gap-2">
                                 <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{subject.subject_code}</span>
+                                {subject.subject_name && <span className="text-muted-foreground text-sm">{subject.subject_name}</span>}
                               </Label>
-                              <Input
-                                type="number"
-                                value={assignmentData.marks[subject.id] || ""}
-                                onChange={(e) => handleAssignmentMarkChange(subject.id, e.target.value)}
-                                min="0"
-                              />
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Title</Label>
+                                  <Input
+                                    placeholder="Assignment title"
+                                    value={assignmentData.titles[subject.id] || ""}
+                                    onChange={(e) => setAssignmentData(prev => ({
+                                      ...prev,
+                                      titles: { ...prev.titles, [subject.id]: e.target.value }
+                                    }))}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Submission Date</Label>
+                                  <Input
+                                    type="date"
+                                    value={assignmentData.submissionDates[subject.id] || ""}
+                                    onChange={(e) => setAssignmentData(prev => ({
+                                      ...prev,
+                                      submissionDates: { ...prev.submissionDates, [subject.id]: e.target.value }
+                                    }))}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Marks</Label>
+                                  <Input
+                                    type="number"
+                                    value={assignmentData.marks[subject.id] || ""}
+                                    onChange={(e) => handleAssignmentMarkChange(subject.id, e.target.value)}
+                                    min="0"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>
