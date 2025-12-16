@@ -5,6 +5,19 @@ export interface PredictionInput {
   feePaidPercentage: number;
   pendingFees: number;
   internalMarks: number;
+  assignmentScore?: number; // Average assignment score percentage
+}
+
+export interface PredictionCriteria {
+  minAttendance: number;
+  minMarks: number;
+  maxPendingFees: number;
+  maxInternalMarks: number;
+  totalFees: number;
+  attendanceWeight: number;
+  internalWeight: number;
+  feesWeight: number;
+  assignmentWeight: number;
 }
 
 export interface PredictionResult {
@@ -20,10 +33,10 @@ class DropoutModel {
   private model: tf.LayersModel | null = null;
 
   async initialize() {
-    // Create a simple sequential model
+    // Create a simple sequential model with 5 inputs (including assignment score)
     this.model = tf.sequential({
       layers: [
-        tf.layers.dense({ inputShape: [4], units: 8, activation: "relu" }),
+        tf.layers.dense({ inputShape: [5], units: 8, activation: "relu" }),
         tf.layers.dense({ units: 4, activation: "relu" }),
         tf.layers.dense({ units: 1, activation: "sigmoid" }),
       ],
@@ -50,32 +63,39 @@ class DropoutModel {
       const feePaid = Math.random() * 100;
       const pending = Math.random() * 30000;
       const marks = Math.random() * 100;
+      const assignmentScore = Math.random() * 100;
 
       // Normalize inputs
       inputs.push([
         attendance / 100, 
         feePaid / 100, 
         Math.min(pending / 30000, 1), 
-        marks / 100
+        marks / 100,
+        assignmentScore / 100
       ]);
 
       // Create a more nuanced risk score based on multiple factors
       let riskScore = 0;
       
-      // Attendance contribution (0-0.4)
-      if (attendance < 60) riskScore += 0.4;
-      else if (attendance < 75) riskScore += 0.25;
-      else if (attendance < 85) riskScore += 0.1;
+      // Attendance contribution (0-0.35)
+      if (attendance < 60) riskScore += 0.35;
+      else if (attendance < 75) riskScore += 0.22;
+      else if (attendance < 85) riskScore += 0.08;
       
-      // Marks contribution (0-0.35)
-      if (marks < 35) riskScore += 0.35;
-      else if (marks < 50) riskScore += 0.22;
-      else if (marks < 65) riskScore += 0.1;
+      // Marks contribution (0-0.30)
+      if (marks < 35) riskScore += 0.30;
+      else if (marks < 50) riskScore += 0.18;
+      else if (marks < 65) riskScore += 0.08;
       
-      // Fee contribution (0-0.25)
-      if (pending > 15000) riskScore += 0.25;
-      else if (pending > 8000) riskScore += 0.15;
-      else if (pending > 3000) riskScore += 0.05;
+      // Fee contribution (0-0.20)
+      if (pending > 15000) riskScore += 0.20;
+      else if (pending > 8000) riskScore += 0.12;
+      else if (pending > 3000) riskScore += 0.04;
+
+      // Assignment contribution (0-0.15)
+      if (assignmentScore < 40) riskScore += 0.15;
+      else if (assignmentScore < 60) riskScore += 0.08;
+      else if (assignmentScore < 75) riskScore += 0.03;
 
       // Add some randomness to make it more realistic
       riskScore += (Math.random() - 0.5) * 0.1;
@@ -105,6 +125,7 @@ class DropoutModel {
         input.feePaidPercentage / 100,
         Math.min(input.pendingFees / 30000, 1),
         input.internalMarks / 100,
+        (input.assignmentScore || 0) / 100,
       ],
     ]);
 
@@ -126,27 +147,42 @@ export const initializeModel = async () => {
 
 export const predictDropout = (
   input: PredictionInput,
-  criteria: {
-    minAttendance: number;
-    minMarks: number;
-    maxPendingFees: number;
-    attendanceWeight: number;
-    internalWeight: number;
-    feesWeight: number;
-  }
+  criteria: PredictionCriteria
 ): PredictionResult => {
-  // ML prediction
-  const mlProbability = model.predict(input);
+  // Normalize internal marks based on HOD's max setting
+  const normalizedMarks = criteria.maxInternalMarks > 0 
+    ? (input.internalMarks / criteria.maxInternalMarks) * 100 
+    : input.internalMarks;
 
-  // Rule-based scoring
+  // Normalize pending fees based on HOD's total fees setting
+  const normalizedPendingFees = criteria.totalFees > 0
+    ? (input.pendingFees / criteria.totalFees) * 100
+    : input.pendingFees;
+
+  // ML prediction with normalized values
+  const mlProbability = model.predict({
+    ...input,
+    internalMarks: normalizedMarks,
+  });
+
+  // Rule-based scoring with assignment weight
   const attendanceScore = input.attendancePercentage < criteria.minAttendance ? 1 : 0;
-  const marksScore = input.internalMarks < criteria.minMarks ? 1 : 0;
+  const marksScore = normalizedMarks < (criteria.minMarks / criteria.maxInternalMarks * 100) ? 1 : 0;
   const feesScore = input.pendingFees > criteria.maxPendingFees ? 1 : 0;
+  const assignmentScore = (input.assignmentScore || 0) < 50 ? 1 : 0; // Below 50% is considered at-risk
+
+  // Normalize weights to ensure they sum to 1
+  const totalWeight = criteria.attendanceWeight + criteria.internalWeight + criteria.feesWeight + criteria.assignmentWeight;
+  const normalizedAttendanceWeight = totalWeight > 0 ? criteria.attendanceWeight / totalWeight : 0.25;
+  const normalizedInternalWeight = totalWeight > 0 ? criteria.internalWeight / totalWeight : 0.25;
+  const normalizedFeesWeight = totalWeight > 0 ? criteria.feesWeight / totalWeight : 0.25;
+  const normalizedAssignmentWeight = totalWeight > 0 ? criteria.assignmentWeight / totalWeight : 0.25;
 
   const ruleBasedScore =
-    attendanceScore * criteria.attendanceWeight +
-    marksScore * criteria.internalWeight +
-    feesScore * criteria.feesWeight;
+    attendanceScore * normalizedAttendanceWeight +
+    marksScore * normalizedInternalWeight +
+    feesScore * normalizedFeesWeight +
+    assignmentScore * normalizedAssignmentWeight;
 
   // Combined risk level
   const combinedScore = (mlProbability + ruleBasedScore) / 2;
@@ -158,11 +194,14 @@ export const predictDropout = (
   if (input.attendancePercentage < criteria.minAttendance) {
     issues.push(`Low attendance (${input.attendancePercentage.toFixed(1)}%)`);
   }
-  if (input.internalMarks < criteria.minMarks) {
-    issues.push(`Low internal marks (${input.internalMarks.toFixed(1)})`);
+  if (normalizedMarks < (criteria.minMarks / criteria.maxInternalMarks * 100)) {
+    issues.push(`Low internal marks (${input.internalMarks.toFixed(1)}/${criteria.maxInternalMarks})`);
   }
   if (input.pendingFees > criteria.maxPendingFees) {
     issues.push(`High pending fees (Rs. ${input.pendingFees.toFixed(0)})`);
+  }
+  if ((input.assignmentScore || 0) < 50 && criteria.assignmentWeight > 0) {
+    issues.push(`Low assignment score (${(input.assignmentScore || 0).toFixed(1)}%)`);
   }
 
   const insights = issues.length > 0 
@@ -175,13 +214,17 @@ export const predictDropout = (
     suggestions.push("Schedule attendance counseling session");
     suggestions.push("Identify barriers to regular attendance");
   }
-  if (input.internalMarks < criteria.minMarks) {
+  if (normalizedMarks < (criteria.minMarks / criteria.maxInternalMarks * 100)) {
     suggestions.push("Provide additional academic support");
     suggestions.push("Arrange peer tutoring or mentoring");
   }
   if (input.pendingFees > criteria.maxPendingFees) {
     suggestions.push("Contact student/guardian regarding fee payment");
     suggestions.push("Explore financial aid options");
+  }
+  if ((input.assignmentScore || 0) < 50 && criteria.assignmentWeight > 0) {
+    suggestions.push("Follow up on pending assignments");
+    suggestions.push("Provide assignment completion support");
   }
   if (finalRiskLevel === "high") {
     suggestions.push("Schedule immediate intervention meeting");
