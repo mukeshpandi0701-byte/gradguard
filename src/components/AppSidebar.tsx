@@ -168,6 +168,24 @@ export function AppSidebar() {
   // Don't render until HOD status is determined
   const showAsHOD = isHOD === true;
 
+  // Show loading skeleton while determining role
+  if (isLoading || isHOD === null) {
+    return (
+      <Sidebar collapsible="offcanvas" className="border-r border-border/50 backdrop-blur-sm" style={{ width: '220px' }}>
+        <SidebarHeader className="border-b border-border/50 p-4 bg-gradient-to-br from-primary/5 to-secondary/5">
+          <div className="flex items-center justify-center">
+            <div className="h-12 w-12 bg-muted rounded-full animate-pulse" />
+          </div>
+        </SidebarHeader>
+        <SidebarContent className="p-4 space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-8 bg-muted rounded animate-pulse" />
+          ))}
+        </SidebarContent>
+      </Sidebar>
+    );
+  }
+
   return (
     <Sidebar collapsible="offcanvas" className="border-r border-border/50 backdrop-blur-sm" style={{ width: '220px' }}>
       <SidebarHeader className="border-b border-border/50 p-4 bg-gradient-to-br from-primary/5 to-secondary/5">

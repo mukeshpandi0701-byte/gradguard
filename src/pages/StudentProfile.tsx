@@ -44,15 +44,53 @@ const StudentProfile = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Fetch student data
-      const { data: studentData, error: studentError } = await supabase
+      // First try to get student from students table (for staff-created records)
+      let studentData = null;
+      
+      // Try fetching from students table by id
+      const { data: studentsTableData, error: studentsError } = await supabase
         .from("students")
         .select("*")
         .eq("id", id)
-        .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (studentError) throw studentError;
+      if (studentsTableData) {
+        studentData = studentsTableData;
+      } else {
+        // Fallback: try student_profiles table (for logged-in students)
+        const { data: profileData, error: profileError } = await supabase
+          .from("student_profiles")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+
+        if (profileData) {
+          // Get academic data from students table by roll_number
+          const { data: academicData } = await supabase
+            .from("students")
+            .select("attendance_percentage, internal_marks, fee_paid_percentage, pending_fees")
+            .eq("roll_number", profileData.roll_number)
+            .maybeSingle();
+
+          studentData = {
+            id: profileData.id,
+            student_name: profileData.full_name || profileData.email,
+            roll_number: profileData.roll_number,
+            email: profileData.email,
+            phone_number: profileData.phone_number,
+            attendance_percentage: academicData?.attendance_percentage ?? 0,
+            internal_marks: academicData?.internal_marks ?? 0,
+            fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
+            pending_fees: academicData?.pending_fees ?? 0,
+          };
+        }
+      }
+
+      if (!studentData) {
+        throw new Error("Student not found");
+      }
 
       // Fetch predictions separately
       const { data: predictionsData } = await supabase
