@@ -620,14 +620,14 @@ const Students = () => {
                           </TableCell>
                           <TableCell>{student.email || "—"}</TableCell>
                           <TableCell>
-                            {student.attendance_percentage?.toFixed(1)}%
+                            {(student.attendance_percentage ?? 0).toFixed(1)}%
                           </TableCell>
                           <TableCell>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="cursor-help underline decoration-dotted">
-                                    {student.internal_marks?.toFixed(1)}
+                                    {(student.internal_marks ?? 0).toFixed(1)}
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-xs">
@@ -642,7 +642,7 @@ const Students = () => {
                                       ))}
                                       <div className="border-t pt-1 mt-1 flex justify-between gap-4 text-xs font-semibold">
                                         <span>Average</span>
-                                        <span>{student.internal_marks?.toFixed(1)}</span>
+                                        <span>{(student.internal_marks ?? 0).toFixed(1)}</span>
                                       </div>
                                     </div>
                                   ) : (
@@ -653,7 +653,7 @@ const Students = () => {
                             </TooltipProvider>
                           </TableCell>
                           <TableCell>
-                            {student.fee_paid_percentage?.toFixed(1)}%
+                            {(student.fee_paid_percentage ?? 0).toFixed(1)}%
                           </TableCell>
                           <TableCell>{getRiskBadge(student.riskLevel)}</TableCell>
                           <TableCell>
