@@ -198,6 +198,7 @@ export type Database = {
       }
       dropout_criteria: {
         Row: {
+          assignment_weightage: number
           attendance_weightage: number
           created_at: string
           fees_weightage: number
@@ -215,6 +216,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assignment_weightage?: number
           attendance_weightage?: number
           created_at?: string
           fees_weightage?: number
@@ -232,6 +234,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assignment_weightage?: number
           attendance_weightage?: number
           created_at?: string
           fees_weightage?: number
