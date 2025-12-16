@@ -123,36 +123,47 @@ const Upload = () => {
         // Trim and normalize department for comparison
         const staffDept = profile.department.trim();
         
-        const { data: hodProfiles } = await supabase
-          .from("profiles")
-          .select("id, full_name, department")
-          .eq("panel_type", "hod");
+        // Use user_roles table to find actual HODs (source of truth)
+        const { data: hodRoles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "hod");
 
-        console.log("All HOD profiles:", hodProfiles);
+        const hodUserIds = (hodRoles || []).map(r => r.user_id);
 
-        // Find HOD with matching department (case-insensitive)
-        const matchingHod = hodProfiles?.find(
-          hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
-        );
+        if (hodUserIds.length > 0) {
+          // Fetch profiles for these HODs
+          const { data: hodProfiles } = await supabase
+            .from("profiles")
+            .select("id, full_name, department")
+            .in("id", hodUserIds);
 
-        if (matchingHod) {
-          console.log("Found matching HOD:", matchingHod);
-          const { data: hodCriteria } = await supabase
-            .from("dropout_criteria")
-            .select("max_internal_marks, total_fees, num_internal_exams")
-            .eq("user_id", matchingHod.id)
-            .maybeSingle();
+          console.log("All HOD profiles (from user_roles):", hodProfiles);
 
-          console.log("HOD criteria:", hodCriteria);
+          // Find HOD with matching department (case-insensitive)
+          const matchingHod = hodProfiles?.find(
+            hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
+          );
 
-          if (hodCriteria) {
-            setCriteria({
-              max_internal_marks: hodCriteria.max_internal_marks,
-              total_fees: hodCriteria.total_fees,
-              num_internal_exams: (hodCriteria as any).num_internal_exams ?? 3
-            });
-            setCriteriaFromHOD(true);
-            return;
+          if (matchingHod) {
+            console.log("Found matching HOD:", matchingHod);
+            const { data: hodCriteria } = await supabase
+              .from("dropout_criteria")
+              .select("max_internal_marks, total_fees, num_internal_exams")
+              .eq("user_id", matchingHod.id)
+              .maybeSingle();
+
+            console.log("HOD criteria:", hodCriteria);
+
+            if (hodCriteria) {
+              setCriteria({
+                max_internal_marks: hodCriteria.max_internal_marks,
+                total_fees: hodCriteria.total_fees,
+                num_internal_exams: (hodCriteria as any).num_internal_exams ?? 3
+              });
+              setCriteriaFromHOD(true);
+              return;
+            }
           }
         }
       }

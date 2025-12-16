@@ -387,24 +387,33 @@ const Students = () => {
       if (profile?.department) {
         const staffDept = profile.department.trim();
         
-        // Find all HODs and match by department (case-insensitive)
-        const { data: hodProfiles } = await supabase
-          .from("profiles")
-          .select("id, department")
-          .eq("panel_type", "hod");
+        // Use user_roles table to find actual HODs (source of truth)
+        const { data: hodRoles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "hod");
 
-        const matchingHod = hodProfiles?.find(
-          hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
-        );
+        const hodUserIds = (hodRoles || []).map(r => r.user_id);
 
-        if (matchingHod) {
-          const { data: hodCriteria } = await supabase
-            .from("dropout_criteria")
-            .select("*")
-            .eq("user_id", matchingHod.id)
-            .maybeSingle();
+        if (hodUserIds.length > 0) {
+          const { data: hodProfiles } = await supabase
+            .from("profiles")
+            .select("id, department")
+            .in("id", hodUserIds);
 
-          criteria = hodCriteria;
+          const matchingHod = hodProfiles?.find(
+            hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
+          );
+
+          if (matchingHod) {
+            const { data: hodCriteria } = await supabase
+              .from("dropout_criteria")
+              .select("*")
+              .eq("user_id", matchingHod.id)
+              .maybeSingle();
+
+            criteria = hodCriteria;
+          }
         }
       }
 

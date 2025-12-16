@@ -99,41 +99,52 @@ const Criteria = () => {
         if (profile?.department) {
           const staffDept = profile.department.trim();
           
-          // Find all HODs and match by department (case-insensitive)
-          const { data: hodProfiles } = await supabase
-            .from("profiles")
-            .select("id, full_name, email, department")
-            .eq("panel_type", "hod");
+          // Use user_roles table to find actual HODs (source of truth)
+          const { data: hodRoles } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .eq("role", "hod");
 
-          const matchingHod = hodProfiles?.find(
-            hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
-          );
+          const hodUserIds = (hodRoles || []).map(r => r.user_id);
 
-          if (matchingHod) {
-            setHodName(matchingHod.full_name || matchingHod.email || "HOD");
-            
-            const { data: hodCriteria } = await supabase
-              .from("dropout_criteria")
-              .select("*")
-              .eq("user_id", matchingHod.id)
-              .maybeSingle();
+          if (hodUserIds.length > 0) {
+            const { data: hodProfiles } = await supabase
+              .from("profiles")
+              .select("id, full_name, email, department")
+              .in("id", hodUserIds);
 
-            if (hodCriteria) {
-              setHodCriteriaExists(true);
-              setCriteria({
-                min_attendance_percentage: hodCriteria.min_attendance_percentage,
-                min_internal_marks: hodCriteria.min_internal_marks,
-                max_pending_fees: hodCriteria.max_pending_fees,
-                max_internal_marks: hodCriteria.max_internal_marks,
-                total_fees: hodCriteria.total_fees,
-                total_hours: hodCriteria.total_hours,
-                max_sessions_per_day: (hodCriteria as any).max_sessions_per_day ?? 7,
-                num_internal_exams: (hodCriteria as any).num_internal_exams ?? 3,
-                attendance_weightage: hodCriteria.attendance_weightage,
-                internal_weightage: hodCriteria.internal_weightage,
-                fees_weightage: hodCriteria.fees_weightage,
-                assignment_weightage: (hodCriteria as any).assignment_weightage ?? 0,
-              });
+            const matchingHod = hodProfiles?.find(
+              hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
+            );
+
+            if (matchingHod) {
+              setHodName(matchingHod.full_name || matchingHod.email || "HOD");
+              
+              const { data: hodCriteria } = await supabase
+                .from("dropout_criteria")
+                .select("*")
+                .eq("user_id", matchingHod.id)
+                .maybeSingle();
+
+              if (hodCriteria) {
+                setHodCriteriaExists(true);
+                setCriteria({
+                  min_attendance_percentage: hodCriteria.min_attendance_percentage,
+                  min_internal_marks: hodCriteria.min_internal_marks,
+                  max_pending_fees: hodCriteria.max_pending_fees,
+                  max_internal_marks: hodCriteria.max_internal_marks,
+                  total_fees: hodCriteria.total_fees,
+                  total_hours: hodCriteria.total_hours,
+                  max_sessions_per_day: (hodCriteria as any).max_sessions_per_day ?? 7,
+                  num_internal_exams: (hodCriteria as any).num_internal_exams ?? 3,
+                  attendance_weightage: hodCriteria.attendance_weightage,
+                  internal_weightage: hodCriteria.internal_weightage,
+                  fees_weightage: hodCriteria.fees_weightage,
+                  assignment_weightage: (hodCriteria as any).assignment_weightage ?? 0,
+                });
+              } else {
+                setHodCriteriaExists(false);
+              }
             } else {
               setHodCriteriaExists(false);
             }
