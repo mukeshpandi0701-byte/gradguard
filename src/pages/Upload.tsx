@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Save, Edit, AlertCircle, BookOpen } from "lucide-react";
+import { Save, Edit, AlertCircle, BookOpen, IndianRupee, ClipboardList } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface Student {
@@ -31,6 +31,12 @@ interface SubjectMark {
   internal_marks: number;
 }
 
+interface AssignmentEntry {
+  assignment_number: number;
+  title: string;
+  marks: Record<string, string>; // subject_id -> marks
+}
+
 const Upload = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -41,10 +47,16 @@ const Upload = () => {
   const [criteria, setCriteria] = useState<{ max_internal_marks: number; total_fees: number } | null>(null);
   const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const [dialogTab, setDialogTab] = useState<string>("internal");
   
   // Multi-subject state
   const [branchSubjects, setBranchSubjects] = useState<Subject[]>([]);
   const [subjectMarks, setSubjectMarks] = useState<Record<string, string>>({});
+  
+  // Assignment state
+  const [assignmentNumber, setAssignmentNumber] = useState<string>("1");
+  const [assignmentTitle, setAssignmentTitle] = useState<string>("");
+  const [assignmentMarks, setAssignmentMarks] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCriteria();
@@ -56,7 +68,6 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get staff's department to find HOD's criteria
       const { data: profile } = await supabase
         .from("profiles")
         .select("department")
@@ -64,7 +75,6 @@ const Upload = () => {
         .maybeSingle();
 
       if (profile?.department) {
-        // Find HOD from the same department
         const { data: hodProfiles } = await supabase
           .from("profiles")
           .select("id")
@@ -86,7 +96,6 @@ const Upload = () => {
         }
       }
 
-      // Fallback to default values if HOD criteria not found
       setCriteria({ max_internal_marks: 100, total_fees: 100000 });
     } catch (error) {
       console.error("Error fetching criteria:", error);
@@ -100,7 +109,6 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get assigned branches for staff
       const { data: branchData } = await supabase
         .from("staff_branch_assignments")
         .select("branch")
@@ -115,7 +123,6 @@ const Upload = () => {
         return;
       }
 
-      // Fetch students from assigned branches
       const { data: studentProfiles, error } = await supabase
         .from("student_profiles")
         .select("id, full_name, roll_number, branch, email")
@@ -150,7 +157,6 @@ const Upload = () => {
 
   const fetchExistingMarks = async (studentId: string, studentRollNumber: string | null) => {
     try {
-      // First get the student record ID from students table
       if (!studentRollNumber) return;
 
       const { data: studentRecord } = await supabase
@@ -162,7 +168,6 @@ const Upload = () => {
       if (studentRecord) {
         setPaidFees(studentRecord.paid_fees?.toString() || "0");
 
-        // Fetch existing subject marks
         const { data: marks } = await supabase
           .from("student_subject_marks")
           .select("subject_id, internal_marks")
@@ -187,13 +192,15 @@ const Upload = () => {
   const handleEditStudent = async (student: Student) => {
     setSelectedStudent(student);
     setSubjectMarks({});
+    setAssignmentMarks({});
+    setAssignmentNumber("1");
+    setAssignmentTitle("");
+    setDialogTab("internal");
     
-    // Fetch subjects for this branch
     if (student.branch) {
       await fetchSubjectsForBranch(student.branch);
     }
     
-    // Fetch existing marks
     await fetchExistingMarks(student.id, student.roll_number);
     
     setDialogOpen(true);
@@ -201,6 +208,13 @@ const Upload = () => {
 
   const handleSubjectMarkChange = (subjectId: string, value: string) => {
     setSubjectMarks(prev => ({
+      ...prev,
+      [subjectId]: value
+    }));
+  };
+
+  const handleAssignmentMarkChange = (subjectId: string, value: string) => {
+    setAssignmentMarks(prev => ({
       ...prev,
       [subjectId]: value
     }));
@@ -223,28 +237,9 @@ const Upload = () => {
     return count > 0 ? total / count : 0;
   };
 
-  const handleUpdate = async () => {
+  const handleSaveInternalMarks = async () => {
     if (!selectedStudent) return;
 
-    const paidFeesNum = parseFloat(paidFees);
-
-    // Validation
-    if (isNaN(paidFeesNum)) {
-      toast.error("Please enter valid fees amount");
-      return;
-    }
-
-    if (paidFeesNum < 0) {
-      toast.error("Fees paid cannot be negative");
-      return;
-    }
-
-    if (criteria && paidFeesNum > criteria.total_fees) {
-      toast.error(`Fees paid cannot exceed ₹${criteria.total_fees}`);
-      return;
-    }
-
-    // Validate subject marks
     for (const subject of branchSubjects) {
       const mark = parseFloat(subjectMarks[subject.id] || "0");
       if (isNaN(mark) || mark < 0) {
@@ -264,7 +259,6 @@ const Upload = () => {
 
       const averageMarks = calculateAverageMarks();
 
-      // Check if student record exists in students table
       const { data: existingStudent } = await supabase
         .from("students")
         .select("id")
@@ -274,13 +268,10 @@ const Upload = () => {
       let studentRecordId: string;
 
       if (existingStudent) {
-        // Update existing record
         const { error } = await supabase
           .from("students")
           .update({
             internal_marks: averageMarks,
-            paid_fees: paidFeesNum,
-            total_fees: criteria?.total_fees || 0,
             updated_at: new Date().toISOString()
           })
           .eq("id", existingStudent.id);
@@ -288,7 +279,6 @@ const Upload = () => {
         if (error) throw error;
         studentRecordId = existingStudent.id;
       } else {
-        // Create new record in students table
         const { data: newStudent, error } = await supabase
           .from("students")
           .insert({
@@ -298,7 +288,6 @@ const Upload = () => {
             email: selectedStudent.email,
             department: selectedStudent.branch,
             internal_marks: averageMarks,
-            paid_fees: paidFeesNum,
             total_fees: criteria?.total_fees || 0
           })
           .select("id")
@@ -308,7 +297,6 @@ const Upload = () => {
         studentRecordId = newStudent.id;
       }
 
-      // Upsert subject marks
       if (branchSubjects.length > 0) {
         const marksToUpsert = branchSubjects.map(subject => ({
           student_id: studentRecordId,
@@ -324,10 +312,194 @@ const Upload = () => {
         if (marksError) throw marksError;
       }
 
-      toast.success("Student details updated successfully!");
-      setDialogOpen(false);
+      toast.success("Internal marks saved successfully!");
     } catch (error: any) {
-      toast.error(error.message || "Failed to update student details");
+      toast.error(error.message || "Failed to save internal marks");
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAssignment = async () => {
+    if (!selectedStudent) return;
+
+    const assignNum = parseInt(assignmentNumber);
+    if (isNaN(assignNum) || assignNum < 1) {
+      toast.error("Please enter a valid assignment number");
+      return;
+    }
+
+    if (!assignmentTitle.trim()) {
+      toast.error("Please enter an assignment title");
+      return;
+    }
+
+    for (const subject of branchSubjects) {
+      const mark = parseFloat(assignmentMarks[subject.id] || "0");
+      if (isNaN(mark) || mark < 0) {
+        toast.error(`Invalid marks for ${subject.subject_code}`);
+        return;
+      }
+      if (criteria && mark > criteria.max_internal_marks) {
+        toast.error(`Marks for ${subject.subject_code} cannot exceed ${criteria.max_internal_marks}`);
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get or create student record
+      let { data: existingStudent } = await supabase
+        .from("students")
+        .select("id")
+        .eq("roll_number", selectedStudent.roll_number)
+        .maybeSingle();
+
+      let studentRecordId: string;
+
+      if (!existingStudent) {
+        const { data: newStudent, error } = await supabase
+          .from("students")
+          .insert({
+            user_id: user.id,
+            student_name: selectedStudent.full_name || selectedStudent.email,
+            roll_number: selectedStudent.roll_number,
+            email: selectedStudent.email,
+            department: selectedStudent.branch,
+            total_fees: criteria?.total_fees || 0
+          })
+          .select("id")
+          .single();
+
+        if (error) throw error;
+        studentRecordId = newStudent.id;
+      } else {
+        studentRecordId = existingStudent.id;
+      }
+
+      // Save assignments for each subject
+      for (const subject of branchSubjects) {
+        const marks = parseFloat(assignmentMarks[subject.id] || "0");
+        
+        // Check if assignment already exists
+        const { data: existingAssignment } = await supabase
+          .from("assignments")
+          .select("id")
+          .eq("staff_user_id", user.id)
+          .eq("subject_id", subject.id)
+          .eq("assignment_name", `Assignment ${assignNum}: ${assignmentTitle}`)
+          .maybeSingle();
+
+        let assignmentId: string;
+
+        if (!existingAssignment) {
+          // Create assignment
+          const { data: newAssignment, error: assignmentError } = await supabase
+            .from("assignments")
+            .insert({
+              staff_user_id: user.id,
+              subject_id: subject.id,
+              assignment_name: `Assignment ${assignNum}: ${assignmentTitle}`,
+              max_marks: criteria?.max_internal_marks || 100
+            })
+            .select("id")
+            .single();
+
+          if (assignmentError) throw assignmentError;
+          assignmentId = newAssignment.id;
+        } else {
+          assignmentId = existingAssignment.id;
+        }
+
+        // Upsert student score
+        const { error: scoreError } = await supabase
+          .from("student_assignment_scores")
+          .upsert({
+            student_id: studentRecordId,
+            assignment_id: assignmentId,
+            marks_obtained: marks,
+            graded_by: user.id,
+            graded_at: new Date().toISOString()
+          }, { onConflict: "student_id,assignment_id" });
+
+        if (scoreError) throw scoreError;
+      }
+
+      toast.success("Assignment scores saved successfully!");
+      setAssignmentMarks({});
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save assignment scores");
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveFees = async () => {
+    if (!selectedStudent) return;
+
+    const paidFeesNum = parseFloat(paidFees);
+
+    if (isNaN(paidFeesNum)) {
+      toast.error("Please enter valid fees amount");
+      return;
+    }
+
+    if (paidFeesNum < 0) {
+      toast.error("Fees paid cannot be negative");
+      return;
+    }
+
+    if (criteria && paidFeesNum > criteria.total_fees) {
+      toast.error(`Fees paid cannot exceed ₹${criteria.total_fees}`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: existingStudent } = await supabase
+        .from("students")
+        .select("id")
+        .eq("roll_number", selectedStudent.roll_number)
+        .maybeSingle();
+
+      if (existingStudent) {
+        const { error } = await supabase
+          .from("students")
+          .update({
+            paid_fees: paidFeesNum,
+            total_fees: criteria?.total_fees || 0,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existingStudent.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("students")
+          .insert({
+            user_id: user.id,
+            student_name: selectedStudent.full_name || selectedStudent.email,
+            roll_number: selectedStudent.roll_number,
+            email: selectedStudent.email,
+            department: selectedStudent.branch,
+            paid_fees: paidFeesNum,
+            total_fees: criteria?.total_fees || 0
+          });
+
+        if (error) throw error;
+      }
+
+      toast.success("Fees updated successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update fees");
       console.error(error);
     } finally {
       setSaving(false);
@@ -354,7 +526,7 @@ const Upload = () => {
         <div>
           <h2 className="text-3xl font-bold">Academic Updates</h2>
           <p className="text-muted-foreground mt-2">
-            Update subject-wise internal scores and fees for students
+            Update internal marks, assignments, and fees for students
           </p>
         </div>
 
@@ -386,7 +558,7 @@ const Upload = () => {
                 <CardHeader>
                   <CardTitle>Students</CardTitle>
                   <CardDescription>
-                    Click Update to edit student marks and fees
+                    Click Update to edit student marks, assignments, and fees
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -435,102 +607,233 @@ const Upload = () => {
           </Tabs>
         )}
 
-        {/* Update Dialog */}
+        {/* Update Dialog with 3 Tabs */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="bg-card max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogContent className="bg-card max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Update Student Details</DialogTitle>
               <DialogDescription>
-                Update marks and fees for {selectedStudent?.full_name || selectedStudent?.email}
+                {selectedStudent?.full_name || selectedStudent?.email}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              {/* Subject-wise Marks */}
-              {branchSubjects.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-primary" />
-                    <Label className="text-base font-medium">Subject-wise Internal Marks</Label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Max marks per subject: {criteria?.max_internal_marks || 100}
-                  </p>
-                  
-                  {branchSubjects.map(subject => (
-                    <div key={subject.id} className="grid gap-2">
-                      <Label htmlFor={`subject-${subject.id}`} className="flex items-center gap-2">
-                        <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">
-                          {subject.subject_code}
-                        </span>
-                        {subject.subject_name && (
-                          <span className="text-muted-foreground text-sm">
-                            {subject.subject_name}
+
+            <Tabs value={dialogTab} onValueChange={setDialogTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="internal" className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Internal Marks
+                </TabsTrigger>
+                <TabsTrigger value="assignments" className="flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4" />
+                  Assignments
+                </TabsTrigger>
+                <TabsTrigger value="fees" className="flex items-center gap-2">
+                  <IndianRupee className="w-4 h-4" />
+                  Fees
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Internal Marks Tab */}
+              <TabsContent value="internal" className="space-y-4 mt-4">
+                {branchSubjects.length > 0 ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Max marks per subject: {criteria?.max_internal_marks || 100}
+                    </p>
+                    
+                    {branchSubjects.map(subject => (
+                      <div key={subject.id} className="grid gap-2">
+                        <Label htmlFor={`subject-${subject.id}`} className="flex items-center gap-2">
+                          <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">
+                            {subject.subject_code}
                           </span>
-                        )}
-                      </Label>
-                      <Input
-                        id={`subject-${subject.id}`}
-                        type="number"
-                        placeholder="Enter marks"
-                        value={subjectMarks[subject.id] || ""}
-                        onChange={(e) => handleSubjectMarkChange(subject.id, e.target.value)}
-                        min="0"
-                        max={criteria?.max_internal_marks}
-                      />
+                          {subject.subject_name && (
+                            <span className="text-muted-foreground text-sm">
+                              {subject.subject_name}
+                            </span>
+                          )}
+                        </Label>
+                        <Input
+                          id={`subject-${subject.id}`}
+                          type="number"
+                          placeholder="Enter marks"
+                          value={subjectMarks[subject.id] || ""}
+                          onChange={(e) => handleSubjectMarkChange(subject.id, e.target.value)}
+                          min="0"
+                          max={criteria?.max_internal_marks}
+                        />
+                      </div>
+                    ))}
+                    
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Average Internal Marks:</span>
+                        <span className="text-lg font-bold text-primary">
+                          {calculateAverageMarks().toFixed(2)}
+                        </span>
+                      </div>
                     </div>
-                  ))}
-                  
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Average Internal Marks:</span>
-                      <span className="text-lg font-bold text-primary">
-                        {calculateAverageMarks().toFixed(2)}
+
+                    <Button 
+                      onClick={handleSaveInternalMarks} 
+                      disabled={saving}
+                      className="w-full"
+                    >
+                      {saving ? "Saving..." : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Internal Marks
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="bg-warning/10 border border-warning/30 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 text-warning">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">No subjects configured</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Your HOD needs to configure subjects for this branch.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Assignments Tab */}
+              <TabsContent value="assignments" className="space-y-4 mt-4">
+                {branchSubjects.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="assignment-number">Assignment Number</Label>
+                        <Input
+                          id="assignment-number"
+                          type="number"
+                          placeholder="1"
+                          value={assignmentNumber}
+                          onChange={(e) => setAssignmentNumber(e.target.value)}
+                          min="1"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="assignment-title">Assignment Title</Label>
+                        <Input
+                          id="assignment-title"
+                          type="text"
+                          placeholder="e.g., Unit Test 1"
+                          value={assignmentTitle}
+                          onChange={(e) => setAssignmentTitle(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Enter marks for each subject (Max: {criteria?.max_internal_marks || 100})
+                      </p>
+                      
+                      {branchSubjects.map(subject => (
+                        <div key={subject.id} className="grid gap-2 mb-3">
+                          <Label htmlFor={`assign-${subject.id}`} className="flex items-center gap-2">
+                            <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">
+                              {subject.subject_code}
+                            </span>
+                            {subject.subject_name && (
+                              <span className="text-muted-foreground text-sm">
+                                {subject.subject_name}
+                              </span>
+                            )}
+                          </Label>
+                          <Input
+                            id={`assign-${subject.id}`}
+                            type="number"
+                            placeholder="Enter marks"
+                            value={assignmentMarks[subject.id] || ""}
+                            onChange={(e) => handleAssignmentMarkChange(subject.id, e.target.value)}
+                            min="0"
+                            max={criteria?.max_internal_marks}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button 
+                      onClick={handleSaveAssignment} 
+                      disabled={saving}
+                      className="w-full"
+                    >
+                      {saving ? "Saving..." : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Assignment Scores
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="bg-warning/10 border border-warning/30 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 text-warning">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">No subjects configured</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Your HOD needs to configure subjects for this branch.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Fees Tab */}
+              <TabsContent value="fees" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dialog-paid-fees">
+                    Fees Paid (₹) {criteria && `(Max: ₹${criteria.total_fees.toLocaleString()})`}
+                  </Label>
+                  <Input
+                    id="dialog-paid-fees"
+                    type="number"
+                    placeholder="Enter fees paid"
+                    value={paidFees}
+                    onChange={(e) => setPaidFees(e.target.value)}
+                    min="0"
+                    max={criteria?.total_fees}
+                  />
+                </div>
+
+                {criteria && (
+                  <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span>Total Fees:</span>
+                      <span className="font-medium">₹{criteria.total_fees.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span>Fees Paid:</span>
+                      <span className="font-medium text-green-600">₹{(parseFloat(paidFees) || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-t pt-2">
+                      <span>Pending Fees:</span>
+                      <span className="font-medium text-destructive">
+                        ₹{Math.max(0, criteria.total_fees - (parseFloat(paidFees) || 0)).toLocaleString()}
                       </span>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="bg-warning/10 border border-warning/30 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 text-warning">
-                    <AlertCircle className="w-4 h-4" />
-                    <span className="text-sm font-medium">No subjects configured</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Your HOD needs to configure subjects for this branch in the Criteria settings.
-                  </p>
-                </div>
-              )}
-
-              <div className="grid gap-2 pt-4 border-t">
-                <Label htmlFor="dialog-paid-fees">
-                  Fees Paid (₹) {criteria && `(Max: ₹${criteria.total_fees})`}
-                </Label>
-                <Input
-                  id="dialog-paid-fees"
-                  type="number"
-                  placeholder="Enter fees paid"
-                  value={paidFees}
-                  onChange={(e) => setPaidFees(e.target.value)}
-                  min="0"
-                  max={criteria?.total_fees}
-                />
-              </div>
-
-              <Button 
-                onClick={handleUpdate} 
-                disabled={saving || branchSubjects.length === 0}
-                className="w-full"
-              >
-                {saving ? (
-                  "Saving..."
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </>
                 )}
-              </Button>
-            </div>
+
+                <Button 
+                  onClick={handleSaveFees} 
+                  disabled={saving}
+                  className="w-full"
+                >
+                  {saving ? "Saving..." : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Fees
+                    </>
+                  )}
+                </Button>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>

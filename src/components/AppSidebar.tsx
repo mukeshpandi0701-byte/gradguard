@@ -24,8 +24,6 @@ import {
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Academic Updates", url: "/upload", icon: Upload },
-  { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
-  { title: "Attendance Reports", url: "/attendance-reports", icon: BarChart3 },
   { title: "Assignment Scores", url: "/assignment-scores", icon: ClipboardCheck },
   { title: "Students", url: "/students", icon: Users },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
@@ -215,13 +213,11 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems
-                .filter((item) => {
+              .filter((item) => {
                   // Hide specific modules for HOD users
                   if (showAsHOD) {
                     const hiddenForHOD = [
                       "/upload",
-                      "/attendance",
-                      "/attendance-reports",
                       "/assignment-scores",
                       "/students-export",
                       "/reports",
