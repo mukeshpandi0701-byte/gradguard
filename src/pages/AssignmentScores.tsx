@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ClipboardList, AlertCircle, Eye, Trash2 } from "lucide-react";
+import { ClipboardList, AlertCircle, Eye, Trash2, Calendar } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface Assignment {
@@ -24,6 +24,8 @@ interface AssignmentMark {
   student_id: string;
   subject_id: string;
   marks_obtained: number;
+  assignment_title: string | null;
+  submission_date: string | null;
   student_name: string;
   roll_number: string;
   subject_code: string;
@@ -36,6 +38,11 @@ interface Subject {
   subject_name: string | null;
 }
 
+interface SubjectInfo {
+  title: string | null;
+  date: string | null;
+}
+
 const AssignmentScores = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
@@ -44,6 +51,7 @@ const AssignmentScores = () => {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [assignmentMarks, setAssignmentMarks] = useState<AssignmentMark[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjectInfoMap, setSubjectInfoMap] = useState<Map<string, SubjectInfo>>(new Map());
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
@@ -57,7 +65,6 @@ const AssignmentScores = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get assigned branches
       const { data: branchData } = await supabase
         .from("staff_branch_assignments")
         .select("branch")
@@ -72,7 +79,6 @@ const AssignmentScores = () => {
         return;
       }
 
-      // Fetch assignments for assigned branches
       const { data: assignmentsData, error } = await supabase
         .from("branch_assignments")
         .select("*")
@@ -95,7 +101,6 @@ const AssignmentScores = () => {
     setDetailsOpen(true);
 
     try {
-      // Fetch subjects for this branch
       const { data: subjectsData } = await supabase
         .from("branch_subjects")
         .select("id, subject_code, subject_name")
@@ -104,7 +109,6 @@ const AssignmentScores = () => {
 
       setSubjects(subjectsData || []);
 
-      // Fetch marks for this assignment with student and subject info
       const { data: marksData, error } = await supabase
         .from("student_branch_assignment_marks")
         .select(`
@@ -112,6 +116,8 @@ const AssignmentScores = () => {
           student_id,
           subject_id,
           marks_obtained,
+          assignment_title,
+          submission_date,
           students!inner(student_name, roll_number),
           branch_subjects!inner(subject_code, subject_name)
         `)
@@ -124,6 +130,8 @@ const AssignmentScores = () => {
         student_id: m.student_id,
         subject_id: m.subject_id,
         marks_obtained: m.marks_obtained,
+        assignment_title: m.assignment_title,
+        submission_date: m.submission_date,
         student_name: m.students?.student_name || "Unknown",
         roll_number: m.students?.roll_number || "—",
         subject_code: m.branch_subjects?.subject_code || "",
@@ -131,6 +139,18 @@ const AssignmentScores = () => {
       }));
 
       setAssignmentMarks(formattedMarks);
+
+      // Build subject info map (title and date per subject)
+      const infoMap = new Map<string, SubjectInfo>();
+      formattedMarks.forEach(m => {
+        if (!infoMap.has(m.subject_id)) {
+          infoMap.set(m.subject_id, {
+            title: m.assignment_title,
+            date: m.submission_date
+          });
+        }
+      });
+      setSubjectInfoMap(infoMap);
     } catch (error: any) {
       toast.error("Failed to load assignment details");
       console.error(error);
@@ -165,7 +185,6 @@ const AssignmentScores = () => {
     ? assignments
     : assignments.filter(a => a.branch === selectedBranch);
 
-  // Group marks by student for the details view
   const getStudentMarksMap = () => {
     const studentMap = new Map<string, { name: string; roll: string; marks: Map<string, number> }>();
     
@@ -181,6 +200,11 @@ const AssignmentScores = () => {
     });
     
     return studentMap;
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString();
   };
 
   if (loading) {
@@ -234,7 +258,7 @@ const AssignmentScores = () => {
                 <CardHeader>
                   <CardTitle>Saved Assignments</CardTitle>
                   <CardDescription>
-                    Click View to see student scores for each assignment
+                    Click View to see student scores, titles, and submission dates for each assignment
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -299,11 +323,11 @@ const AssignmentScores = () => {
 
         {/* Assignment Details Dialog */}
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DialogContent className="bg-card max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="bg-card max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <ClipboardList className="w-5 h-5 text-primary" />
-                Assignment #{selectedAssignment?.assignment_number}: {selectedAssignment?.assignment_title}
+                Assignment #{selectedAssignment?.assignment_number}
               </DialogTitle>
               <DialogDescription>
                 Branch: {selectedAssignment?.branch} | Max Marks: {selectedAssignment?.max_marks}
@@ -319,44 +343,76 @@ const AssignmentScores = () => {
                 No marks recorded for this assignment yet.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Roll No</TableHead>
-                      <TableHead>Student Name</TableHead>
-                      {subjects.map(subject => (
-                        <TableHead key={subject.id} className="text-center">
-                          <span className="font-mono text-xs">{subject.subject_code}</span>
-                        </TableHead>
-                      ))}
-                      <TableHead className="text-center">Average</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.from(getStudentMarksMap().entries()).map(([studentId, data]) => {
-                      const marksArray = Array.from(data.marks.values());
-                      const avg = marksArray.length > 0 
-                        ? marksArray.reduce((a, b) => a + b, 0) / marksArray.length 
-                        : 0;
-                      
-                      return (
-                        <TableRow key={studentId}>
-                          <TableCell className="font-medium">{data.roll}</TableCell>
-                          <TableCell>{data.name}</TableCell>
-                          {subjects.map(subject => (
-                            <TableCell key={subject.id} className="text-center">
-                              {data.marks.get(subject.id) ?? "—"}
+              <div className="space-y-4">
+                {/* Subject-wise Titles and Dates */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Per-Subject Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                      {subjects.map(subject => {
+                        const info = subjectInfoMap.get(subject.id);
+                        return (
+                          <div key={subject.id} className="border rounded-lg p-3 space-y-1">
+                            <div className="font-mono text-sm font-medium">{subject.subject_code}</div>
+                            <div className="text-sm text-muted-foreground">
+                              <span className="font-medium">Title:</span> {info?.title || "—"}
+                            </div>
+                            <div className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              <span className="font-medium">Due:</span> {formatDate(info?.date)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Student Marks Table */}
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Roll No</TableHead>
+                        <TableHead>Student Name</TableHead>
+                        {subjects.map(subject => (
+                          <TableHead key={subject.id} className="text-center">
+                            <span className="font-mono text-xs">{subject.subject_code}</span>
+                          </TableHead>
+                        ))}
+                        <TableHead className="text-center">Average</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Array.from(getStudentMarksMap().entries()).map(([studentId, data]) => {
+                        const marksArray = Array.from(data.marks.values());
+                        const avg = marksArray.length > 0 
+                          ? marksArray.reduce((a, b) => a + b, 0) / marksArray.length 
+                          : 0;
+                        
+                        return (
+                          <TableRow key={studentId}>
+                            <TableCell className="font-medium">{data.roll}</TableCell>
+                            <TableCell>{data.name}</TableCell>
+                            {subjects.map(subject => (
+                              <TableCell key={subject.id} className="text-center">
+                                {data.marks.get(subject.id) ?? "—"}
+                              </TableCell>
+                            ))}
+                            <TableCell className="text-center font-bold text-primary">
+                              {avg.toFixed(1)}
                             </TableCell>
-                          ))}
-                          <TableCell className="text-center font-bold text-primary">
-                            {avg.toFixed(1)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </DialogContent>

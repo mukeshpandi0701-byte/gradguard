@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Lock, AlertTriangle } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
+import { ArrowLeft, Save, Lock, AlertTriangle, Target, BarChart3, Scale } from "lucide-react";
 
 interface Criteria {
   min_attendance_percentage: number;
@@ -21,6 +21,7 @@ interface Criteria {
   attendance_weightage: number;
   internal_weightage: number;
   fees_weightage: number;
+  assignment_weightage: number;
 }
 
 const Criteria = () => {
@@ -30,6 +31,7 @@ const Criteria = () => {
   const [isHOD, setIsHOD] = useState(false);
   const [hodName, setHodName] = useState<string | null>(null);
   const [hodCriteriaExists, setHodCriteriaExists] = useState(true);
+  const [activeTab, setActiveTab] = useState("thresholds");
   const [criteria, setCriteria] = useState<Criteria>({
     min_attendance_percentage: 75,
     min_internal_marks: 40,
@@ -39,9 +41,10 @@ const Criteria = () => {
     total_hours: 100,
     max_sessions_per_day: 7,
     num_internal_exams: 3,
-    attendance_weightage: 0.4,
-    internal_weightage: 0.3,
-    fees_weightage: 0.3,
+    attendance_weightage: 0.3,
+    internal_weightage: 0.25,
+    fees_weightage: 0.25,
+    assignment_weightage: 0.2,
   });
 
   useEffect(() => {
@@ -54,7 +57,6 @@ const Criteria = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Check if user is HOD
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
@@ -65,16 +67,6 @@ const Criteria = () => {
       setIsHOD(userIsHOD);
 
       if (userIsHOD) {
-        // Fetch HOD's department
-        const { data: hodProfile } = await supabase
-          .from("profiles")
-          .select("department")
-          .eq("id", user.id)
-          .maybeSingle();
-        
-        // No need to fetch department for Subject Management (moved to separate page)
-
-        // HOD fetches their own criteria
         const { data, error } = await supabase
           .from("dropout_criteria")
           .select("*")
@@ -94,10 +86,10 @@ const Criteria = () => {
             attendance_weightage: data.attendance_weightage,
             internal_weightage: data.internal_weightage,
             fees_weightage: data.fees_weightage,
+            assignment_weightage: (data as any).assignment_weightage ?? 0,
           });
         }
       } else {
-        // Staff fetches HOD's criteria from their department
         const { data: profile } = await supabase
           .from("profiles")
           .select("department")
@@ -105,7 +97,6 @@ const Criteria = () => {
           .maybeSingle();
 
         if (profile?.department) {
-          // Find HOD from the same department
           const { data: hodProfiles } = await supabase
             .from("profiles")
             .select("id, full_name, email")
@@ -136,6 +127,7 @@ const Criteria = () => {
                 attendance_weightage: hodCriteria.attendance_weightage,
                 internal_weightage: hodCriteria.internal_weightage,
                 fees_weightage: hodCriteria.fees_weightage,
+                assignment_weightage: (hodCriteria as any).assignment_weightage ?? 0,
               });
             } else {
               setHodCriteriaExists(false);
@@ -166,12 +158,13 @@ const Criteria = () => {
       if (!user) throw new Error("Not authenticated");
 
       // Normalize weightages to sum to 1
-      const total = criteria.attendance_weightage + criteria.internal_weightage + criteria.fees_weightage;
+      const total = criteria.attendance_weightage + criteria.internal_weightage + criteria.fees_weightage + criteria.assignment_weightage;
       const normalized = {
         ...criteria,
-        attendance_weightage: criteria.attendance_weightage / total,
-        internal_weightage: criteria.internal_weightage / total,
-        fees_weightage: criteria.fees_weightage / total,
+        attendance_weightage: total > 0 ? criteria.attendance_weightage / total : 0.25,
+        internal_weightage: total > 0 ? criteria.internal_weightage / total : 0.25,
+        fees_weightage: total > 0 ? criteria.fees_weightage / total : 0.25,
+        assignment_weightage: total > 0 ? criteria.assignment_weightage / total : 0.25,
       };
 
       const { error } = await supabase
@@ -195,6 +188,8 @@ const Criteria = () => {
     }
   };
 
+  const totalWeightage = criteria.attendance_weightage + criteria.internal_weightage + criteria.fees_weightage + criteria.assignment_weightage;
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -202,6 +197,237 @@ const Criteria = () => {
       </div>
     );
   }
+
+  const renderThresholds = () => (
+    <Card className="shadow-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-primary" />
+          Minimum Thresholds
+          {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
+        </CardTitle>
+        <CardDescription>
+          {isHOD ? "Set the minimum acceptable values for each metric" : "Minimum acceptable values set by HOD"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="attendance">Min Attendance %</Label>
+            <Input
+              id="attendance"
+              type="number"
+              value={criteria.min_attendance_percentage}
+              onChange={(e) => setCriteria({ ...criteria, min_attendance_percentage: Number(e.target.value) })}
+              min={0}
+              max={100}
+              disabled={!isHOD}
+              className={!isHOD ? "bg-muted" : ""}
+            />
+            <p className="text-xs text-muted-foreground">Students below will be flagged</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="marks">Min Internal Marks</Label>
+            <Input
+              id="marks"
+              type="number"
+              value={criteria.min_internal_marks}
+              onChange={(e) => setCriteria({ ...criteria, min_internal_marks: Number(e.target.value) })}
+              min={0}
+              max={criteria.max_internal_marks}
+              disabled={!isHOD}
+              className={!isHOD ? "bg-muted" : ""}
+            />
+            <p className="text-xs text-muted-foreground">Pass threshold</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fees">Max Pending Fees (₹)</Label>
+            <Input
+              id="fees"
+              type="number"
+              value={criteria.max_pending_fees}
+              onChange={(e) => setCriteria({ ...criteria, max_pending_fees: Number(e.target.value) })}
+              min={0}
+              disabled={!isHOD}
+              className={!isHOD ? "bg-muted" : ""}
+            />
+            <p className="text-xs text-muted-foreground">Higher = flagged</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderMaximums = () => (
+    <Card className="shadow-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-primary" />
+          Course Maximums
+          {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
+        </CardTitle>
+        <CardDescription>
+          {isHOD ? "Set the maximum values for calculating percentages" : "Maximum values set by HOD"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="maxMarks">Max Internal Marks</Label>
+            <Input
+              id="maxMarks"
+              type="number"
+              value={criteria.max_internal_marks}
+              onChange={(e) => setCriteria({ ...criteria, max_internal_marks: Number(e.target.value) })}
+              min={1}
+              disabled={!isHOD}
+              className={!isHOD ? "bg-muted" : ""}
+            />
+            <p className="text-xs text-muted-foreground">Total marks out of which internals are scored</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="totalFees">Total Course Fees (₹)</Label>
+            <Input
+              id="totalFees"
+              type="number"
+              value={criteria.total_fees}
+              onChange={(e) => setCriteria({ ...criteria, total_fees: Number(e.target.value) })}
+              min={0}
+              disabled={!isHOD}
+              className={!isHOD ? "bg-muted" : ""}
+            />
+            <p className="text-xs text-muted-foreground">Total fees for the entire course</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="maxSessionsPerDay">Max Sessions Per Day</Label>
+            <Input
+              id="maxSessionsPerDay"
+              type="number"
+              value={criteria.max_sessions_per_day}
+              onChange={(e) => setCriteria({ ...criteria, max_sessions_per_day: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })}
+              min={1}
+              max={10}
+              disabled={!isHOD}
+              className={!isHOD ? "bg-muted" : ""}
+            />
+            <p className="text-xs text-muted-foreground">1-10 sessions for attendance calculation</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="numInternalExams">Number of CIA Exams</Label>
+            <Input
+              id="numInternalExams"
+              type="number"
+              value={criteria.num_internal_exams}
+              onChange={(e) => setCriteria({ ...criteria, num_internal_exams: Math.min(5, Math.max(1, Number(e.target.value) || 1)) })}
+              min={1}
+              max={5}
+              disabled={!isHOD}
+              className={!isHOD ? "bg-muted" : ""}
+            />
+            <p className="text-xs text-muted-foreground">
+              CIA-I through CIA-{['I', 'II', 'III', 'IV', 'V'][criteria.num_internal_exams - 1]}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderWeightages = () => (
+    <Card className="shadow-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Scale className="w-5 h-5 text-primary" />
+          Risk Calculation Weightages
+          {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
+        </CardTitle>
+        <CardDescription>
+          {isHOD ? "Set importance of each factor (auto-normalized to 100%)" : "Weightages set by HOD"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Attendance Weightage</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={Math.round(criteria.attendance_weightage * 100)}
+                onChange={(e) => setCriteria({ ...criteria, attendance_weightage: Number(e.target.value) / 100 })}
+                min={0}
+                max={100}
+                disabled={!isHOD}
+                className={!isHOD ? "bg-muted" : ""}
+              />
+              <span className="text-sm font-medium w-12">%</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Internal Marks Weightage</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={Math.round(criteria.internal_weightage * 100)}
+                onChange={(e) => setCriteria({ ...criteria, internal_weightage: Number(e.target.value) / 100 })}
+                min={0}
+                max={100}
+                disabled={!isHOD}
+                className={!isHOD ? "bg-muted" : ""}
+              />
+              <span className="text-sm font-medium w-12">%</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Fees Weightage</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={Math.round(criteria.fees_weightage * 100)}
+                onChange={(e) => setCriteria({ ...criteria, fees_weightage: Number(e.target.value) / 100 })}
+                min={0}
+                max={100}
+                disabled={!isHOD}
+                className={!isHOD ? "bg-muted" : ""}
+              />
+              <span className="text-sm font-medium w-12">%</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Assignment Weightage</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={Math.round(criteria.assignment_weightage * 100)}
+                onChange={(e) => setCriteria({ ...criteria, assignment_weightage: Number(e.target.value) / 100 })}
+                min={0}
+                max={100}
+                disabled={!isHOD}
+                className={!isHOD ? "bg-muted" : ""}
+              />
+              <span className="text-sm font-medium w-12">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Total (will normalize to 100%)</span>
+            <span className={`text-lg font-bold ${totalWeightage > 0 ? 'text-primary' : 'text-destructive'}`}>
+              {Math.round(totalWeightage * 100)}%
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
@@ -216,9 +442,7 @@ const Criteria = () => {
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">
-            {isHOD ? "Dropout Criteria Settings" : "Dropout Criteria Settings"}
-          </h1>
+          <h1 className="text-3xl font-bold mb-2">Dropout Criteria Settings</h1>
           <p className="text-muted-foreground">
             {isHOD 
               ? "Configure dropout criteria for your department"
@@ -238,327 +462,41 @@ const Criteria = () => {
           )}
         </div>
 
-        {isHOD ? (
-          <div className="space-y-6">
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Minimum Thresholds
-                {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
-              </CardTitle>
-              <CardDescription>
-                {isHOD ? "Set the minimum acceptable values for each metric" : "Minimum acceptable values set by HOD"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="attendance">Minimum Attendance Percentage</Label>
-                <Input
-                  id="attendance"
-                  type="number"
-                  value={criteria.min_attendance_percentage}
-                  onChange={(e) => setCriteria({ ...criteria, min_attendance_percentage: Number(e.target.value) })}
-                  min={0}
-                  max={100}
-                  disabled={!isHOD}
-                  className={!isHOD ? "bg-muted" : ""}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Students below this attendance % will be flagged
-                </p>
-              </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="thresholds" className="flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              <span className="hidden sm:inline">Thresholds</span>
+            </TabsTrigger>
+            <TabsTrigger value="maximums" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Maximums</span>
+            </TabsTrigger>
+            <TabsTrigger value="weightages" className="flex items-center gap-2">
+              <Scale className="w-4 h-4" />
+              <span className="hidden sm:inline">Weightages</span>
+            </TabsTrigger>
+          </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="marks">Minimum Internal Marks (Pass Threshold)</Label>
-                <Input
-                  id="marks"
-                  type="number"
-                  value={criteria.min_internal_marks}
-                  onChange={(e) => setCriteria({ ...criteria, min_internal_marks: Number(e.target.value) })}
-                  min={0}
-                  max={criteria.max_internal_marks}
-                  disabled={!isHOD}
-                  className={!isHOD ? "bg-muted" : ""}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Students scoring below this will be flagged
-                </p>
-              </div>
+          <TabsContent value="thresholds">
+            {renderThresholds()}
+          </TabsContent>
 
-              <div className="space-y-2">
-                <Label htmlFor="fees">Maximum Allowed Pending Fees (₹)</Label>
-                <Input
-                  id="fees"
-                  type="number"
-                  value={criteria.max_pending_fees}
-                  onChange={(e) => setCriteria({ ...criteria, max_pending_fees: Number(e.target.value) })}
-                  min={0}
-                  disabled={!isHOD}
-                  className={!isHOD ? "bg-muted" : ""}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Students with higher pending fees will be flagged
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <TabsContent value="maximums">
+            {renderMaximums()}
+          </TabsContent>
 
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Course Maximums
-                {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
-              </CardTitle>
-              <CardDescription>
-                {isHOD ? "Set the maximum values for calculating percentages from CSV data" : "Maximum values set by HOD"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="maxMarks">Maximum Internal Marks</Label>
-                <Input
-                  id="maxMarks"
-                  type="number"
-                  value={criteria.max_internal_marks}
-                  onChange={(e) => setCriteria({ ...criteria, max_internal_marks: Number(e.target.value) })}
-                  min={1}
-                  disabled={!isHOD}
-                  className={!isHOD ? "bg-muted" : ""}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Total marks out of which internal marks are scored
-                </p>
-              </div>
+          <TabsContent value="weightages">
+            {renderWeightages()}
+          </TabsContent>
+        </Tabs>
 
-              <div className="space-y-2">
-                <Label htmlFor="totalFees">Total Course Fees (₹)</Label>
-                <Input
-                  id="totalFees"
-                  type="number"
-                  value={criteria.total_fees}
-                  onChange={(e) => setCriteria({ ...criteria, total_fees: Number(e.target.value) })}
-                  min={0}
-                  disabled={!isHOD}
-                  className={!isHOD ? "bg-muted" : ""}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Total fees for the entire course
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="maxSessionsPerDay">Maximum Sessions Per Day</Label>
-                <Input
-                  id="maxSessionsPerDay"
-                  type="number"
-                  value={criteria.max_sessions_per_day}
-                  onChange={(e) => setCriteria({ ...criteria, max_sessions_per_day: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })}
-                  min={1}
-                  max={10}
-                  disabled={!isHOD}
-                  className={!isHOD ? "bg-muted" : ""}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Maximum number of class sessions per day (1-10). Attendance % is calculated as attended/total sessions.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="numInternalExams">Number of Internal Exams (CIA)</Label>
-                <Input
-                  id="numInternalExams"
-                  type="number"
-                  value={criteria.num_internal_exams}
-                  onChange={(e) => setCriteria({ ...criteria, num_internal_exams: Math.min(5, Math.max(1, Number(e.target.value) || 1)) })}
-                  min={1}
-                  max={5}
-                  disabled={!isHOD}
-                  className={!isHOD ? "bg-muted" : ""}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Number of CIA exams (1-5). Staff will select CIA-I, CIA-II, etc. when entering marks.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Risk Calculation Weightages
-                {!isHOD && <Lock className="w-4 h-4 text-muted-foreground" />}
-              </CardTitle>
-              <CardDescription>
-                {isHOD ? "Adjust the importance of each factor (will be automatically normalized)" : "Weightages set by HOD"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label>Attendance Weightage</Label>
-                    <span className="text-sm font-medium">{(criteria.attendance_weightage * 100).toFixed(0)}%</span>
-                  </div>
-                  <Slider
-                    value={[criteria.attendance_weightage * 100]}
-                    onValueChange={(value) => setCriteria({ ...criteria, attendance_weightage: value[0] / 100 })}
-                    max={100}
-                    step={5}
-                    disabled={!isHOD}
-                    className={!isHOD ? "opacity-60" : ""}
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label>Internal Marks Weightage</Label>
-                    <span className="text-sm font-medium">{(criteria.internal_weightage * 100).toFixed(0)}%</span>
-                  </div>
-                  <Slider
-                    value={[criteria.internal_weightage * 100]}
-                    onValueChange={(value) => setCriteria({ ...criteria, internal_weightage: value[0] / 100 })}
-                    max={100}
-                    step={5}
-                    disabled={!isHOD}
-                    className={!isHOD ? "opacity-60" : ""}
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label>Fees Weightage</Label>
-                    <span className="text-sm font-medium">{(criteria.fees_weightage * 100).toFixed(0)}%</span>
-                  </div>
-                  <Slider
-                    value={[criteria.fees_weightage * 100]}
-                    onValueChange={(value) => setCriteria({ ...criteria, fees_weightage: value[0] / 100 })}
-                    max={100}
-                    step={5}
-                    disabled={!isHOD}
-                    className={!isHOD ? "opacity-60" : ""}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {isHOD && (
-            <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={saving} size="lg">
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? "Saving..." : "Save Criteria"}
-              </Button>
-            </div>
-          )}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Minimum Thresholds
-                  <Lock className="w-4 h-4 text-muted-foreground" />
-                </CardTitle>
-                <CardDescription>
-                  Minimum acceptable values set by HOD
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Minimum Attendance Percentage</Label>
-                  <Input
-                    type="number"
-                    value={criteria.min_attendance_percentage}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Minimum Internal Marks</Label>
-                  <Input
-                    type="number"
-                    value={criteria.min_internal_marks}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Maximum Allowed Pending Fees (₹)</Label>
-                  <Input
-                    type="number"
-                    value={criteria.max_pending_fees}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Course Maximums
-                  <Lock className="w-4 h-4 text-muted-foreground" />
-                </CardTitle>
-                <CardDescription>Maximum values set by HOD</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Maximum Internal Marks</Label>
-                  <Input type="number" value={criteria.max_internal_marks} disabled className="bg-muted" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Total Course Fees (₹)</Label>
-                  <Input type="number" value={criteria.total_fees} disabled className="bg-muted" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Maximum Sessions Per Day</Label>
-                  <Input type="number" value={criteria.max_sessions_per_day} disabled className="bg-muted" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Number of Internal Exams (CIA)</Label>
-                  <Input type="number" value={criteria.num_internal_exams} disabled className="bg-muted" />
-                  <p className="text-sm text-muted-foreground">
-                    Staff can select CIA-I through CIA-{['I', 'II', 'III', 'IV', 'V'][criteria.num_internal_exams - 1]} when entering marks.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Risk Calculation Weightages
-                  <Lock className="w-4 h-4 text-muted-foreground" />
-                </CardTitle>
-                <CardDescription>Weightages set by HOD</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label>Attendance Weightage</Label>
-                      <span className="text-sm font-medium">{(criteria.attendance_weightage * 100).toFixed(0)}%</span>
-                    </div>
-                    <Slider value={[criteria.attendance_weightage * 100]} max={100} disabled className="opacity-60" />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label>Internal Marks Weightage</Label>
-                      <span className="text-sm font-medium">{(criteria.internal_weightage * 100).toFixed(0)}%</span>
-                    </div>
-                    <Slider value={[criteria.internal_weightage * 100]} max={100} disabled className="opacity-60" />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label>Fees Weightage</Label>
-                      <span className="text-sm font-medium">{(criteria.fees_weightage * 100).toFixed(0)}%</span>
-                    </div>
-                    <Slider value={[criteria.fees_weightage * 100]} max={100} disabled className="opacity-60" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        {isHOD && (
+          <div className="flex justify-end mt-6">
+            <Button onClick={handleSave} disabled={saving} size="lg">
+              <Save className="w-4 h-4 mr-2" />
+              {saving ? "Saving..." : "Save Criteria"}
+            </Button>
           </div>
         )}
       </main>
