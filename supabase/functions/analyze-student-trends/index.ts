@@ -39,7 +39,8 @@ serve(async (req) => {
       .maybeSingle();
 
     let student;
-    
+    let studentRecordId = studentId;
+
     if (profileData) {
       // Get student data from students table using roll_number
       const { data: studentData } = await supabase
@@ -47,7 +48,9 @@ serve(async (req) => {
         .select("*")
         .eq("roll_number", profileData.roll_number)
         .maybeSingle();
-      
+
+      if (studentData?.id) studentRecordId = studentData.id;
+
       student = studentData ? {
         ...studentData,
         student_name: profileData.full_name || studentData.student_name,
@@ -69,6 +72,7 @@ serve(async (req) => {
 
       if (studentError) throw studentError;
       student = directStudent;
+      if (directStudent?.id) studentRecordId = directStudent.id;
     }
 
     if (!student) {
@@ -79,7 +83,7 @@ serve(async (req) => {
     const { data: history, error: historyError } = await supabase
       .from("student_history")
       .select("*")
-      .eq("student_id", studentId)
+      .eq("student_id", studentRecordId)
       .order("recorded_at", { ascending: true });
 
     if (historyError) throw historyError;
@@ -88,7 +92,7 @@ serve(async (req) => {
     const { data: prediction } = await supabase
       .from("predictions")
       .select("*")
-      .eq("student_id", studentId)
+      .eq("student_id", studentRecordId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -157,7 +161,7 @@ Format your response as JSON with this structure:
         messages: [
           {
             role: "system",
-            content: "You are an expert educational data analyst. Always respond with valid JSON only, no markdown formatting or code blocks."
+            content: "You are an expert educational data analyst. Always respond with valid JSON only (no markdown/code fences)."
           },
           {
             role: "user",
@@ -165,6 +169,7 @@ Format your response as JSON with this structure:
           }
         ],
         temperature: 0.3,
+        max_tokens: 1800,
       }),
     });
 
@@ -183,15 +188,20 @@ Format your response as JSON with this structure:
 
     console.log("AI Analysis received:", analysisText);
 
-    // Parse JSON response, removing markdown code blocks if present
-    let analysis;
-    try {
-      const cleanedText = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      analysis = JSON.parse(cleanedText);
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", analysisText);
-      throw new Error("Failed to parse AI analysis");
-    }
+     // Parse JSON response, removing markdown code blocks if present
+     let analysis;
+     try {
+       let cleanedText = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+       const start = cleanedText.indexOf("{");
+       const end = cleanedText.lastIndexOf("}");
+       if (start !== -1 && end !== -1 && end > start) {
+         cleanedText = cleanedText.slice(start, end + 1);
+       }
+       analysis = JSON.parse(cleanedText);
+     } catch (parseError) {
+       console.error("Failed to parse AI response:", analysisText);
+       throw new Error("Failed to parse AI analysis");
+     }
 
     return new Response(
       JSON.stringify({

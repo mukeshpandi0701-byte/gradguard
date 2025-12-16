@@ -39,6 +39,7 @@ serve(async (req) => {
       .maybeSingle();
 
     let student;
+    let studentRecordId = studentId;
     
     if (profileData) {
       // Get student data from students table using roll_number
@@ -47,6 +48,8 @@ serve(async (req) => {
         .select("*")
         .eq("roll_number", profileData.roll_number)
         .maybeSingle();
+
+      if (studentData?.id) studentRecordId = studentData.id;
       
       student = studentData ? {
         ...studentData,
@@ -71,6 +74,7 @@ serve(async (req) => {
 
       if (studentError) throw studentError;
       student = directStudent;
+      if (directStudent?.id) studentRecordId = directStudent.id;
     }
 
     if (!student) {
@@ -81,7 +85,7 @@ serve(async (req) => {
     const { data: prediction } = await supabase
       .from("predictions")
       .select("*")
-      .eq("student_id", studentId)
+      .eq("student_id", studentRecordId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -161,7 +165,7 @@ Format your response as JSON with this structure:
         messages: [
           {
             role: "system",
-            content: "You are an expert educational counselor specialized in student success and dropout prevention. Always respond with valid JSON only, no markdown formatting or code blocks."
+            content: "You are an expert educational counselor specialized in student success and dropout prevention. Always respond with valid JSON only (no markdown/code fences)."
           },
           {
             role: "user",
@@ -169,6 +173,7 @@ Format your response as JSON with this structure:
           }
         ],
         temperature: 0.7,
+        max_tokens: 1800,
       }),
     });
 
@@ -190,7 +195,12 @@ Format your response as JSON with this structure:
     // Parse JSON response, removing markdown code blocks if present
     let recommendations;
     try {
-      const cleanedText = recommendationsText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      let cleanedText = recommendationsText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const start = cleanedText.indexOf("{");
+      const end = cleanedText.lastIndexOf("}");
+      if (start !== -1 && end !== -1 && end > start) {
+        cleanedText = cleanedText.slice(start, end + 1);
+      }
       recommendations = JSON.parse(cleanedText);
     } catch (parseError) {
       console.error("Failed to parse AI response:", recommendationsText);
