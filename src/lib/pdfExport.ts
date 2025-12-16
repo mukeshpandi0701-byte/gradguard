@@ -451,11 +451,16 @@ export const generateAIStudentReportPDF = async (
   pdf.text("Performance Overview", margin, yPosition);
   yPosition += 10;
 
+  const studentAttendance = Number((studentData as any).attendance_percentage ?? 0);
+  const studentInternalMarks = Number((studentData as any).internal_marks ?? 0);
+  const studentFeesPaidPct = Number((studentData as any).fee_paid_percentage ?? 0);
+  const studentPendingFees = Number((studentData as any).pending_fees ?? 0);
+
   const metrics = [
-    { label: "Overall Performance", value: `${studentData.attendance_percentage.toFixed(1)}%`, color: studentData.attendance_percentage >= 75 ? [34, 197, 94] : [239, 68, 68] },
-    { label: "Internal Marks", value: `${studentData.internal_marks}/100`, color: studentData.internal_marks >= 40 ? [34, 197, 94] : [239, 68, 68] },
-    { label: "Fees Paid", value: `${studentData.fee_paid_percentage.toFixed(1)}%`, color: studentData.fee_paid_percentage >= 80 ? [34, 197, 94] : [239, 68, 68] },
-    { label: "Fees Due", value: `Rs. ${studentData.pending_fees.toFixed(0)}`, color: studentData.pending_fees <= 5000 ? [34, 197, 94] : [239, 68, 68] }
+    { label: "Overall Performance", value: `${studentAttendance.toFixed(1)}%`, color: studentAttendance >= 75 ? [34, 197, 94] : [239, 68, 68] },
+    { label: "Internal Marks", value: `${studentInternalMarks}/100`, color: studentInternalMarks >= 40 ? [34, 197, 94] : [239, 68, 68] },
+    { label: "Fees Paid", value: `${studentFeesPaidPct.toFixed(1)}%`, color: studentFeesPaidPct >= 80 ? [34, 197, 94] : [239, 68, 68] },
+    { label: "Fees Due", value: `Rs. ${studentPendingFees.toFixed(0)}`, color: studentPendingFees <= 5000 ? [34, 197, 94] : [239, 68, 68] }
   ];
 
   pdf.setFontSize(11);
@@ -799,9 +804,15 @@ export const generateStudentReportPDF = async (
     pdf.setFont("helvetica", "bold");
     pdf.text("Attendance", margin + 5, yPosition + 7);
     pdf.setFontSize(16);
-    const attendanceColor = student.attendance_percentage >= 75 ? [34, 197, 94] : student.attendance_percentage >= 60 ? [251, 191, 36] : [239, 68, 68];
+
+    const attendancePct = Number((student as any).attendance_percentage ?? 0);
+    const internalMarks = Number((student as any).internal_marks ?? 0);
+    const feesPaidPct = Number((student as any).fee_paid_percentage ?? 0);
+    const pendingFees = Number((student as any).pending_fees ?? 0);
+
+    const attendanceColor = attendancePct >= 75 ? [34, 197, 94] : attendancePct >= 60 ? [251, 191, 36] : [239, 68, 68];
     pdf.setTextColor(attendanceColor[0], attendanceColor[1], attendanceColor[2]);
-    pdf.text(student.attendance_percentage.toFixed(1) + "%", margin + 5, yPosition + 16);
+    pdf.text(attendancePct.toFixed(1) + "%", margin + 5, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
     // Internal Marks box (Average)
@@ -811,9 +822,9 @@ export const generateStudentReportPDF = async (
     pdf.setFontSize(11);
     pdf.text("Avg Internal Marks", margin + boxWidth + 15, yPosition + 7);
     pdf.setFontSize(16);
-    const marksColor = student.internal_marks >= 40 ? [34, 197, 94] : student.internal_marks >= 25 ? [251, 191, 36] : [239, 68, 68];
+    const marksColor = internalMarks >= 40 ? [34, 197, 94] : internalMarks >= 25 ? [251, 191, 36] : [239, 68, 68];
     pdf.setTextColor(marksColor[0], marksColor[1], marksColor[2]);
-    pdf.text(`${student.internal_marks.toFixed(1)}`, margin + boxWidth + 15, yPosition + 16);
+    pdf.text(`${internalMarks.toFixed(1)}`, margin + boxWidth + 15, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
     yPosition += boxHeight + 8;
@@ -825,9 +836,9 @@ export const generateStudentReportPDF = async (
     pdf.setFontSize(11);
     pdf.text("Fees Paid", margin + 5, yPosition + 7);
     pdf.setFontSize(16);
-    const feesColor = student.fee_paid_percentage >= 80 ? [34, 197, 94] : student.fee_paid_percentage >= 50 ? [251, 191, 36] : [239, 68, 68];
+    const feesColor = feesPaidPct >= 80 ? [34, 197, 94] : feesPaidPct >= 50 ? [251, 191, 36] : [239, 68, 68];
     pdf.setTextColor(feesColor[0], feesColor[1], feesColor[2]);
-    pdf.text(student.fee_paid_percentage.toFixed(1) + "%", margin + 5, yPosition + 16);
+    pdf.text(feesPaidPct.toFixed(1) + "%", margin + 5, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
     // Pending Fees box
@@ -837,9 +848,9 @@ export const generateStudentReportPDF = async (
     pdf.setFontSize(11);
     pdf.text("Pending Fees", margin + boxWidth + 15, yPosition + 7);
     pdf.setFontSize(16);
-    const pendingColor = student.pending_fees <= 5000 ? [34, 197, 94] : student.pending_fees <= 10000 ? [251, 191, 36] : [239, 68, 68];
+    const pendingColor = pendingFees <= 5000 ? [34, 197, 94] : pendingFees <= 10000 ? [251, 191, 36] : [239, 68, 68];
     pdf.setTextColor(pendingColor[0], pendingColor[1], pendingColor[2]);
-    pdf.text(`Rs. ${student.pending_fees.toFixed(0)}`, margin + boxWidth + 15, yPosition + 16);
+    pdf.text(`Rs. ${pendingFees.toFixed(0)}`, margin + boxWidth + 15, yPosition + 16);
     pdf.setTextColor(0, 0, 0);
 
     yPosition += boxHeight + 12;
@@ -872,10 +883,10 @@ export const generateStudentReportPDF = async (
         pdf.text(subj.subject_code, margin + 3, yPosition + 5);
         pdf.text(subj.subject_name || "—", margin + 40, yPosition + 5);
         
-        const markColor = subj.marks >= 40 ? [34, 197, 94] : subj.marks >= 25 ? [251, 191, 36] : [239, 68, 68];
+        const markValue = Number((subj as any).marks ?? 0);
+        const markColor = markValue >= 40 ? [34, 197, 94] : markValue >= 25 ? [251, 191, 36] : [239, 68, 68];
         pdf.setTextColor(markColor[0], markColor[1], markColor[2]);
-        pdf.text(`${subj.marks.toFixed(0)}`, margin + contentWidth - 25, yPosition + 5);
-        pdf.setTextColor(0, 0, 0);
+        pdf.text(`${markValue.toFixed(0)}`, margin + contentWidth - 25, yPosition + 5);
         
         yPosition += 7;
       });
