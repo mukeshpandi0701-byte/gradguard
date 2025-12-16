@@ -348,8 +348,65 @@ const Upload = () => {
 
     setSaving(true);
     try {
-      // For now, we'll just show success - in a full implementation, 
-      // you'd store this in an assignments table
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get or create the assignment record
+      let assignmentId: string;
+
+      const { data: existingAssignment } = await supabase
+        .from("branch_assignments")
+        .select("id")
+        .eq("branch", selectedStudent.branch)
+        .eq("assignment_number", assignmentData.number)
+        .maybeSingle();
+
+      if (existingAssignment) {
+        assignmentId = existingAssignment.id;
+      } else {
+        const { data: newAssignment, error: assignmentError } = await supabase
+          .from("branch_assignments")
+          .insert({
+            branch: selectedStudent.branch,
+            assignment_number: assignmentData.number,
+            assignment_title: assignmentData.title,
+            staff_user_id: user.id,
+            max_marks: criteria?.max_internal_marks || 100
+          })
+          .select("id")
+          .single();
+
+        if (assignmentError) throw assignmentError;
+        assignmentId = newAssignment.id;
+      }
+
+      // Get student record ID
+      const { data: studentRecord } = await supabase
+        .from("students")
+        .select("id")
+        .eq("roll_number", selectedStudent.roll_number)
+        .maybeSingle();
+
+      if (!studentRecord) {
+        toast.error("Student record not found. Please save internal marks first.");
+        setSaving(false);
+        return;
+      }
+
+      // Upsert assignment marks for each subject
+      const marksToUpsert = branchSubjects.map(subject => ({
+        assignment_id: assignmentId,
+        student_id: studentRecord.id,
+        subject_id: subject.id,
+        marks_obtained: parseFloat(assignmentData.marks[subject.id] || "0")
+      }));
+
+      const { error: marksError } = await supabase
+        .from("student_branch_assignment_marks")
+        .upsert(marksToUpsert, { onConflict: "assignment_id,student_id,subject_id" });
+
+      if (marksError) throw marksError;
+
       toast.success(`Assignment "${assignmentData.title}" (No. ${assignmentData.number}) saved successfully!`);
       setAssignmentData({ number: "", title: "", marks: {} });
     } catch (error: any) {
