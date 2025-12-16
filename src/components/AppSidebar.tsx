@@ -152,13 +152,69 @@ export function AppSidebar() {
       // If we can't determine user, skip fetching students
       if (!currentUser) return;
 
-      const { data, error } = await supabase
-        .from("students")
-        .select("id, student_name, roll_number")
-        .order("roll_number", { ascending: true, nullsFirst: false });
+      // Check if HOD
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", currentUser.id)
+        .eq("role", "hod")
+        .maybeSingle();
 
-      if (error) throw error;
-      setStudents(data || []);
+      const userIsHOD = !!roleData;
+
+      if (userIsHOD) {
+        // HOD: Fetch students filtered by department
+        const { data: hodProfile } = await supabase
+          .from("profiles")
+          .select("department")
+          .eq("id", currentUser.id)
+          .maybeSingle();
+
+        let query = supabase
+          .from("student_profiles")
+          .select("id, full_name, roll_number, department, branch")
+          .order("roll_number", { ascending: true, nullsFirst: false });
+
+        if (hodProfile?.department) {
+          query = query.eq("department", hodProfile.department);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        setStudents((data || []).map(s => ({
+          id: s.id,
+          student_name: s.full_name || "Unknown",
+          roll_number: s.roll_number,
+        })));
+      } else {
+        // Staff: Fetch students filtered by assigned branches
+        const { data: branchData } = await supabase
+          .from("staff_branch_assignments")
+          .select("branch")
+          .eq("staff_user_id", currentUser.id);
+
+        const branches = (branchData || []).map(b => b.branch);
+
+        if (branches.length === 0) {
+          setStudents([]);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("student_profiles")
+          .select("id, full_name, roll_number, branch")
+          .in("branch", branches)
+          .order("roll_number", { ascending: true, nullsFirst: false });
+
+        if (error) throw error;
+        
+        setStudents((data || []).map(s => ({
+          id: s.id,
+          student_name: s.full_name || "Unknown",
+          roll_number: s.roll_number,
+        })));
+      }
     } catch (error) {
       console.error("Failed to fetch students:", error);
     }
