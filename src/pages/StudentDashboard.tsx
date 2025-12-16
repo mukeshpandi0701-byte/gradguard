@@ -86,11 +86,21 @@ const StudentDashboard = () => {
       if (profileData) {
         setProfile(profileData);
 
-        // Fetch attendance from attendance_records (student_profiles.id is the student_id)
-        const { data: attendanceRecords } = await supabase
+        // Try multiple ways to fetch attendance records
+        // 1. By student_profiles.id
+        let { data: attendanceRecords } = await supabase
           .from("attendance_records")
           .select("sessions_attended, max_sessions")
           .eq("student_id", profileData.id);
+
+        // 2. If no records found, try by user_id
+        if (!attendanceRecords || attendanceRecords.length === 0) {
+          const { data: recordsByUser } = await supabase
+            .from("attendance_records")
+            .select("sessions_attended, max_sessions")
+            .eq("user_id", session.user.id);
+          attendanceRecords = recordsByUser;
+        }
 
         let computedAttendance = 0;
         if (attendanceRecords && attendanceRecords.length > 0) {
@@ -113,10 +123,14 @@ const StudentDashboard = () => {
         }
 
         if (studentDataResult) {
-          // Override attendance_percentage with computed value from attendance_records
+          // Use computed attendance if available, otherwise fall back to students table
+          const finalAttendance = computedAttendance > 0 
+            ? computedAttendance 
+            : (studentDataResult.attendance_percentage ?? 0);
+          
           setStudentData({
             ...studentDataResult,
-            attendance_percentage: computedAttendance
+            attendance_percentage: finalAttendance
           });
 
           // Fetch prediction for this student

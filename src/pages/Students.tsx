@@ -111,11 +111,27 @@ const Students = () => {
       const userIsHOD = !!roleData;
 
       if (userIsHOD) {
-        // HOD: Fetch all logged-in students from student_profiles
-        const { data: studentProfiles, error: profilesError } = await supabase
+        // HOD: Get HOD's department first
+        const { data: hodProfile } = await supabase
+          .from("profiles")
+          .select("department")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const hodDepartment = hodProfile?.department;
+
+        // HOD: Fetch logged-in students from student_profiles filtered by department
+        let studentProfilesQuery = supabase
           .from("student_profiles")
           .select("*")
           .order('roll_number', { ascending: true, nullsFirst: false });
+
+        // Filter by department if HOD has one set
+        if (hodDepartment) {
+          studentProfilesQuery = studentProfilesQuery.eq("department", hodDepartment);
+        }
+
+        const { data: studentProfiles, error: profilesError } = await studentProfilesQuery;
 
         if (profilesError) throw profilesError;
 
