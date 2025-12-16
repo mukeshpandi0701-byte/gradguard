@@ -32,8 +32,6 @@ import StudentProfile from "./pages/StudentProfile";
 import SocialProfiles from "./pages/SocialProfiles";
 import History from "./pages/History";
 import SubjectManagementPage from "./pages/SubjectManagement";
-import AssignmentManagement from "./pages/AssignmentManagement";
-import AssignmentScores from "./pages/AssignmentScores";
 
 const queryClient = new QueryClient();
 
@@ -67,8 +65,6 @@ function AnimatedRoutes() {
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/notification-settings" element={<NotificationSettings />} />
         <Route path="/history" element={<History />} />
-        <Route path="/assignment-management" element={<AssignmentManagement />} />
-        <Route path="/assignment-scores" element={<AssignmentScores />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>
