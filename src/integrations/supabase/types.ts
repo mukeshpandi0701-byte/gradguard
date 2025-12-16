@@ -94,6 +94,39 @@ export type Database = {
         }
         Relationships: []
       }
+      branch_assignments: {
+        Row: {
+          assignment_number: string
+          assignment_title: string
+          branch: string
+          created_at: string
+          id: string
+          max_marks: number
+          staff_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_number: string
+          assignment_title: string
+          branch: string
+          created_at?: string
+          id?: string
+          max_marks?: number
+          staff_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_number?: string
+          assignment_title?: string
+          branch?: string
+          created_at?: string
+          id?: string
+          max_marks?: number
+          staff_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       branch_subjects: {
         Row: {
           branch: string
@@ -518,6 +551,58 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_branch_assignment_marks: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          id: string
+          marks_obtained: number
+          student_id: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          id?: string
+          marks_obtained?: number
+          student_id: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          id?: string
+          marks_obtained?: number
+          student_id?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_branch_assignment_marks_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "branch_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_branch_assignment_marks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_branch_assignment_marks_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "branch_subjects"
             referencedColumns: ["id"]
           },
         ]
