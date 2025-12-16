@@ -54,50 +54,23 @@ const Attendance = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get staff's department to find HOD's criteria
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("department")
-        .eq("id", user.id)
-        .maybeSingle();
+      // Use secure RPC to get HOD criteria for department
+      const { data: criteriaData, error } = await supabase.rpc('get_department_hod_criteria');
 
-      if (profile?.department) {
-        const staffDept = profile.department.trim();
-        
-        // Use user_roles table to find actual HODs (source of truth)
-        const { data: hodRoles } = await supabase
-          .from("user_roles")
-          .select("user_id")
-          .eq("role", "hod");
+      if (error) {
+        console.error("Error fetching criteria via RPC:", error);
+        setMaxSessionsPerDay(7);
+        return;
+      }
 
-        const hodUserIds = (hodRoles || []).map(r => r.user_id);
-
-        if (hodUserIds.length > 0) {
-          const { data: hodProfiles } = await supabase
-            .from("profiles")
-            .select("id, department")
-            .in("id", hodUserIds);
-
-          const matchingHod = hodProfiles?.find(
-            hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
-          );
-
-          if (matchingHod) {
-            const { data: hodCriteria } = await supabase
-              .from("dropout_criteria")
-              .select("max_sessions_per_day")
-              .eq("user_id", matchingHod.id)
-              .maybeSingle();
-
-            if (hodCriteria && (hodCriteria as any).max_sessions_per_day) {
-              setMaxSessionsPerDay((hodCriteria as any).max_sessions_per_day);
-              return;
-            }
-          }
+      if (criteriaData && criteriaData.length > 0) {
+        const c = criteriaData[0];
+        if (c.criteria_found && c.max_sessions_per_day) {
+          setMaxSessionsPerDay(c.max_sessions_per_day);
+          return;
         }
       }
 
-      // Fallback to default if HOD criteria not found
       setMaxSessionsPerDay(7);
     } catch (error) {
       console.error("Error fetching criteria:", error);

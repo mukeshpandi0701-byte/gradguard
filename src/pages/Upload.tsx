@@ -111,60 +111,31 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("department")
-        .eq("id", user.id)
-        .maybeSingle();
+      // Use secure RPC to get HOD criteria for department
+      const { data: criteriaData, error } = await supabase.rpc('get_department_hod_criteria');
 
-      console.log("Staff profile:", profile);
+      console.log("RPC criteria result:", criteriaData, error);
 
-      if (profile?.department) {
-        // Trim and normalize department for comparison
-        const staffDept = profile.department.trim();
-        
-        // Use user_roles table to find actual HODs (source of truth)
-        const { data: hodRoles } = await supabase
-          .from("user_roles")
-          .select("user_id")
-          .eq("role", "hod");
+      if (error) {
+        console.error("Error fetching criteria via RPC:", error);
+        setCriteria({ max_internal_marks: 100, total_fees: 100000, num_internal_exams: 3 });
+        setCriteriaFromHOD(false);
+        return;
+      }
 
-        const hodUserIds = (hodRoles || []).map(r => r.user_id);
-
-        if (hodUserIds.length > 0) {
-          // Fetch profiles for these HODs
-          const { data: hodProfiles } = await supabase
-            .from("profiles")
-            .select("id, full_name, department")
-            .in("id", hodUserIds);
-
-          console.log("All HOD profiles (from user_roles):", hodProfiles);
-
-          // Find HOD with matching department (case-insensitive)
-          const matchingHod = hodProfiles?.find(
-            hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
-          );
-
-          if (matchingHod) {
-            console.log("Found matching HOD:", matchingHod);
-            const { data: hodCriteria } = await supabase
-              .from("dropout_criteria")
-              .select("max_internal_marks, total_fees, num_internal_exams")
-              .eq("user_id", matchingHod.id)
-              .maybeSingle();
-
-            console.log("HOD criteria:", hodCriteria);
-
-            if (hodCriteria) {
-              setCriteria({
-                max_internal_marks: hodCriteria.max_internal_marks,
-                total_fees: hodCriteria.total_fees,
-                num_internal_exams: (hodCriteria as any).num_internal_exams ?? 3
-              });
-              setCriteriaFromHOD(true);
-              return;
-            }
-          }
+      if (criteriaData && criteriaData.length > 0) {
+        const c = criteriaData[0];
+        if (c.criteria_found) {
+          setCriteria({
+            max_internal_marks: c.max_internal_marks,
+            total_fees: c.total_fees,
+            num_internal_exams: c.num_internal_exams ?? 3
+          });
+          setCriteriaFromHOD(true);
+          console.log("Loaded HOD criteria:", c);
+          return;
+        } else if (c.hod_found) {
+          console.log("HOD found but no criteria set:", c.hod_name);
         }
       }
 

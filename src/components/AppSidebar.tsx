@@ -53,12 +53,23 @@ export function AppSidebar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [students, setStudents] = useState<Array<{ id: string; student_name: string; roll_number: string | null }>>([]);
   const [filteredStudents, setFilteredStudents] = useState<Array<{ id: string; student_name: string; roll_number: string | null }>>([]);
-  const [isHOD, setIsHOD] = useState<boolean | null>(null); // null = loading
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize from sessionStorage to prevent blank during refresh
+  const [isHOD, setIsHOD] = useState<boolean | null>(() => {
+    const stored = sessionStorage.getItem('user_role_is_hod');
+    return stored !== null ? stored === 'true' : null;
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    // If we have a stored role, don't show loading initially
+    return sessionStorage.getItem('user_role_is_hod') === null;
+  });
 
   useEffect(() => {
     const init = async () => {
-      setIsLoading(true);
+      // Only show loading if we don't have a cached role
+      if (sessionStorage.getItem('user_role_is_hod') === null) {
+        setIsLoading(true);
+      }
       await checkHODStatus();
       await fetchStudents();
       setIsLoading(false);
@@ -80,6 +91,7 @@ export function AppSidebar() {
         
         if (roleData) {
           setIsHOD(true);
+          sessionStorage.setItem('user_role_is_hod', 'true');
           return;
         }
         
@@ -92,22 +104,29 @@ export function AppSidebar() {
 
         if (profile?.panel_type === "hod") {
           setIsHOD(true);
+          sessionStorage.setItem('user_role_is_hod', 'true');
           return;
         }
 
         // Final fallback: email domain pattern for HOD accounts
         if (user.email?.endsWith("@cietcbe.hod.edu.in")) {
           setIsHOD(true);
+          sessionStorage.setItem('user_role_is_hod', 'true');
           return;
         }
 
         setIsHOD(false);
+        sessionStorage.setItem('user_role_is_hod', 'false');
       } else {
         setIsHOD(false);
+        sessionStorage.removeItem('user_role_is_hod');
       }
     } catch (error) {
       console.error("Error checking HOD status:", error);
-      setIsHOD(false);
+      // Don't clear cached role on error
+      if (isHOD === null) {
+        setIsHOD(false);
+      }
     }
   };
 
@@ -152,6 +171,8 @@ export function AppSidebar() {
 
   const handleLogout = async () => {
     try {
+      // Clear cached role
+      sessionStorage.removeItem('user_role_is_hod');
       // Always clear local session first
       await supabase.auth.signOut({ scope: 'local' });
       toast.success("Signed out successfully");
@@ -159,6 +180,7 @@ export function AppSidebar() {
     } catch (error) {
       // Even if there's an error, clear local storage and navigate
       console.error("Error during sign out:", error);
+      sessionStorage.removeItem('user_role_is_hod');
       localStorage.clear();
       toast.success("Signed out");
       navigate("/auth");

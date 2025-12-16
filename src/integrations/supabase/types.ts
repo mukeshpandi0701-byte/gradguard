@@ -895,6 +895,26 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["approval_status"]
       }
+      get_department_hod_criteria: {
+        Args: never
+        Returns: {
+          assignment_weightage: number
+          attendance_weightage: number
+          criteria_found: boolean
+          fees_weightage: number
+          hod_found: boolean
+          hod_name: string
+          internal_weightage: number
+          max_internal_marks: number
+          max_pending_fees: number
+          max_sessions_per_day: number
+          min_attendance_percentage: number
+          min_internal_marks: number
+          num_internal_exams: number
+          total_fees: number
+          total_hours: number
+        }[]
+      }
       get_user_department: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
