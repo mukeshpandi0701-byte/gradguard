@@ -410,6 +410,10 @@ export const generateAIStudentReportPDF = async (
     internal_marks: number;
     fee_paid_percentage: number;
     pending_fees: number;
+    attended_hours?: number;
+    total_hours?: number;
+    paid_fees?: number;
+    total_fees?: number;
   },
   prediction: {
     final_risk_level: string;
@@ -419,13 +423,25 @@ export const generateAIStudentReportPDF = async (
   } | null,
   trendAnalysis: any | null,
   recommendations: any | null,
-  historyChart: HTMLElement | null
+  historyChart: HTMLElement | null,
+  hodCriteria?: {
+    max_internal_marks?: number;
+    total_fees?: number;
+    total_hours?: number;
+    min_attendance_percentage?: number;
+  } | null
 ) => {
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
   const contentWidth = pageWidth - (margin * 2);
+
+  // Use HOD criteria if available, else defaults
+  const maxMarks = hodCriteria?.max_internal_marks ?? 100;
+  const totalFees = hodCriteria?.total_fees ?? studentData.total_fees ?? 100000;
+  const totalHours = hodCriteria?.total_hours ?? studentData.total_hours ?? 100;
+  const minAttendance = hodCriteria?.min_attendance_percentage ?? 75;
 
   let yPosition = margin;
 
@@ -440,7 +456,8 @@ export const generateAIStudentReportPDF = async (
   
   pdf.setFontSize(11);
   pdf.setFont("helvetica", "normal");
-  pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 32, { align: "center" });
+  const headerLine2 = studentData.department ? `${studentData.department} | Generated: ${new Date().toLocaleDateString()}` : `Generated: ${new Date().toLocaleDateString()}`;
+  pdf.text(headerLine2, pageWidth / 2, 32, { align: "center" });
   
   yPosition = 55;
   pdf.setTextColor(0, 0, 0);
@@ -451,16 +468,17 @@ export const generateAIStudentReportPDF = async (
   pdf.text("Performance Overview", margin, yPosition);
   yPosition += 10;
 
-  const studentAttendance = Number((studentData as any).attendance_percentage ?? 0);
-  const studentInternalMarks = Number((studentData as any).internal_marks ?? 0);
-  const studentFeesPaidPct = Number((studentData as any).fee_paid_percentage ?? 0);
-  const studentPendingFees = Number((studentData as any).pending_fees ?? 0);
+  const studentAttendance = Number(studentData.attendance_percentage ?? 0);
+  const studentInternalMarks = Number(studentData.internal_marks ?? 0);
+  const studentFeesPaidPct = Number(studentData.fee_paid_percentage ?? 0);
+  const studentPendingFees = Number(studentData.pending_fees ?? 0);
+  const attendedHours = Number(studentData.attended_hours ?? 0);
 
   const metrics = [
-    { label: "Overall Performance", value: `${studentAttendance.toFixed(1)}%`, color: studentAttendance >= 75 ? [34, 197, 94] : [239, 68, 68] },
-    { label: "Internal Marks", value: `${studentInternalMarks}/100`, color: studentInternalMarks >= 40 ? [34, 197, 94] : [239, 68, 68] },
+    { label: "Attendance", value: `${studentAttendance.toFixed(1)}% (${attendedHours}/${totalHours} hrs)`, color: studentAttendance >= minAttendance ? [34, 197, 94] : [239, 68, 68] },
+    { label: "Internal Marks", value: `${studentInternalMarks.toFixed(1)}/${maxMarks}`, color: studentInternalMarks >= 40 ? [34, 197, 94] : [239, 68, 68] },
     { label: "Fees Paid", value: `${studentFeesPaidPct.toFixed(1)}%`, color: studentFeesPaidPct >= 80 ? [34, 197, 94] : [239, 68, 68] },
-    { label: "Fees Due", value: `Rs. ${studentPendingFees.toFixed(0)}`, color: studentPendingFees <= 5000 ? [34, 197, 94] : [239, 68, 68] }
+    { label: "Fees Due", value: `Rs. ${studentPendingFees.toLocaleString()} / ${totalFees.toLocaleString()}`, color: studentPendingFees <= 5000 ? [34, 197, 94] : [239, 68, 68] }
   ];
 
   pdf.setFontSize(11);
@@ -468,7 +486,7 @@ export const generateAIStudentReportPDF = async (
     pdf.setFont("helvetica", "bold");
     pdf.text(metric.label + ":", margin, yPosition);
     pdf.setTextColor(metric.color[0], metric.color[1], metric.color[2]);
-    pdf.text(metric.value, margin + 60, yPosition);
+    pdf.text(metric.value, margin + 50, yPosition);
     pdf.setTextColor(0, 0, 0);
     yPosition += 7;
   });

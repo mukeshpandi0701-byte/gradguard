@@ -31,6 +31,8 @@ serve(async (req) => {
       throw new Error("Student ID is required");
     }
 
+    console.log("Generating recommendations for studentId:", studentId);
+
     // First try to get student from student_profiles (the ID might be from student_profiles)
     const { data: profileData } = await supabase
       .from("student_profiles")
@@ -42,6 +44,7 @@ serve(async (req) => {
     let studentRecordId = studentId;
     
     if (profileData) {
+      console.log("Found profile data for:", profileData.roll_number);
       // Get student data from students table using roll_number
       const { data: studentData } = await supabase
         .from("students")
@@ -49,7 +52,10 @@ serve(async (req) => {
         .eq("roll_number", profileData.roll_number)
         .maybeSingle();
 
-      if (studentData?.id) studentRecordId = studentData.id;
+      if (studentData?.id) {
+        studentRecordId = studentData.id;
+        console.log("Using students.id:", studentRecordId);
+      }
       
       student = studentData ? {
         ...studentData,
@@ -81,7 +87,7 @@ serve(async (req) => {
       throw new Error("Student not found");
     }
 
-    // Get current prediction with insights (use maybeSingle to avoid error when no prediction exists)
+    // Get current prediction with insights
     const { data: prediction } = await supabase
       .from("predictions")
       .select("*")
@@ -90,7 +96,7 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // Get dropout criteria for context (use maybeSingle as criteria might not exist)
+    // Get dropout criteria for context
     const { data: criteria } = await supabase
       .from("dropout_criteria")
       .select("*")
@@ -101,10 +107,10 @@ serve(async (req) => {
 
 Student Profile:
 - Name: ${student.student_name}
-- Attendance: ${student.attendance_percentage}% (Target: ${criteria?.min_attendance_percentage || 75}%)
-- Internal Marks: ${student.internal_marks} (Min Required: ${criteria?.min_internal_marks || 40})
-- Fee Paid: ${student.fee_paid_percentage}%
-- Pending Fees: Rs. ${student.pending_fees}
+- Attendance: ${student.attendance_percentage ?? 0}% (Target: ${criteria?.min_attendance_percentage || 75}%)
+- Internal Marks: ${student.internal_marks ?? 0} (Min Required: ${criteria?.min_internal_marks || 40})
+- Fee Paid: ${student.fee_paid_percentage ?? 0}%
+- Pending Fees: Rs. ${student.pending_fees ?? 0}
 - Current Risk Level: ${prediction?.final_risk_level || "unknown"}
 - ML Dropout Probability: ${((prediction?.ml_probability || 0) * 100).toFixed(1)}%
 
@@ -115,45 +121,11 @@ Generate specific, actionable recommendations tailored to this student's situati
 1. Immediate actions (next 1-2 weeks)
 2. Short-term goals (1 month)
 3. Long-term strategies (3 months)
-4. Specific resources or support they might need
+4. Specific resources or support they might need`;
 
-Format your response as JSON with this structure:
-{
-  "immediateActions": [
-    {
-      "priority": "High/Medium/Low",
-      "action": "specific action",
-      "reason": "why this matters",
-      "expectedImpact": "what will improve"
-    }
-  ],
-  "shortTermGoals": [
-    {
-      "goal": "specific measurable goal",
-      "timeframe": "deadline",
-      "steps": ["step 1", "step 2", "..."],
-      "successMetric": "how to measure success"
-    }
-  ],
-  "longTermStrategies": [
-    {
-      "strategy": "broader strategy",
-      "description": "detailed explanation",
-      "milestones": ["milestone 1", "milestone 2"]
-    }
-  ],
-  "supportNeeded": {
-    "academic": ["list of academic support needed"],
-    "financial": ["list of financial support options"],
-    "personal": ["list of personal/counseling support"]
-  },
-  "motivationalMessage": "2-3 sentences of encouragement",
-  "keyFocusAreas": ["area 1", "area 2", "area 3"]
-}`;
+    console.log("Calling AI with tool calling for structured output");
 
-    console.log("Sending request to AI for recommendations");
-
-    // Call Lovable AI for recommendations
+    // Call Lovable AI with tool calling for structured output
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -165,15 +137,78 @@ Format your response as JSON with this structure:
         messages: [
           {
             role: "system",
-            content: "You are an expert educational counselor specialized in student success and dropout prevention. Always respond with valid JSON only (no markdown/code fences)."
+            content: "You are an expert educational counselor specialized in student success and dropout prevention. Use the provided tool to return structured recommendations."
           },
           {
             role: "user",
             content: recommendationPrompt
           }
         ],
-        temperature: 0.7,
-        max_tokens: 1800,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "return_recommendations",
+              description: "Return structured improvement recommendations for the student",
+              parameters: {
+                type: "object",
+                properties: {
+                  immediateActions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        priority: { type: "string", enum: ["High", "Medium", "Low"] },
+                        action: { type: "string" },
+                        reason: { type: "string" },
+                        expectedImpact: { type: "string" }
+                      },
+                      required: ["priority", "action", "reason", "expectedImpact"]
+                    }
+                  },
+                  shortTermGoals: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        goal: { type: "string" },
+                        timeframe: { type: "string" },
+                        steps: { type: "array", items: { type: "string" } },
+                        successMetric: { type: "string" }
+                      },
+                      required: ["goal", "timeframe", "steps", "successMetric"]
+                    }
+                  },
+                  longTermStrategies: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        strategy: { type: "string" },
+                        description: { type: "string" },
+                        milestones: { type: "array", items: { type: "string" } }
+                      },
+                      required: ["strategy", "description", "milestones"]
+                    }
+                  },
+                  supportNeeded: {
+                    type: "object",
+                    properties: {
+                      academic: { type: "array", items: { type: "string" } },
+                      financial: { type: "array", items: { type: "string" } },
+                      personal: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["academic", "financial", "personal"]
+                  },
+                  motivationalMessage: { type: "string" },
+                  keyFocusAreas: { type: "array", items: { type: "string" } }
+                },
+                required: ["immediateActions", "shortTermGoals", "longTermStrategies", "supportNeeded", "motivationalMessage", "keyFocusAreas"]
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "return_recommendations" } },
       }),
     });
 
@@ -184,27 +219,38 @@ Format your response as JSON with this structure:
     }
 
     const aiData = await aiResponse.json();
-    const recommendationsText = aiData.choices?.[0]?.message?.content;
+    console.log("AI response received");
 
-    if (!recommendationsText) {
-      throw new Error("No recommendations received from AI");
-    }
-
-    console.log("AI Recommendations received:", recommendationsText);
-
-    // Parse JSON response, removing markdown code blocks if present
+    // Extract structured output from tool call
     let recommendations;
-    try {
-      let cleanedText = recommendationsText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const start = cleanedText.indexOf("{");
-      const end = cleanedText.lastIndexOf("}");
-      if (start !== -1 && end !== -1 && end > start) {
-        cleanedText = cleanedText.slice(start, end + 1);
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    
+    if (toolCall?.function?.arguments) {
+      try {
+        recommendations = JSON.parse(toolCall.function.arguments);
+        console.log("Successfully parsed tool call arguments");
+      } catch (parseError) {
+        console.error("Failed to parse tool call arguments:", parseError);
+        throw new Error("Failed to parse AI recommendations from tool call");
       }
-      recommendations = JSON.parse(cleanedText);
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", recommendationsText);
-      throw new Error("Failed to parse AI recommendations");
+    } else {
+      // Fallback: try to parse from content if tool call failed
+      const content = aiData.choices?.[0]?.message?.content;
+      if (content) {
+        try {
+          let cleanedText = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const start = cleanedText.indexOf("{");
+          const end = cleanedText.lastIndexOf("}");
+          if (start !== -1 && end !== -1 && end > start) {
+            cleanedText = cleanedText.slice(start, end + 1);
+          }
+          recommendations = JSON.parse(cleanedText);
+        } catch {
+          throw new Error("Failed to parse AI recommendations");
+        }
+      } else {
+        throw new Error("No recommendations received from AI");
+      }
     }
 
     // Update the prediction with new AI-generated suggestions
