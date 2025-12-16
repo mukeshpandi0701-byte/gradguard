@@ -361,7 +361,7 @@ const StudentDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{student.attendance_percentage.toFixed(1)}%</div>
+                <div className="text-3xl font-bold">{Number((student as any).attendance_percentage ?? 0).toFixed(1)}%</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {student.attended_hours} / {student.total_hours} hours
                 </p>
@@ -389,7 +389,7 @@ const StudentDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{student.fee_paid_percentage.toFixed(1)}%</div>
+                <div className="text-3xl font-bold">{Number((student as any).fee_paid_percentage ?? 0).toFixed(1)}%</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   ₹{student.paid_fees.toLocaleString()} / ₹{student.total_fees.toLocaleString()}
                 </p>
