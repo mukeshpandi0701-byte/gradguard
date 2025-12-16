@@ -31,30 +31,67 @@ serve(async (req) => {
       throw new Error("Student ID is required");
     }
 
-    // Get student's current data
-    const { data: student, error: studentError } = await supabase
-      .from("students")
+    // First try to get student from student_profiles (the ID might be from student_profiles)
+    const { data: profileData } = await supabase
+      .from("student_profiles")
       .select("*")
       .eq("id", studentId)
-      .single();
+      .maybeSingle();
 
-    if (studentError) throw studentError;
+    let student;
+    
+    if (profileData) {
+      // Get student data from students table using roll_number
+      const { data: studentData } = await supabase
+        .from("students")
+        .select("*")
+        .eq("roll_number", profileData.roll_number)
+        .maybeSingle();
+      
+      student = studentData ? {
+        ...studentData,
+        student_name: profileData.full_name || studentData.student_name,
+      } : {
+        id: profileData.id,
+        user_id: profileData.user_id,
+        student_name: profileData.full_name || profileData.email,
+        roll_number: profileData.roll_number,
+        attendance_percentage: 0,
+        internal_marks: 0,
+        fee_paid_percentage: 0,
+        pending_fees: 0,
+      };
+    } else {
+      // Fallback: try direct lookup in students table
+      const { data: directStudent, error: studentError } = await supabase
+        .from("students")
+        .select("*")
+        .eq("id", studentId)
+        .maybeSingle();
 
-    // Get current prediction with insights
+      if (studentError) throw studentError;
+      student = directStudent;
+    }
+
+    if (!student) {
+      throw new Error("Student not found");
+    }
+
+    // Get current prediction with insights (use maybeSingle to avoid error when no prediction exists)
     const { data: prediction } = await supabase
       .from("predictions")
       .select("*")
       .eq("student_id", studentId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    // Get dropout criteria for context
+    // Get dropout criteria for context (use maybeSingle as criteria might not exist)
     const { data: criteria } = await supabase
       .from("dropout_criteria")
       .select("*")
       .eq("user_id", student.user_id)
-      .single();
+      .maybeSingle();
 
     const recommendationPrompt = `You are an expert educational counselor AI. Generate personalized, actionable improvement recommendations for the following student.
 
