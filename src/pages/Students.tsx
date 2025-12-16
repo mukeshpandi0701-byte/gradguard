@@ -416,22 +416,50 @@ const Students = () => {
         .delete()
         .eq("user_id", user.id);
 
+      // Fetch assignment scores for all students
+      const studentIds = students.map(s => s.id);
+      const { data: assignmentMarks } = await supabase
+        .from("student_branch_assignment_marks")
+        .select("student_id, marks_obtained")
+        .in("student_id", studentIds);
+
+      // Calculate average assignment score per student
+      const assignmentScoreMap: Record<string, number> = {};
+      if (assignmentMarks && assignmentMarks.length > 0) {
+        const studentMarksSums: Record<string, { total: number; count: number }> = {};
+        assignmentMarks.forEach(mark => {
+          if (!studentMarksSums[mark.student_id]) {
+            studentMarksSums[mark.student_id] = { total: 0, count: 0 };
+          }
+          studentMarksSums[mark.student_id].total += mark.marks_obtained || 0;
+          studentMarksSums[mark.student_id].count += 1;
+        });
+        Object.entries(studentMarksSums).forEach(([studentId, data]) => {
+          assignmentScoreMap[studentId] = data.count > 0 ? (data.total / data.count) : 0;
+        });
+      }
+
       const predictionsToInsert = [];
       const studentsWithPredictions = students.map(student => {
+        const assignmentScore = assignmentScoreMap[student.id] || 0;
         const prediction = predictDropout(
           {
             attendancePercentage: student.attendance_percentage || 0,
             feePaidPercentage: student.fee_paid_percentage || 0,
             pendingFees: student.pending_fees || 0,
             internalMarks: student.internal_marks || 0,
+            assignmentScore: assignmentScore,
           },
           {
             minAttendance: criteria!.min_attendance_percentage,
             minMarks: criteria!.min_internal_marks,
             maxPendingFees: criteria!.max_pending_fees,
+            maxInternalMarks: criteria!.max_internal_marks || 100,
+            totalFees: criteria!.total_fees || 100000,
             attendanceWeight: criteria!.attendance_weightage,
             internalWeight: criteria!.internal_weightage,
             feesWeight: criteria!.fees_weightage,
+            assignmentWeight: (criteria as any)?.assignment_weightage || 0,
           }
         );
 
