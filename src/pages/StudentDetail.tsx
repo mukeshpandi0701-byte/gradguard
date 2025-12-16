@@ -76,46 +76,49 @@ const StudentDetail = () => {
 
       let studentData: StudentData | null = null;
 
-      if (profileData) {
-        // Fetch academic data from students table using roll_number
-        const { data: academicData } = await supabase
-          .from("students")
-          .select("*")
-          .eq("roll_number", profileData.roll_number)
-          .maybeSingle();
+       if (profileData) {
+         // Fetch academic data from students table using roll_number
+         const { data: academicData } = await supabase
+           .from("students")
+           .select("*")
+           .eq("roll_number", profileData.roll_number)
+           .maybeSingle();
 
-        // Fetch attendance from attendance_records
-        const { data: attendanceRecords } = await supabase
-          .from("attendance_records")
-          .select("sessions_attended, max_sessions")
-          .eq("student_id", id);
+         const studentRecordId = academicData?.id ?? profileData.id;
 
-        let attendancePercentage = academicData?.attendance_percentage ?? 0;
-        if (attendanceRecords && attendanceRecords.length > 0) {
-          const totalAttended = attendanceRecords.reduce((sum, r) => sum + r.sessions_attended, 0);
-          const totalMax = attendanceRecords.reduce((sum, r) => sum + r.max_sessions, 0);
-          if (totalMax > 0) {
-            attendancePercentage = Math.min(100, (totalAttended / totalMax) * 100);
-          }
-        }
+         // Fetch attendance from attendance_records (student_id = student_profiles.id)
+         const { data: attendanceRecords } = await supabase
+           .from("attendance_records")
+           .select("sessions_attended, max_sessions")
+           .eq("student_id", id);
 
-        studentData = {
-          id: profileData.id,
-          student_name: profileData.full_name || profileData.email,
-          roll_number: profileData.roll_number,
-          email: profileData.email,
-          department: profileData.branch || profileData.department,
-          phone_number: profileData.phone_number,
-          attendance_percentage: attendancePercentage,
-          fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
-          pending_fees: academicData?.pending_fees ?? 0,
-          internal_marks: academicData?.internal_marks ?? 0,
-          attended_hours: academicData?.attended_hours ?? 0,
-          total_hours: academicData?.total_hours ?? 0,
-          paid_fees: academicData?.paid_fees ?? 0,
-          total_fees: academicData?.total_fees ?? 0,
-        };
-      } else {
+         let attendancePercentage = academicData?.attendance_percentage ?? 0;
+         if (attendanceRecords && attendanceRecords.length > 0) {
+           const totalAttended = attendanceRecords.reduce((sum, r) => sum + r.sessions_attended, 0);
+           const totalMax = attendanceRecords.reduce((sum, r) => sum + r.max_sessions, 0);
+           if (totalMax > 0) {
+             attendancePercentage = Math.min(100, (totalAttended / totalMax) * 100);
+           }
+         }
+
+         studentData = {
+           ...(academicData ?? ({} as any)),
+           id: studentRecordId,
+           student_name: profileData.full_name || profileData.email,
+           roll_number: profileData.roll_number,
+           email: profileData.email,
+           department: profileData.branch || profileData.department,
+           phone_number: profileData.phone_number,
+           attendance_percentage: attendancePercentage,
+           fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
+           pending_fees: academicData?.pending_fees ?? 0,
+           internal_marks: academicData?.internal_marks ?? 0,
+           attended_hours: academicData?.attended_hours ?? 0,
+           total_hours: academicData?.total_hours ?? 0,
+           paid_fees: academicData?.paid_fees ?? 0,
+           total_fees: academicData?.total_fees ?? 0,
+         };
+       } else {
         // Fallback: try students table directly
         const { data: directStudentData, error: studentError } = await supabase
           .from("students")
@@ -158,22 +161,22 @@ const StudentDetail = () => {
 
       setStudent(studentData);
 
-      // Fetch prediction (try without user_id filter first for HOD viewing)
+      // Fetch prediction (works for both staff/HOD views)
       const { data: predictionData } = await supabase
         .from("predictions")
         .select("*")
-        .eq("student_id", id)
+        .eq("student_id", studentData.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       setPrediction(predictionData);
 
-      // Fetch history
+      // Fetch history (student_history.student_id references students table id)
       const { data: historyData } = await supabase
         .from("student_history")
         .select("*")
-        .eq("student_id", id)
+        .eq("student_id", studentData.id)
         .order("recorded_at", { ascending: true });
 
       setHistory(historyData || []);
@@ -328,9 +331,9 @@ const StudentDetail = () => {
 
   const chartData = history.map((entry) => ({
     date: new Date(entry.recorded_at).toLocaleDateString(),
-    attendance: entry.attendance_percentage || 0,
-    marks: entry.internal_marks || 0,
-    feesPaid: entry.fee_paid_percentage || 0,
+    attendance: (entry.attendance_percentage ?? student?.attendance_percentage ?? 0) as number,
+    marks: (entry.internal_marks ?? student?.internal_marks ?? 0) as number,
+    feesPaid: (entry.fee_paid_percentage ?? student?.fee_paid_percentage ?? 0) as number,
   }));
 
   if (loading) {
