@@ -62,19 +62,23 @@ const Attendance = () => {
         .maybeSingle();
 
       if (profile?.department) {
-        // Find HOD from the same department
+        const staffDept = profile.department.trim();
+        
+        // Find all HODs and match by department (case-insensitive)
         const { data: hodProfiles } = await supabase
           .from("profiles")
-          .select("id")
-          .eq("department", profile.department)
+          .select("id, department")
           .eq("panel_type", "hod");
 
-        if (hodProfiles && hodProfiles.length > 0) {
-          const hodId = hodProfiles[0].id;
+        const matchingHod = hodProfiles?.find(
+          hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
+        );
+
+        if (matchingHod) {
           const { data: hodCriteria } = await supabase
             .from("dropout_criteria")
             .select("max_sessions_per_day")
-            .eq("user_id", hodId)
+            .eq("user_id", matchingHod.id)
             .maybeSingle();
 
           if (hodCriteria && (hodCriteria as any).max_sessions_per_day) {

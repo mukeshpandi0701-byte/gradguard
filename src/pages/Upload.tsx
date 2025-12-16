@@ -117,20 +117,33 @@ const Upload = () => {
         .eq("id", user.id)
         .maybeSingle();
 
+      console.log("Staff profile:", profile);
+
       if (profile?.department) {
+        // Trim and normalize department for comparison
+        const staffDept = profile.department.trim();
+        
         const { data: hodProfiles } = await supabase
           .from("profiles")
-          .select("id")
-          .eq("department", profile.department)
+          .select("id, full_name, department")
           .eq("panel_type", "hod");
 
-        if (hodProfiles && hodProfiles.length > 0) {
-          const hodId = hodProfiles[0].id;
+        console.log("All HOD profiles:", hodProfiles);
+
+        // Find HOD with matching department (case-insensitive)
+        const matchingHod = hodProfiles?.find(
+          hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
+        );
+
+        if (matchingHod) {
+          console.log("Found matching HOD:", matchingHod);
           const { data: hodCriteria } = await supabase
             .from("dropout_criteria")
             .select("max_internal_marks, total_fees, num_internal_exams")
-            .eq("user_id", hodId)
+            .eq("user_id", matchingHod.id)
             .maybeSingle();
+
+          console.log("HOD criteria:", hodCriteria);
 
           if (hodCriteria) {
             setCriteria({
