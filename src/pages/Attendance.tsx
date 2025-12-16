@@ -208,7 +208,7 @@ const Attendance = () => {
     toast.success("All students marked with full attendance");
   };
 
-  const syncAttendanceToStudents = async (userId: string) => {
+  const syncAttendanceToStudents = async () => {
     try {
       if (students.length === 0) return;
 
@@ -241,11 +241,18 @@ const Attendance = () => {
 
         if (!student.roll_number) return;
 
-        const { error: updateError } = await supabase
+        const updateQuery = supabase
           .from("students")
           .update({ attendance_percentage: percentage })
-          .eq("user_id", userId)
           .eq("roll_number", student.roll_number);
+
+        // If the students table stores branch in `department`, constrain update to the same branch
+        // to avoid accidentally attempting updates outside the tutor's assigned branches.
+        if (student.branch) {
+          updateQuery.eq("department", student.branch);
+        }
+
+        const { error: updateError } = await updateQuery;
 
         if (updateError) {
           console.error("Error updating student attendance:", updateError);
@@ -293,7 +300,7 @@ const Attendance = () => {
       if (error) throw error;
 
       // Sync aggregated attendance percentage to students table
-      await syncAttendanceToStudents(user.id);
+      await syncAttendanceToStudents();
 
       const weekEndDate = addDays(weekStart, 5);
       toast.success(`Attendance saved for week ${format(weekStart, "MMM d")} - ${format(weekEndDate, "MMM d, yyyy")}`);
