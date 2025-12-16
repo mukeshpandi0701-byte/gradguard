@@ -198,6 +198,9 @@ const Attendance = () => {
     try {
       if (students.length === 0) return;
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const profileIds = students.map((s) => s.id);
 
       const { data: attendanceRecords, error } = await supabase
@@ -209,6 +212,10 @@ const Attendance = () => {
         console.error("Error fetching attendance for sync:", error);
         return;
       }
+
+      // Get HOD criteria for total_hours
+      const { data: criteriaData } = await supabase.rpc('get_department_hod_criteria');
+      const hodTotalHours = criteriaData?.[0]?.total_hours ?? 100;
 
       const totals = new Map<string, { attended: number; total: number }>();
 
@@ -227,21 +234,51 @@ const Attendance = () => {
 
         if (!student.roll_number) return;
 
-        const updateQuery = supabase
-          .from("students")
-          .update({ attendance_percentage: percentage })
-          .eq("roll_number", student.roll_number);
+        // Calculate attended_hours based on sessions ratio applied to hodTotalHours
+        const attendedHours = totalData.total > 0
+          ? Math.round((totalData.attended / totalData.total) * hodTotalHours * 10) / 10
+          : 0;
 
-        // If the students table stores branch in `department`, constrain update to the same branch
-        // to avoid accidentally attempting updates outside the tutor's assigned branches.
-        if (student.branch) {
-          updateQuery.eq("department", student.branch);
+        const { data: existingStudent, error: fetchError } = await supabase
+          .from("students")
+          .select("id, internal_marks, fee_paid_percentage, pending_fees")
+          .eq("roll_number", student.roll_number)
+          .maybeSingle();
+
+        if (fetchError || !existingStudent) {
+          console.error("Could not find student record:", student.roll_number);
+          return;
         }
 
-        const { error: updateError } = await updateQuery;
+        // Update students table with attendance data
+        const { error: updateError } = await supabase
+          .from("students")
+          .update({
+            attendance_percentage: percentage,
+            attended_hours: attendedHours,
+            total_hours: hodTotalHours,
+          })
+          .eq("id", existingStudent.id);
 
         if (updateError) {
           console.error("Error updating student attendance:", updateError);
+          return;
+        }
+
+        // Insert a student_history snapshot
+        const { error: historyError } = await supabase
+          .from("student_history")
+          .insert({
+            student_id: existingStudent.id,
+            user_id: user.id,
+            attendance_percentage: percentage,
+            internal_marks: existingStudent.internal_marks ?? 0,
+            fee_paid_percentage: existingStudent.fee_paid_percentage ?? 0,
+            pending_fees: existingStudent.pending_fees ?? 0,
+          });
+
+        if (historyError) {
+          console.error("Error inserting student history:", historyError);
         }
       });
 

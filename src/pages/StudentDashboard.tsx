@@ -373,7 +373,7 @@ const StudentDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold">
-                    {studentData.attendance_percentage?.toFixed(1) || 0}%
+                    {(studentData.attendance_percentage ?? 0).toFixed(1)}%
                   </p>
                 </CardContent>
               </Card>

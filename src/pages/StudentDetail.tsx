@@ -13,6 +13,7 @@ import { PDFPreviewModal } from "@/components/PDFPreviewModal";
 
 interface StudentData {
   id: string;
+  profileId?: string;
   student_name: string;
   roll_number: string | null;
   email: string | null;
@@ -44,6 +45,13 @@ interface HistoryEntry {
   pending_fees: number;
 }
 
+interface DebugInfo {
+  profileId: string | null;
+  studentsId: string | null;
+  attendanceRowCount: number;
+  historyRowCount: number;
+}
+
 const StudentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -54,6 +62,8 @@ const StudentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -75,50 +85,58 @@ const StudentDetail = () => {
         .maybeSingle();
 
       let studentData: StudentData | null = null;
+      let profileId: string | null = null;
+      let studentsId: string | null = null;
+      let attendanceRowCount = 0;
 
-       if (profileData) {
-         // Fetch academic data from students table using roll_number
-         const { data: academicData } = await supabase
-           .from("students")
-           .select("*")
-           .eq("roll_number", profileData.roll_number)
-           .maybeSingle();
+      if (profileData) {
+        profileId = profileData.id;
+        
+        // Fetch academic data from students table using roll_number
+        const { data: academicData } = await supabase
+          .from("students")
+          .select("*")
+          .eq("roll_number", profileData.roll_number)
+          .maybeSingle();
 
-         const studentRecordId = academicData?.id ?? profileData.id;
+        studentsId = academicData?.id ?? null;
 
-         // Fetch attendance from attendance_records (student_id = student_profiles.id)
-         const { data: attendanceRecords } = await supabase
-           .from("attendance_records")
-           .select("sessions_attended, max_sessions")
-           .eq("student_id", id);
+        // Fetch attendance from attendance_records (student_id = student_profiles.id)
+        const { data: attendanceRecords } = await supabase
+          .from("attendance_records")
+          .select("sessions_attended, max_sessions")
+          .eq("student_id", profileData.id);
 
-         let attendancePercentage = academicData?.attendance_percentage ?? 0;
-         if (attendanceRecords && attendanceRecords.length > 0) {
-           const totalAttended = attendanceRecords.reduce((sum, r) => sum + r.sessions_attended, 0);
-           const totalMax = attendanceRecords.reduce((sum, r) => sum + r.max_sessions, 0);
-           if (totalMax > 0) {
-             attendancePercentage = Math.min(100, (totalAttended / totalMax) * 100);
-           }
-         }
+        attendanceRowCount = attendanceRecords?.length ?? 0;
 
-         studentData = {
-           ...(academicData ?? ({} as any)),
-           id: studentRecordId,
-           student_name: profileData.full_name || profileData.email,
-           roll_number: profileData.roll_number,
-           email: profileData.email,
-           department: profileData.branch || profileData.department,
-           phone_number: profileData.phone_number,
-           attendance_percentage: attendancePercentage,
-           fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
-           pending_fees: academicData?.pending_fees ?? 0,
-           internal_marks: academicData?.internal_marks ?? 0,
-           attended_hours: academicData?.attended_hours ?? 0,
-           total_hours: academicData?.total_hours ?? 0,
-           paid_fees: academicData?.paid_fees ?? 0,
-           total_fees: academicData?.total_fees ?? 0,
-         };
-       } else {
+        let attendancePercentage = academicData?.attendance_percentage ?? 0;
+        if (attendanceRecords && attendanceRecords.length > 0) {
+          const totalAttended = attendanceRecords.reduce((sum, r) => sum + r.sessions_attended, 0);
+          const totalMax = attendanceRecords.reduce((sum, r) => sum + r.max_sessions, 0);
+          if (totalMax > 0) {
+            attendancePercentage = Math.min(100, (totalAttended / totalMax) * 100);
+          }
+        }
+
+        studentData = {
+          ...(academicData ?? ({} as any)),
+          id: studentsId ?? profileData.id, // Use students.id for predictions/history
+          profileId: profileData.id,
+          student_name: profileData.full_name || profileData.email,
+          roll_number: profileData.roll_number,
+          email: profileData.email,
+          department: profileData.branch || profileData.department,
+          phone_number: profileData.phone_number,
+          attendance_percentage: attendancePercentage,
+          fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
+          pending_fees: academicData?.pending_fees ?? 0,
+          internal_marks: academicData?.internal_marks ?? 0,
+          attended_hours: academicData?.attended_hours ?? 0,
+          total_hours: academicData?.total_hours ?? 0,
+          paid_fees: academicData?.paid_fees ?? 0,
+          total_fees: academicData?.total_fees ?? 0,
+        };
+      } else {
         // Fallback: try students table directly
         const { data: directStudentData, error: studentError } = await supabase
           .from("students")
@@ -130,6 +148,8 @@ const StudentDetail = () => {
           throw new Error("Student not found");
         }
 
+        studentsId = directStudentData.id;
+
         // Fetch attendance from attendance_records using roll_number to find profile
         const { data: profileByRoll } = await supabase
           .from("student_profiles")
@@ -137,12 +157,16 @@ const StudentDetail = () => {
           .eq("roll_number", directStudentData.roll_number)
           .maybeSingle();
 
+        profileId = profileByRoll?.id ?? null;
+
         let attendancePercentage = directStudentData.attendance_percentage ?? 0;
         if (profileByRoll) {
           const { data: attendanceRecords } = await supabase
             .from("attendance_records")
             .select("sessions_attended, max_sessions")
             .eq("student_id", profileByRoll.id);
+
+          attendanceRowCount = attendanceRecords?.length ?? 0;
 
           if (attendanceRecords && attendanceRecords.length > 0) {
             const totalAttended = attendanceRecords.reduce((sum, r) => sum + r.sessions_attended, 0);
@@ -155,31 +179,43 @@ const StudentDetail = () => {
 
         studentData = {
           ...directStudentData,
+          profileId: profileId ?? undefined,
           attendance_percentage: attendancePercentage,
         };
       }
 
       setStudent(studentData);
 
-      // Fetch prediction (works for both staff/HOD views)
+      // Use students.id for predictions and history (canonical ID)
+      const canonicalId = studentsId ?? studentData.id;
+
+      // Fetch prediction
       const { data: predictionData } = await supabase
         .from("predictions")
         .select("*")
-        .eq("student_id", studentData.id)
+        .eq("student_id", canonicalId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       setPrediction(predictionData);
 
-      // Fetch history (student_history.student_id references students table id)
+      // Fetch history (student_history.student_id references students.id)
       const { data: historyData } = await supabase
         .from("student_history")
         .select("*")
-        .eq("student_id", studentData.id)
+        .eq("student_id", canonicalId)
         .order("recorded_at", { ascending: true });
 
       setHistory(historyData || []);
+
+      // Set debug info
+      setDebugInfo({
+        profileId,
+        studentsId,
+        attendanceRowCount,
+        historyRowCount: historyData?.length ?? 0,
+      });
     } catch (error) {
       toast.error("Failed to fetch student data");
       console.error(error);
@@ -227,6 +263,15 @@ const StudentDetail = () => {
     try {
       const { generateAIStudentReportPDF } = await import("@/lib/pdfExport");
       
+      // Get HOD criteria for the report
+      const { data: criteriaData } = await supabase.rpc('get_department_hod_criteria');
+      const hodCriteria = criteriaData?.[0] ? {
+        max_internal_marks: criteriaData[0].max_internal_marks,
+        total_fees: criteriaData[0].total_fees,
+        total_hours: criteriaData[0].total_hours,
+        min_attendance_percentage: criteriaData[0].min_attendance_percentage,
+      } : null;
+      
       // Get the chart element if available
       const chartElement = document.querySelector('.recharts-wrapper')?.parentElement as HTMLElement || null;
       
@@ -235,7 +280,8 @@ const StudentDetail = () => {
         prediction,
         aiInsightsRef.trendAnalysis,
         aiInsightsRef.recommendations,
-        chartElement
+        chartElement,
+        hodCriteria
       );
       
       toast.dismiss();
@@ -375,11 +421,45 @@ const StudentDetail = () => {
               </p>
             </div>
           </div>
-          <Button onClick={handleExportClick} disabled={exporting}>
-            <Download className="mr-2 h-4 w-4" />
-            {exporting ? "Generating..." : "Export PDF"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
+              {showDebug ? "Hide Debug" : "Debug"}
+            </Button>
+            <Button onClick={handleExportClick} disabled={exporting}>
+              <Download className="mr-2 h-4 w-4" />
+              {exporting ? "Generating..." : "Export PDF"}
+            </Button>
+          </div>
         </div>
+
+        {/* Debug Panel */}
+        {showDebug && debugInfo && (
+          <Card className="bg-muted/50 border-dashed">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm font-mono">Data Source Debug</CardTitle>
+            </CardHeader>
+            <CardContent className="py-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                <div>
+                  <p className="text-muted-foreground">Profile ID</p>
+                  <p className="truncate" title={debugInfo.profileId ?? "null"}>{debugInfo.profileId?.slice(0, 8) ?? "null"}...</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Students ID</p>
+                  <p className="truncate" title={debugInfo.studentsId ?? "null"}>{debugInfo.studentsId?.slice(0, 8) ?? "null"}...</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Attendance Rows</p>
+                  <p>{debugInfo.attendanceRowCount}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">History Rows</p>
+                  <p>{debugInfo.historyRowCount}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <PDFPreviewModal
           open={showPreview}

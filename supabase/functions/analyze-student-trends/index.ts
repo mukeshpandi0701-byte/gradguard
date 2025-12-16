@@ -31,6 +31,8 @@ serve(async (req) => {
       throw new Error("Student ID is required");
     }
 
+    console.log("Analyzing trends for studentId:", studentId);
+
     // First try to get student from student_profiles (the ID might be from student_profiles)
     const { data: profileData } = await supabase
       .from("student_profiles")
@@ -42,6 +44,7 @@ serve(async (req) => {
     let studentRecordId = studentId;
 
     if (profileData) {
+      console.log("Found profile data for:", profileData.roll_number);
       // Get student data from students table using roll_number
       const { data: studentData } = await supabase
         .from("students")
@@ -49,7 +52,10 @@ serve(async (req) => {
         .eq("roll_number", profileData.roll_number)
         .maybeSingle();
 
-      if (studentData?.id) studentRecordId = studentData.id;
+      if (studentData?.id) {
+        studentRecordId = studentData.id;
+        console.log("Using students.id:", studentRecordId);
+      }
 
       student = studentData ? {
         ...studentData,
@@ -79,16 +85,20 @@ serve(async (req) => {
       throw new Error("Student not found");
     }
 
-    // Get student's historical data
+    // Get student's historical data using studentRecordId (students.id)
     const { data: history, error: historyError } = await supabase
       .from("student_history")
       .select("*")
       .eq("student_id", studentRecordId)
       .order("recorded_at", { ascending: true });
 
-    if (historyError) throw historyError;
+    if (historyError) {
+      console.error("History fetch error:", historyError);
+    }
 
-    // Get current prediction (use maybeSingle to avoid error when no prediction exists)
+    console.log("Found history records:", history?.length ?? 0);
+
+    // Get current prediction
     const { data: prediction } = await supabase
       .from("predictions")
       .select("*")
@@ -102,17 +112,17 @@ serve(async (req) => {
 
 Student Name: ${student.student_name}
 Current Status:
-- Attendance: ${student.attendance_percentage}%
-- Internal Marks: ${student.internal_marks}
-- Fee Paid: ${student.fee_paid_percentage}%
+- Attendance: ${student.attendance_percentage ?? 0}%
+- Internal Marks: ${student.internal_marks ?? 0}
+- Fee Paid: ${student.fee_paid_percentage ?? 0}%
 - Current Risk Level: ${prediction?.final_risk_level || "unknown"}
 
 Historical Data (${history?.length || 0} records):
 ${history?.map((h, i) => `
 Record ${i + 1} (${new Date(h.recorded_at).toLocaleDateString()}):
-- Attendance: ${h.attendance_percentage}%
-- Internal Marks: ${h.internal_marks}
-- Fee Paid: ${h.fee_paid_percentage}%
+- Attendance: ${h.attendance_percentage ?? 0}%
+- Internal Marks: ${h.internal_marks ?? 0}
+- Fee Paid: ${h.fee_paid_percentage ?? 0}%
 `).join('\n') || 'No historical data available'}
 
 Task:
@@ -120,36 +130,11 @@ Task:
 2. Identify patterns (improving, declining, or stable)
 3. Predict the likely risk level in 1 month and 3 months if current trends continue
 4. Provide specific warning signs or positive indicators
-5. Rate the urgency of intervention (Low, Medium, High, Critical)
+5. Rate the urgency of intervention (Low, Medium, High, Critical)`;
 
-Format your response as JSON with this structure:
-{
-  "trendAnalysis": {
-    "attendance": "improving/declining/stable with description",
-    "academicPerformance": "improving/declining/stable with description",
-    "financialStatus": "improving/declining/stable with description"
-  },
-  "predictions": {
-    "oneMonth": {
-      "riskLevel": "low/medium/high",
-      "confidence": "percentage",
-      "reasoning": "brief explanation"
-    },
-    "threeMonths": {
-      "riskLevel": "low/medium/high",
-      "confidence": "percentage",
-      "reasoning": "brief explanation"
-    }
-  },
-  "warningSignals": ["list of concerning patterns"],
-  "positiveIndicators": ["list of positive patterns"],
-  "interventionUrgency": "Low/Medium/High/Critical",
-  "summary": "2-3 sentence overall assessment"
-}`;
+    console.log("Calling AI with tool calling for structured output");
 
-    console.log("Sending request to AI for trend analysis");
-
-    // Call Lovable AI for analysis
+    // Call Lovable AI with tool calling for structured output
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -161,15 +146,80 @@ Format your response as JSON with this structure:
         messages: [
           {
             role: "system",
-            content: "You are an expert educational data analyst. Always respond with valid JSON only (no markdown/code fences)."
+            content: "You are an expert educational data analyst. Use the provided tool to return structured analysis."
           },
           {
             role: "user",
             content: analysisPrompt
           }
         ],
-        temperature: 0.3,
-        max_tokens: 1800,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "return_trend_analysis",
+              description: "Return the structured trend analysis for a student",
+              parameters: {
+                type: "object",
+                properties: {
+                  trendAnalysis: {
+                    type: "object",
+                    properties: {
+                      attendance: { type: "string", description: "Trend description for attendance (improving/declining/stable with details)" },
+                      academicPerformance: { type: "string", description: "Trend description for academic performance" },
+                      financialStatus: { type: "string", description: "Trend description for financial status" }
+                    },
+                    required: ["attendance", "academicPerformance", "financialStatus"]
+                  },
+                  predictions: {
+                    type: "object",
+                    properties: {
+                      oneMonth: {
+                        type: "object",
+                        properties: {
+                          riskLevel: { type: "string", enum: ["low", "medium", "high"] },
+                          confidence: { type: "string" },
+                          reasoning: { type: "string" }
+                        },
+                        required: ["riskLevel", "confidence", "reasoning"]
+                      },
+                      threeMonths: {
+                        type: "object",
+                        properties: {
+                          riskLevel: { type: "string", enum: ["low", "medium", "high"] },
+                          confidence: { type: "string" },
+                          reasoning: { type: "string" }
+                        },
+                        required: ["riskLevel", "confidence", "reasoning"]
+                      }
+                    },
+                    required: ["oneMonth", "threeMonths"]
+                  },
+                  warningSignals: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "List of concerning patterns"
+                  },
+                  positiveIndicators: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "List of positive patterns"
+                  },
+                  interventionUrgency: {
+                    type: "string",
+                    enum: ["Low", "Medium", "High", "Critical"]
+                  },
+                  summary: {
+                    type: "string",
+                    description: "2-3 sentence overall assessment"
+                  }
+                },
+                required: ["trendAnalysis", "predictions", "warningSignals", "positiveIndicators", "interventionUrgency", "summary"]
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "return_trend_analysis" } },
       }),
     });
 
@@ -180,28 +230,39 @@ Format your response as JSON with this structure:
     }
 
     const aiData = await aiResponse.json();
-    const analysisText = aiData.choices?.[0]?.message?.content;
+    console.log("AI response received");
 
-    if (!analysisText) {
-      throw new Error("No analysis received from AI");
+    // Extract structured output from tool call
+    let analysis;
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    
+    if (toolCall?.function?.arguments) {
+      try {
+        analysis = JSON.parse(toolCall.function.arguments);
+        console.log("Successfully parsed tool call arguments");
+      } catch (parseError) {
+        console.error("Failed to parse tool call arguments:", parseError);
+        throw new Error("Failed to parse AI analysis from tool call");
+      }
+    } else {
+      // Fallback: try to parse from content if tool call failed
+      const content = aiData.choices?.[0]?.message?.content;
+      if (content) {
+        try {
+          let cleanedText = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const start = cleanedText.indexOf("{");
+          const end = cleanedText.lastIndexOf("}");
+          if (start !== -1 && end !== -1 && end > start) {
+            cleanedText = cleanedText.slice(start, end + 1);
+          }
+          analysis = JSON.parse(cleanedText);
+        } catch {
+          throw new Error("Failed to parse AI analysis");
+        }
+      } else {
+        throw new Error("No analysis received from AI");
+      }
     }
-
-    console.log("AI Analysis received:", analysisText);
-
-     // Parse JSON response, removing markdown code blocks if present
-     let analysis;
-     try {
-       let cleanedText = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-       const start = cleanedText.indexOf("{");
-       const end = cleanedText.lastIndexOf("}");
-       if (start !== -1 && end !== -1 && end > start) {
-         cleanedText = cleanedText.slice(start, end + 1);
-       }
-       analysis = JSON.parse(cleanedText);
-     } catch (parseError) {
-       console.error("Failed to parse AI response:", analysisText);
-       throw new Error("Failed to parse AI analysis");
-     }
 
     return new Response(
       JSON.stringify({

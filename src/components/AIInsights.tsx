@@ -66,6 +66,8 @@ interface Recommendations {
 }
 
 export const AIInsights = ({ studentId, studentName, onDataUpdate }: AIInsightsProps) => {
+  // Note: studentId should be students.id (not student_profiles.id) for correct history/prediction lookup
+  // The edge functions handle the mapping if a profile ID is passed
   const [trendAnalysis, setTrendAnalysis] = useState<TrendAnalysis | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
   const [loadingTrends, setLoadingTrends] = useState(false);
