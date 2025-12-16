@@ -422,8 +422,8 @@ const StudentDetail = () => {
                   <p className="font-medium">{student.email || "Not provided"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Student ID</p>
-                  <p className="font-medium font-mono text-sm">{student.id}</p>
+                  <p className="text-sm text-muted-foreground mb-1">Roll Number</p>
+                  <p className="font-medium font-mono text-sm">{student.roll_number || "Not provided"}</p>
                 </div>
               </div>
             </CardContent>
