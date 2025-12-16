@@ -8,8 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Save, Edit, AlertCircle, BookOpen, DollarSign, ClipboardList } from "lucide-react";
+import { Save, Edit, AlertCircle, BookOpen, DollarSign, ClipboardList, Users } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface Student {
@@ -32,6 +34,12 @@ interface AssignmentData {
   marks: Record<string, string>; // subject_id -> marks
 }
 
+interface Criteria {
+  max_internal_marks: number;
+  total_fees: number;
+  num_internal_exams: number;
+}
+
 const Upload = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -39,7 +47,7 @@ const Upload = () => {
   const [paidFees, setPaidFees] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [criteria, setCriteria] = useState<{ max_internal_marks: number; total_fees: number } | null>(null);
+  const [criteria, setCriteria] = useState<Criteria | null>(null);
   const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("internal-marks");
@@ -47,6 +55,7 @@ const Upload = () => {
   // Multi-subject state
   const [branchSubjects, setBranchSubjects] = useState<Subject[]>([]);
   const [subjectMarks, setSubjectMarks] = useState<Record<string, string>>({});
+  const [selectedCIA, setSelectedCIA] = useState<string>("CIA-I");
   
   // Assignment state
   const [assignmentData, setAssignmentData] = useState<AssignmentData>({
@@ -54,6 +63,19 @@ const Upload = () => {
     title: "",
     marks: {}
   });
+
+  // Bulk update state
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkUpdateType, setBulkUpdateType] = useState<string>("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+  const [bulkCIA, setBulkCIA] = useState<string>("CIA-I");
+  const [bulkSubjectMarks, setBulkSubjectMarks] = useState<Record<string, string>>({});
+  const [bulkAssignmentData, setBulkAssignmentData] = useState<AssignmentData>({
+    number: "",
+    title: "",
+    marks: {}
+  });
+  const [bulkPaidFees, setBulkPaidFees] = useState<string>("");
 
   useEffect(() => {
     fetchCriteria();
@@ -82,21 +104,25 @@ const Upload = () => {
           const hodId = hodProfiles[0].id;
           const { data: hodCriteria } = await supabase
             .from("dropout_criteria")
-            .select("max_internal_marks, total_fees")
+            .select("max_internal_marks, total_fees, num_internal_exams")
             .eq("user_id", hodId)
             .maybeSingle();
 
           if (hodCriteria) {
-            setCriteria(hodCriteria);
+            setCriteria({
+              max_internal_marks: hodCriteria.max_internal_marks,
+              total_fees: hodCriteria.total_fees,
+              num_internal_exams: (hodCriteria as any).num_internal_exams ?? 3
+            });
             return;
           }
         }
       }
 
-      setCriteria({ max_internal_marks: 100, total_fees: 100000 });
+      setCriteria({ max_internal_marks: 100, total_fees: 100000, num_internal_exams: 3 });
     } catch (error) {
       console.error("Error fetching criteria:", error);
-      setCriteria({ max_internal_marks: 100, total_fees: 100000 });
+      setCriteria({ max_internal_marks: 100, total_fees: 100000, num_internal_exams: 3 });
     }
   };
 
@@ -152,7 +178,7 @@ const Upload = () => {
     }
   };
 
-  const fetchExistingMarks = async (studentId: string, studentRollNumber: string | null) => {
+  const fetchExistingMarks = async (studentId: string, studentRollNumber: string | null, ciaNumber: string) => {
     try {
       if (!studentRollNumber) return;
 
@@ -168,7 +194,8 @@ const Upload = () => {
         const { data: marks } = await supabase
           .from("student_subject_marks")
           .select("subject_id, internal_marks")
-          .eq("student_id", studentRecord.id);
+          .eq("student_id", studentRecord.id)
+          .eq("exam_number", ciaNumber);
 
         const marksMap: Record<string, string> = {};
         (marks || []).forEach(m => {
@@ -191,14 +218,22 @@ const Upload = () => {
     setSubjectMarks({});
     setAssignmentData({ number: "", title: "", marks: {} });
     setActiveTab("internal-marks");
+    setSelectedCIA("CIA-I");
     
     if (student.branch) {
       await fetchSubjectsForBranch(student.branch);
     }
     
-    await fetchExistingMarks(student.id, student.roll_number);
+    await fetchExistingMarks(student.id, student.roll_number, "CIA-I");
     
     setDialogOpen(true);
+  };
+
+  const handleCIAChange = async (cia: string) => {
+    setSelectedCIA(cia);
+    if (selectedStudent) {
+      await fetchExistingMarks(selectedStudent.id, selectedStudent.roll_number, cia);
+    }
   };
 
   const handleSubjectMarkChange = (subjectId: string, value: string) => {
@@ -235,6 +270,34 @@ const Upload = () => {
     return count > 0 ? total / count : 0;
   };
 
+  const getOrCreateStudentRecord = async (student: Student, userId: string): Promise<string | null> => {
+    const { data: existingStudent } = await supabase
+      .from("students")
+      .select("id")
+      .eq("roll_number", student.roll_number)
+      .maybeSingle();
+
+    if (existingStudent) {
+      return existingStudent.id;
+    }
+
+    const { data: newStudent, error } = await supabase
+      .from("students")
+      .insert({
+        user_id: userId,
+        student_name: student.full_name || student.email,
+        roll_number: student.roll_number,
+        email: student.email,
+        department: student.branch,
+        total_fees: criteria?.total_fees || 0
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    return newStudent.id;
+  };
+
   const handleSaveInternalMarks = async () => {
     if (!selectedStudent) return;
 
@@ -256,62 +319,41 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const studentRecordId = await getOrCreateStudentRecord(selectedStudent, user.id);
+      if (!studentRecordId) throw new Error("Failed to get student record");
+
+      // Calculate average from all CIA exams for this student
       const averageMarks = calculateAverageMarks();
 
-      const { data: existingStudent } = await supabase
+      // Update students table with average marks
+      const { error: updateError } = await supabase
         .from("students")
-        .select("id")
-        .eq("roll_number", selectedStudent.roll_number)
-        .maybeSingle();
+        .update({
+          internal_marks: averageMarks,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", studentRecordId);
 
-      let studentRecordId: string;
+      if (updateError) throw updateError;
 
-      if (existingStudent) {
-        const { error } = await supabase
-          .from("students")
-          .update({
-            internal_marks: averageMarks,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", existingStudent.id);
-
-        if (error) throw error;
-        studentRecordId = existingStudent.id;
-      } else {
-        const { data: newStudent, error } = await supabase
-          .from("students")
-          .insert({
-            user_id: user.id,
-            student_name: selectedStudent.full_name || selectedStudent.email,
-            roll_number: selectedStudent.roll_number,
-            email: selectedStudent.email,
-            department: selectedStudent.branch,
-            internal_marks: averageMarks,
-            total_fees: criteria?.total_fees || 0
-          })
-          .select("id")
-          .single();
-
-        if (error) throw error;
-        studentRecordId = newStudent.id;
-      }
-
+      // Save subject-wise marks with CIA number
       if (branchSubjects.length > 0) {
         const marksToUpsert = branchSubjects.map(subject => ({
           student_id: studentRecordId,
           subject_id: subject.id,
           internal_marks: parseFloat(subjectMarks[subject.id] || "0"),
+          exam_number: selectedCIA,
           updated_by: user.id
         }));
 
         const { error: marksError } = await supabase
           .from("student_subject_marks")
-          .upsert(marksToUpsert, { onConflict: "student_id,subject_id" });
+          .upsert(marksToUpsert, { onConflict: "student_id,subject_id,exam_number" });
 
         if (marksError) throw marksError;
       }
 
-      toast.success("Internal marks saved successfully!");
+      toast.success(`${selectedCIA} marks saved successfully!`);
     } catch (error: any) {
       toast.error(error.message || "Failed to save internal marks");
       console.error(error);
@@ -442,38 +484,19 @@ const Upload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data: existingStudent } = await supabase
+      const studentRecordId = await getOrCreateStudentRecord(selectedStudent, user.id);
+      if (!studentRecordId) throw new Error("Failed to get student record");
+
+      const { error } = await supabase
         .from("students")
-        .select("id")
-        .eq("roll_number", selectedStudent.roll_number)
-        .maybeSingle();
+        .update({
+          paid_fees: paidFeesNum,
+          total_fees: criteria?.total_fees || 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", studentRecordId);
 
-      if (existingStudent) {
-        const { error } = await supabase
-          .from("students")
-          .update({
-            paid_fees: paidFeesNum,
-            total_fees: criteria?.total_fees || 0,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", existingStudent.id);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("students")
-          .insert({
-            user_id: user.id,
-            student_name: selectedStudent.full_name || selectedStudent.email,
-            roll_number: selectedStudent.roll_number,
-            email: selectedStudent.email,
-            department: selectedStudent.branch,
-            paid_fees: paidFeesNum,
-            total_fees: criteria?.total_fees || 0
-          });
-
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       toast.success("Fees updated successfully!");
     } catch (error: any) {
@@ -482,6 +505,280 @@ const Upload = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Bulk update handlers
+  const handleOpenBulkUpdate = async () => {
+    if (filteredStudents.length === 0) {
+      toast.error("No students available for bulk update");
+      return;
+    }
+    
+    // Get the branch for subjects
+    const branch = selectedBranch !== "all" ? selectedBranch : filteredStudents[0]?.branch;
+    if (branch) {
+      await fetchSubjectsForBranch(branch);
+    }
+    
+    setSelectedStudentIds(new Set());
+    setBulkUpdateType("");
+    setBulkCIA("CIA-I");
+    setBulkSubjectMarks({});
+    setBulkAssignmentData({ number: "", title: "", marks: {} });
+    setBulkPaidFees("");
+    setBulkDialogOpen(true);
+  };
+
+  const handleSelectAllStudents = (checked: boolean) => {
+    if (checked) {
+      setSelectedStudentIds(new Set(filteredStudents.map(s => s.id)));
+    } else {
+      setSelectedStudentIds(new Set());
+    }
+  };
+
+  const handleToggleStudent = (studentId: string, checked: boolean) => {
+    const newSet = new Set(selectedStudentIds);
+    if (checked) {
+      newSet.add(studentId);
+    } else {
+      newSet.delete(studentId);
+    }
+    setSelectedStudentIds(newSet);
+  };
+
+  const handleBulkSaveInternalMarks = async () => {
+    if (selectedStudentIds.size === 0) {
+      toast.error("Please select at least one student");
+      return;
+    }
+
+    // Validate marks
+    for (const subject of branchSubjects) {
+      const mark = parseFloat(bulkSubjectMarks[subject.id] || "0");
+      if (isNaN(mark) || mark < 0) {
+        toast.error(`Invalid marks for ${subject.subject_code}`);
+        return;
+      }
+      if (criteria && mark > criteria.max_internal_marks) {
+        toast.error(`Marks for ${subject.subject_code} cannot exceed ${criteria.max_internal_marks}`);
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const selectedStudents = filteredStudents.filter(s => selectedStudentIds.has(s.id));
+      let successCount = 0;
+
+      for (const student of selectedStudents) {
+        try {
+          const studentRecordId = await getOrCreateStudentRecord(student, user.id);
+          if (!studentRecordId) continue;
+
+          // Calculate average
+          let total = 0;
+          let count = 0;
+          branchSubjects.forEach(subject => {
+            const mark = parseFloat(bulkSubjectMarks[subject.id] || "0");
+            if (!isNaN(mark)) {
+              total += mark;
+              count++;
+            }
+          });
+          const averageMarks = count > 0 ? total / count : 0;
+
+          // Update students table
+          await supabase
+            .from("students")
+            .update({
+              internal_marks: averageMarks,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", studentRecordId);
+
+          // Save subject-wise marks
+          if (branchSubjects.length > 0) {
+            const marksToUpsert = branchSubjects.map(subject => ({
+              student_id: studentRecordId,
+              subject_id: subject.id,
+              internal_marks: parseFloat(bulkSubjectMarks[subject.id] || "0"),
+              exam_number: bulkCIA,
+              updated_by: user.id
+            }));
+
+            await supabase
+              .from("student_subject_marks")
+              .upsert(marksToUpsert, { onConflict: "student_id,subject_id,exam_number" });
+          }
+
+          successCount++;
+        } catch (err) {
+          console.error(`Failed for student ${student.roll_number}:`, err);
+        }
+      }
+
+      toast.success(`${bulkCIA} marks saved for ${successCount} students!`);
+      setBulkDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save marks");
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBulkSaveAssignment = async () => {
+    if (selectedStudentIds.size === 0) {
+      toast.error("Please select at least one student");
+      return;
+    }
+
+    if (!bulkAssignmentData.number.trim()) {
+      toast.error("Please enter assignment number");
+      return;
+    }
+
+    if (!bulkAssignmentData.title.trim()) {
+      toast.error("Please enter assignment title");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const selectedStudents = filteredStudents.filter(s => selectedStudentIds.has(s.id));
+      const branch = selectedBranch !== "all" ? selectedBranch : selectedStudents[0]?.branch;
+
+      // Get or create assignment
+      let assignmentId: string;
+      const { data: existingAssignment } = await supabase
+        .from("branch_assignments")
+        .select("id")
+        .eq("branch", branch)
+        .eq("assignment_number", bulkAssignmentData.number)
+        .maybeSingle();
+
+      if (existingAssignment) {
+        assignmentId = existingAssignment.id;
+      } else {
+        const { data: newAssignment, error: assignmentError } = await supabase
+          .from("branch_assignments")
+          .insert({
+            branch: branch,
+            assignment_number: bulkAssignmentData.number,
+            assignment_title: bulkAssignmentData.title,
+            staff_user_id: user.id,
+            max_marks: criteria?.max_internal_marks || 100
+          })
+          .select("id")
+          .single();
+
+        if (assignmentError) throw assignmentError;
+        assignmentId = newAssignment.id;
+      }
+
+      let successCount = 0;
+      for (const student of selectedStudents) {
+        try {
+          const { data: studentRecord } = await supabase
+            .from("students")
+            .select("id")
+            .eq("roll_number", student.roll_number)
+            .maybeSingle();
+
+          if (!studentRecord) continue;
+
+          const marksToUpsert = branchSubjects.map(subject => ({
+            assignment_id: assignmentId,
+            student_id: studentRecord.id,
+            subject_id: subject.id,
+            marks_obtained: parseFloat(bulkAssignmentData.marks[subject.id] || "0")
+          }));
+
+          await supabase
+            .from("student_branch_assignment_marks")
+            .upsert(marksToUpsert, { onConflict: "assignment_id,student_id,subject_id" });
+
+          successCount++;
+        } catch (err) {
+          console.error(`Failed for student ${student.roll_number}:`, err);
+        }
+      }
+
+      toast.success(`Assignment saved for ${successCount} students!`);
+      setBulkDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save assignment");
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBulkSaveFees = async () => {
+    if (selectedStudentIds.size === 0) {
+      toast.error("Please select at least one student");
+      return;
+    }
+
+    const paidFeesNum = parseFloat(bulkPaidFees);
+    if (isNaN(paidFeesNum) || paidFeesNum < 0) {
+      toast.error("Please enter valid fees amount");
+      return;
+    }
+
+    if (criteria && paidFeesNum > criteria.total_fees) {
+      toast.error(`Fees paid cannot exceed ₹${criteria.total_fees}`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const selectedStudents = filteredStudents.filter(s => selectedStudentIds.has(s.id));
+      let successCount = 0;
+
+      for (const student of selectedStudents) {
+        try {
+          const studentRecordId = await getOrCreateStudentRecord(student, user.id);
+          if (!studentRecordId) continue;
+
+          await supabase
+            .from("students")
+            .update({
+              paid_fees: paidFeesNum,
+              total_fees: criteria?.total_fees || 0,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", studentRecordId);
+
+          successCount++;
+        } catch (err) {
+          console.error(`Failed for student ${student.roll_number}:`, err);
+        }
+      }
+
+      toast.success(`Fees updated for ${successCount} students!`);
+      setBulkDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update fees");
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getCIAOptions = () => {
+    const count = criteria?.num_internal_exams || 3;
+    return Array.from({ length: count }, (_, i) => `CIA-${['I', 'II', 'III', 'IV', 'V'][i]}`);
   };
 
   const filteredStudents = selectedBranch === "all" 
@@ -501,11 +798,19 @@ const Upload = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 w-full">
-        <div>
-          <h2 className="text-3xl font-bold">Academic Updates</h2>
-          <p className="text-muted-foreground mt-2">
-            Update internal marks, assignments, and fees for students
-          </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-3xl font-bold">Academic Updates</h2>
+            <p className="text-muted-foreground mt-2">
+              Update internal marks, assignments, and fees for students
+            </p>
+          </div>
+          {assignedBranches.length > 0 && (
+            <Button onClick={handleOpenBulkUpdate} className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Bulk Update
+            </Button>
+          )}
         </div>
 
         {assignedBranches.length === 0 ? (
@@ -585,7 +890,7 @@ const Upload = () => {
           </Tabs>
         )}
 
-        {/* Update Dialog with Three Cards */}
+        {/* Individual Update Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="bg-card max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
@@ -626,6 +931,21 @@ const Upload = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* CIA Selection */}
+                    <div className="space-y-2">
+                      <Label>Select Internal Exam</Label>
+                      <Select value={selectedCIA} onValueChange={handleCIAChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select CIA" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getCIAOptions().map(cia => (
+                            <SelectItem key={cia} value={cia}>{cia}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     {branchSubjects.length > 0 ? (
                       <>
                         {branchSubjects.map(subject => (
@@ -663,7 +983,7 @@ const Upload = () => {
 
                         <Button onClick={handleSaveInternalMarks} disabled={saving} className="w-full">
                           <Save className="w-4 h-4 mr-2" />
-                          {saving ? "Saving..." : "Save Internal Marks"}
+                          {saving ? "Saving..." : `Save ${selectedCIA} Marks`}
                         </Button>
                       </>
                     ) : (
@@ -823,6 +1143,239 @@ const Upload = () => {
                 </Card>
               </TabsContent>
             </Tabs>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Update Dialog */}
+        <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+          <DialogContent className="bg-card max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Bulk Update</DialogTitle>
+              <DialogDescription>
+                Update multiple students at once. Select students and update type.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Update Type Selection */}
+              <div className="space-y-2">
+                <Label>Select Update Type</Label>
+                <Select value={bulkUpdateType} onValueChange={setBulkUpdateType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select what to update" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="internal-marks">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4" />
+                        Internal Marks (CIA)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="assignments">
+                      <div className="flex items-center gap-2">
+                        <ClipboardList className="w-4 h-4" />
+                        Assignment Marks
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="fees">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4" />
+                        Fees Paid
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {bulkUpdateType && (
+                <>
+                  {/* Student Selection */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">Select Students ({selectedStudentIds.size} selected)</CardTitle>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="select-all"
+                            checked={selectedStudentIds.size === filteredStudents.length && filteredStudents.length > 0}
+                            onCheckedChange={handleSelectAllStudents}
+                          />
+                          <label htmlFor="select-all" className="text-sm cursor-pointer">
+                            Select All
+                          </label>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="max-h-40 overflow-y-auto">
+                      <div className="grid grid-cols-2 gap-2">
+                        {filteredStudents.map(student => (
+                          <div key={student.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`bulk-student-${student.id}`}
+                              checked={selectedStudentIds.has(student.id)}
+                              onCheckedChange={(checked) => handleToggleStudent(student.id, checked as boolean)}
+                            />
+                            <label htmlFor={`bulk-student-${student.id}`} className="text-sm cursor-pointer truncate">
+                              {student.roll_number} - {student.full_name || student.email}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Internal Marks Bulk Form */}
+                  {bulkUpdateType === "internal-marks" && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <BookOpen className="w-4 h-4" />
+                          Internal Marks ({bulkCIA})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Select Internal Exam</Label>
+                          <Select value={bulkCIA} onValueChange={setBulkCIA}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select CIA" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getCIAOptions().map(cia => (
+                                <SelectItem key={cia} value={cia}>{cia}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {branchSubjects.map(subject => (
+                          <div key={subject.id} className="grid gap-2">
+                            <Label className="flex items-center gap-2">
+                              <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
+                                {subject.subject_code}
+                              </span>
+                              {subject.subject_name && (
+                                <span className="text-muted-foreground text-xs">{subject.subject_name}</span>
+                              )}
+                            </Label>
+                            <Input
+                              type="number"
+                              placeholder="Enter marks"
+                              value={bulkSubjectMarks[subject.id] || ""}
+                              onChange={(e) => setBulkSubjectMarks(prev => ({ ...prev, [subject.id]: e.target.value }))}
+                              min="0"
+                              max={criteria?.max_internal_marks}
+                            />
+                          </div>
+                        ))}
+
+                        <Button onClick={handleBulkSaveInternalMarks} disabled={saving || selectedStudentIds.size === 0} className="w-full">
+                          <Save className="w-4 h-4 mr-2" />
+                          {saving ? "Saving..." : `Save ${bulkCIA} Marks for ${selectedStudentIds.size} Students`}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Assignment Bulk Form */}
+                  {bulkUpdateType === "assignments" && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <ClipboardList className="w-4 h-4" />
+                          Assignment Details
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Assignment Number</Label>
+                            <Input
+                              placeholder="e.g., 1, 2, 3..."
+                              value={bulkAssignmentData.number}
+                              onChange={(e) => setBulkAssignmentData(prev => ({ ...prev, number: e.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Assignment Title</Label>
+                            <Input
+                              placeholder="e.g., Lab Assignment 1"
+                              value={bulkAssignmentData.title}
+                              onChange={(e) => setBulkAssignmentData(prev => ({ ...prev, title: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border-t pt-4">
+                          <Label className="text-sm font-medium mb-3 block">Marks for Each Subject</Label>
+                          {branchSubjects.map(subject => (
+                            <div key={subject.id} className="grid gap-2 mb-3">
+                              <Label className="flex items-center gap-2">
+                                <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
+                                  {subject.subject_code}
+                                </span>
+                                {subject.subject_name && (
+                                  <span className="text-muted-foreground text-xs">{subject.subject_name}</span>
+                                )}
+                              </Label>
+                              <Input
+                                type="number"
+                                placeholder="Enter marks"
+                                value={bulkAssignmentData.marks[subject.id] || ""}
+                                onChange={(e) => setBulkAssignmentData(prev => ({
+                                  ...prev,
+                                  marks: { ...prev.marks, [subject.id]: e.target.value }
+                                }))}
+                                min="0"
+                                max={criteria?.max_internal_marks}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <Button onClick={handleBulkSaveAssignment} disabled={saving || selectedStudentIds.size === 0} className="w-full">
+                          <Save className="w-4 h-4 mr-2" />
+                          {saving ? "Saving..." : `Save Assignment for ${selectedStudentIds.size} Students`}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Fees Bulk Form */}
+                  {bulkUpdateType === "fees" && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          Fees Details
+                        </CardTitle>
+                        <CardDescription>
+                          Total fees: ₹{criteria?.total_fees?.toLocaleString() || "100,000"}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Paid Fees (₹)</Label>
+                          <Input
+                            type="number"
+                            placeholder="Enter paid fees amount"
+                            value={bulkPaidFees}
+                            onChange={(e) => setBulkPaidFees(e.target.value)}
+                            min="0"
+                            max={criteria?.total_fees}
+                          />
+                        </div>
+
+                        <Button onClick={handleBulkSaveFees} disabled={saving || selectedStudentIds.size === 0} className="w-full">
+                          <Save className="w-4 h-4 mr-2" />
+                          {saving ? "Saving..." : `Update Fees for ${selectedStudentIds.size} Students`}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>

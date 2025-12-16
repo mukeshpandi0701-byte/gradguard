@@ -208,6 +208,7 @@ export type Database = {
           max_sessions_per_day: number
           min_attendance_percentage: number
           min_internal_marks: number
+          num_internal_exams: number
           total_fees: number
           total_hours: number
           updated_at: string
@@ -224,6 +225,7 @@ export type Database = {
           max_sessions_per_day?: number
           min_attendance_percentage?: number
           min_internal_marks?: number
+          num_internal_exams?: number
           total_fees?: number
           total_hours?: number
           updated_at?: string
@@ -240,6 +242,7 @@ export type Database = {
           max_sessions_per_day?: number
           min_attendance_percentage?: number
           min_internal_marks?: number
+          num_internal_exams?: number
           total_fees?: number
           total_hours?: number
           updated_at?: string
@@ -703,6 +706,7 @@ export type Database = {
       student_subject_marks: {
         Row: {
           created_at: string
+          exam_number: string | null
           id: string
           internal_marks: number
           student_id: string
@@ -712,6 +716,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          exam_number?: string | null
           id?: string
           internal_marks?: number
           student_id: string
@@ -721,6 +726,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          exam_number?: string | null
           id?: string
           internal_marks?: number
           student_id?: string

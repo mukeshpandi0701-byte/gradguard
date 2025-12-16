@@ -17,6 +17,7 @@ interface Criteria {
   total_fees: number;
   total_hours: number;
   max_sessions_per_day: number;
+  num_internal_exams: number;
   attendance_weightage: number;
   internal_weightage: number;
   fees_weightage: number;
@@ -37,6 +38,7 @@ const Criteria = () => {
     total_fees: 100000,
     total_hours: 100,
     max_sessions_per_day: 7,
+    num_internal_exams: 3,
     attendance_weightage: 0.4,
     internal_weightage: 0.3,
     fees_weightage: 0.3,
@@ -88,6 +90,7 @@ const Criteria = () => {
             total_fees: data.total_fees,
             total_hours: data.total_hours,
             max_sessions_per_day: (data as any).max_sessions_per_day ?? 7,
+            num_internal_exams: (data as any).num_internal_exams ?? 3,
             attendance_weightage: data.attendance_weightage,
             internal_weightage: data.internal_weightage,
             fees_weightage: data.fees_weightage,
@@ -129,6 +132,7 @@ const Criteria = () => {
                 total_fees: hodCriteria.total_fees,
                 total_hours: hodCriteria.total_hours,
                 max_sessions_per_day: (hodCriteria as any).max_sessions_per_day ?? 7,
+                num_internal_exams: (hodCriteria as any).num_internal_exams ?? 3,
                 attendance_weightage: hodCriteria.attendance_weightage,
                 internal_weightage: hodCriteria.internal_weightage,
                 fees_weightage: hodCriteria.fees_weightage,
@@ -358,6 +362,23 @@ const Criteria = () => {
                   Maximum number of class sessions per day (1-10). Attendance % is calculated as attended/total sessions.
                 </p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="numInternalExams">Number of Internal Exams (CIA)</Label>
+                <Input
+                  id="numInternalExams"
+                  type="number"
+                  value={criteria.num_internal_exams}
+                  onChange={(e) => setCriteria({ ...criteria, num_internal_exams: Math.min(5, Math.max(1, Number(e.target.value) || 1)) })}
+                  min={1}
+                  max={5}
+                  disabled={!isHOD}
+                  className={!isHOD ? "bg-muted" : ""}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Number of CIA exams (1-5). Staff will select CIA-I, CIA-II, etc. when entering marks.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -493,6 +514,13 @@ const Criteria = () => {
                 <div className="space-y-2">
                   <Label>Maximum Sessions Per Day</Label>
                   <Input type="number" value={criteria.max_sessions_per_day} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Number of Internal Exams (CIA)</Label>
+                  <Input type="number" value={criteria.num_internal_exams} disabled className="bg-muted" />
+                  <p className="text-sm text-muted-foreground">
+                    Staff can select CIA-I through CIA-{['I', 'II', 'III', 'IV', 'V'][criteria.num_internal_exams - 1]} when entering marks.
+                  </p>
                 </div>
               </CardContent>
             </Card>
