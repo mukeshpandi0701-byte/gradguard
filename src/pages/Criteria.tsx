@@ -97,20 +97,25 @@ const Criteria = () => {
           .maybeSingle();
 
         if (profile?.department) {
+          const staffDept = profile.department.trim();
+          
+          // Find all HODs and match by department (case-insensitive)
           const { data: hodProfiles } = await supabase
             .from("profiles")
-            .select("id, full_name, email")
-            .eq("department", profile.department)
+            .select("id, full_name, email, department")
             .eq("panel_type", "hod");
 
-          if (hodProfiles && hodProfiles.length > 0) {
-            const hod = hodProfiles[0];
-            setHodName(hod.full_name || hod.email || "HOD");
+          const matchingHod = hodProfiles?.find(
+            hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
+          );
+
+          if (matchingHod) {
+            setHodName(matchingHod.full_name || matchingHod.email || "HOD");
             
             const { data: hodCriteria } = await supabase
               .from("dropout_criteria")
               .select("*")
-              .eq("user_id", hod.id)
+              .eq("user_id", matchingHod.id)
               .maybeSingle();
 
             if (hodCriteria) {
@@ -167,22 +172,27 @@ const Criteria = () => {
         assignment_weightage: total > 0 ? criteria.assignment_weightage / total : 0.25,
       };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("dropout_criteria")
         .upsert({
           user_id: user.id,
           ...normalized,
         }, {
           onConflict: 'user_id'
-        });
+        })
+        .select();
 
       if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        throw new Error("Failed to save criteria - no data returned");
+      }
 
       toast.success("Criteria saved successfully!");
       navigate("/dashboard");
     } catch (error: any) {
       toast.error(error.message || "Failed to save criteria");
-      console.error(error);
+      console.error("Save criteria error:", error);
     } finally {
       setSaving(false);
     }

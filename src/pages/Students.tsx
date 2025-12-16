@@ -385,19 +385,23 @@ const Students = () => {
       let criteria = null;
 
       if (profile?.department) {
-        // Find HOD from the same department
+        const staffDept = profile.department.trim();
+        
+        // Find all HODs and match by department (case-insensitive)
         const { data: hodProfiles } = await supabase
           .from("profiles")
-          .select("id")
-          .eq("department", profile.department)
+          .select("id, department")
           .eq("panel_type", "hod");
 
-        if (hodProfiles && hodProfiles.length > 0) {
-          const hodId = hodProfiles[0].id;
+        const matchingHod = hodProfiles?.find(
+          hod => hod.department?.trim().toLowerCase() === staffDept.toLowerCase()
+        );
+
+        if (matchingHod) {
           const { data: hodCriteria } = await supabase
             .from("dropout_criteria")
             .select("*")
-            .eq("user_id", hodId)
+            .eq("user_id", matchingHod.id)
             .maybeSingle();
 
           criteria = hodCriteria;
