@@ -55,11 +55,11 @@ const formatDateRange = (range: { start: Date; end: Date }): string => {
 // Check if a date is Sunday
 const isSunday = (date: Date): boolean => getDay(date) === 0;
 
-// Glossy/glassy style classes for calendar markers
+// Minimalist glossy/glassy style classes for calendar markers
 const glossyStyles = {
-  sunday: "bg-gradient-to-br from-indigo-400/80 via-indigo-500/70 to-indigo-600/80 text-white shadow-lg shadow-indigo-500/30 backdrop-blur-sm border border-indigo-300/50 ring-1 ring-white/20",
-  holiday: "bg-gradient-to-br from-rose-400/80 via-rose-500/70 to-rose-600/80 text-white shadow-lg shadow-rose-500/30 backdrop-blur-sm border border-rose-300/50 ring-1 ring-white/20",
-  customSession: "bg-gradient-to-br from-emerald-400/80 via-emerald-500/70 to-emerald-600/80 text-white shadow-lg shadow-emerald-500/30 backdrop-blur-sm border border-emerald-300/50 ring-1 ring-white/20",
+  sunday: "bg-indigo-500/20 text-indigo-400 backdrop-blur-sm border border-indigo-400/30 shadow-sm",
+  holiday: "bg-rose-500/20 text-rose-400 backdrop-blur-sm border border-rose-400/30 shadow-sm",
+  customSession: "bg-emerald-500/20 text-emerald-400 backdrop-blur-sm border border-emerald-400/30 shadow-sm",
 };
 
 // Group events by description and return with date ranges
@@ -861,41 +861,38 @@ const AcademicCalendar = () => {
                     }}
                     modifiersStyles={{
                       sunday: { 
-                        background: "linear-gradient(135deg, rgba(129, 140, 248, 0.8), rgba(99, 102, 241, 0.9))",
-                        color: "white",
-                        borderRadius: "50%",
-                        boxShadow: "0 4px 14px -3px rgba(99, 102, 241, 0.4)",
-                        border: "1px solid rgba(165, 180, 252, 0.5)"
+                        background: "rgba(99, 102, 241, 0.15)",
+                        color: "rgb(129, 140, 248)",
+                        borderRadius: "6px",
+                        border: "1px solid rgba(99, 102, 241, 0.3)"
                       },
                       holiday: { 
-                        background: "linear-gradient(135deg, rgba(251, 113, 133, 0.8), rgba(244, 63, 94, 0.9))",
-                        color: "white",
-                        borderRadius: "50%",
-                        boxShadow: "0 4px 14px -3px rgba(244, 63, 94, 0.4)",
-                        border: "1px solid rgba(253, 164, 175, 0.5)"
+                        background: "rgba(244, 63, 94, 0.15)",
+                        color: "rgb(251, 113, 133)",
+                        borderRadius: "6px",
+                        border: "1px solid rgba(244, 63, 94, 0.3)"
                       },
                       customSession: { 
-                        background: "linear-gradient(135deg, rgba(52, 211, 153, 0.8), rgba(16, 185, 129, 0.9))",
-                        color: "white",
-                        borderRadius: "50%",
-                        boxShadow: "0 4px 14px -3px rgba(16, 185, 129, 0.4)",
-                        border: "1px solid rgba(110, 231, 183, 0.5)"
+                        background: "rgba(16, 185, 129, 0.15)",
+                        color: "rgb(52, 211, 153)",
+                        borderRadius: "6px",
+                        border: "1px solid rgba(16, 185, 129, 0.3)"
                       },
                     }}
                     className="mx-auto"
                   />
                   <div className="flex flex-wrap gap-4 mt-4 justify-center text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/30" />
-                      <span>Sunday</span>
+                      <div className="w-3 h-3 rounded bg-indigo-500/20 border border-indigo-400/30" />
+                      <span className="text-muted-foreground">Sunday</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/30" />
-                      <span>Holiday</span>
+                      <div className="w-3 h-3 rounded bg-rose-500/20 border border-rose-400/30" />
+                      <span className="text-muted-foreground">Holiday</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-500/30" />
-                      <span>Custom Sessions</span>
+                      <div className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-400/30" />
+                      <span className="text-muted-foreground">Custom Sessions</span>
                     </div>
                   </div>
                 </CardContent>
@@ -1174,16 +1171,16 @@ const AcademicCalendar = () => {
                 {renderMonthCalendar(currentMonth, "large")}
                 <div className="flex flex-wrap gap-4 mt-4 justify-center text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/30" />
-                    <span>Sunday</span>
+                    <div className="w-3 h-3 rounded bg-indigo-500/20 border border-indigo-400/30" />
+                    <span className="text-muted-foreground">Sunday</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/30" />
-                    <span>Holiday</span>
+                    <div className="w-3 h-3 rounded bg-rose-500/20 border border-rose-400/30" />
+                    <span className="text-muted-foreground">Holiday</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-500/30" />
-                    <span>Custom Sessions</span>
+                    <div className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-400/30" />
+                    <span className="text-muted-foreground">Custom Sessions</span>
                   </div>
                 </div>
               </CardContent>
@@ -1219,16 +1216,16 @@ const AcademicCalendar = () => {
                 </div>
                 <div className="flex flex-wrap gap-4 mt-6 justify-center text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/30" />
-                    <span>Sunday</span>
+                    <div className="w-3 h-3 rounded bg-indigo-500/20 border border-indigo-400/30" />
+                    <span className="text-muted-foreground">Sunday</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/30" />
-                    <span>Holiday</span>
+                    <div className="w-3 h-3 rounded bg-rose-500/20 border border-rose-400/30" />
+                    <span className="text-muted-foreground">Holiday</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-500/30" />
-                    <span>Custom Sessions</span>
+                    <div className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-400/30" />
+                    <span className="text-muted-foreground">Custom Sessions</span>
                   </div>
                 </div>
               </CardContent>
