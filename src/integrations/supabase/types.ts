@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      academic_calendar: {
+        Row: {
+          created_at: string
+          created_by: string
+          custom_sessions: number | null
+          department: string
+          description: string | null
+          event_date: string
+          event_type: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          custom_sessions?: number | null
+          department: string
+          description?: string | null
+          event_date: string
+          event_type: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          custom_sessions?: number | null
+          department?: string
+          description?: string | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           assignment_name: string

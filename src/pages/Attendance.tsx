@@ -22,6 +22,13 @@ interface Student {
   email: string;
 }
 
+interface CalendarEvent {
+  event_date: string;
+  event_type: "holiday" | "custom_sessions";
+  description: string | null;
+  custom_sessions: number | null;
+}
+
 type AttendanceKey = `${string}_${string}`;
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -35,12 +42,15 @@ const Attendance = () => {
   const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [maxSessionsPerDay, setMaxSessionsPerDay] = useState<number>(7);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [userDepartment, setUserDepartment] = useState<string>("");
 
   const weekDates = DAYS.map((_, index) => addDays(weekStart, index));
 
   useEffect(() => {
     fetchStudents();
     fetchCriteria();
+    fetchCalendarEvents();
   }, []);
 
   useEffect(() => {
@@ -76,6 +86,57 @@ const Attendance = () => {
       console.error("Error fetching criteria:", error);
       setMaxSessionsPerDay(7);
     }
+  };
+
+  const fetchCalendarEvents = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's department
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("department")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profile?.department) return;
+      setUserDepartment(profile.department);
+
+      // Fetch calendar events for this department
+      const { data: events, error } = await supabase
+        .from("academic_calendar")
+        .select("event_date, event_type, description, custom_sessions")
+        .eq("department", profile.department);
+
+      if (error) {
+        console.error("Error fetching calendar events:", error);
+        return;
+      }
+
+      setCalendarEvents((events || []) as CalendarEvent[]);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+    }
+  };
+
+  // Helper to check if a date is a holiday
+  const isHoliday = (date: Date): CalendarEvent | null => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    return calendarEvents.find(e => e.event_date === dateStr && e.event_type === "holiday") || null;
+  };
+
+  // Helper to get custom sessions for a date
+  const getCustomSessions = (date: Date): number | null => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    const event = calendarEvents.find(e => e.event_date === dateStr && e.event_type === "custom_sessions");
+    return event?.custom_sessions ?? null;
+  };
+
+  // Get effective max sessions for a date (considering custom sessions)
+  const getEffectiveMaxSessions = (date: Date): number => {
+    const customSessions = getCustomSessions(date);
+    return customSessions !== null ? customSessions : maxSessionsPerDay;
   };
 
   const fetchStudents = async () => {
@@ -161,9 +222,13 @@ const Attendance = () => {
   }, [maxSessionsPerDay]);
 
   const updateSessionCount = (studentId: string, date: Date, value: string) => {
+    // Don't allow updates on holidays
+    if (isHoliday(date)) return;
+    
     const dateStr = format(date, "yyyy-MM-dd");
     const key: AttendanceKey = `${studentId}_${dateStr}`;
-    const numValue = Math.max(0, Math.min(maxSessionsPerDay, parseInt(value) || 0));
+    const effectiveMax = getEffectiveMaxSessions(date);
+    const numValue = Math.max(0, Math.min(effectiveMax, parseInt(value) || 0));
     
     setAttendance(prev => {
       const newMap = new Map(prev);
@@ -173,11 +238,15 @@ const Attendance = () => {
   };
 
   const getSessionCount = (studentId: string, date: Date): number => {
+    // Holidays always return 0
+    if (isHoliday(date)) return 0;
+    
     const dateStr = format(date, "yyyy-MM-dd");
     const key: AttendanceKey = `${studentId}_${dateStr}`;
-    const value = attendance.get(key) ?? maxSessionsPerDay;
-    // Cap at maxSessionsPerDay to prevent exceeding 100%
-    return Math.min(value, maxSessionsPerDay);
+    const effectiveMax = getEffectiveMaxSessions(date);
+    const value = attendance.get(key) ?? effectiveMax;
+    // Cap at effective max to prevent exceeding 100%
+    return Math.min(value, effectiveMax);
   };
 
   const markAllFull = () => {
@@ -185,13 +254,17 @@ const Attendance = () => {
       const newMap = new Map(prev);
       filteredStudents.forEach(student => {
         weekDates.forEach(date => {
+          // Skip holidays
+          if (isHoliday(date)) return;
+          
           const dateStr = format(date, "yyyy-MM-dd");
-          newMap.set(`${student.id}_${dateStr}` as AttendanceKey, maxSessionsPerDay);
+          const effectiveMax = getEffectiveMaxSessions(date);
+          newMap.set(`${student.id}_${dateStr}` as AttendanceKey, effectiveMax);
         });
       });
       return newMap;
     });
-    toast.success("All students marked with full attendance");
+    toast.success("All students marked with full attendance (holidays excluded)");
   };
 
   const syncAttendanceToStudents = async () => {
@@ -294,23 +367,33 @@ const Attendance = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Prepare records for upsert
+      // Prepare records for upsert (skip holidays)
       const records: any[] = [];
       filteredStudents.forEach(student => {
         weekDates.forEach(date => {
+          // Skip holidays - don't save attendance records for holidays
+          if (isHoliday(date)) return;
+          
           const dateStr = format(date, "yyyy-MM-dd");
           const key: AttendanceKey = `${student.id}_${dateStr}`;
-          const sessions = attendance.get(key) ?? maxSessionsPerDay;
+          const effectiveMax = getEffectiveMaxSessions(date);
+          const sessions = attendance.get(key) ?? effectiveMax;
           
           records.push({
             student_id: student.id,
             user_id: user.id,
             attendance_date: dateStr,
-            sessions_attended: Math.min(sessions, maxSessionsPerDay),
-            max_sessions: maxSessionsPerDay
+            sessions_attended: Math.min(sessions, effectiveMax),
+            max_sessions: effectiveMax
           });
         });
       });
+
+      if (records.length === 0) {
+        toast.info("No attendance to save (all selected days are holidays)");
+        setSaving(false);
+        return;
+      }
 
       // Upsert records using any type to bypass type checking
       const { error } = await (supabase as any)
@@ -345,12 +428,16 @@ const Attendance = () => {
     let daysWithInput = 0;
 
     weekDates.forEach(date => {
+      // Skip holidays in calculations
+      if (isHoliday(date)) return;
+      
       const sessions = getSessionCount(student.id, date);
+      const effectiveMax = getEffectiveMaxSessions(date);
       if (sessions >= 0) {
         daysWithInput++;
-        // Cap sessions at maxSessionsPerDay
-        attendedSessions += Math.min(sessions, maxSessionsPerDay);
-        totalSessions += maxSessionsPerDay;
+        // Cap sessions at effective max
+        attendedSessions += Math.min(sessions, effectiveMax);
+        totalSessions += effectiveMax;
       }
     });
 
@@ -359,8 +446,11 @@ const Attendance = () => {
     return { attendedSessions, totalSessions, percentage, daysWithInput };
   };
 
-  // Calculate weekly total sessions (days × max sessions per day)
-  const weeklyTotalSessions = DAYS.length * maxSessionsPerDay;
+  // Calculate weekly total sessions (excluding holidays)
+  const weeklyTotalSessions = weekDates.reduce((sum, date) => {
+    if (isHoliday(date)) return sum;
+    return sum + getEffectiveMaxSessions(date);
+  }, 0);
 
   // Calculate average attendance percentage across all students
   const averageAttendance = filteredStudents.length > 0
@@ -506,14 +596,31 @@ const Attendance = () => {
                               <TableRow>
                                 <TableHead className="sticky left-0 bg-background z-10 min-w-[80px]">Roll No</TableHead>
                                 <TableHead className="sticky left-[80px] bg-background z-10 min-w-[120px]">Name</TableHead>
-                                {weekDates.map((date, index) => (
-                                  <TableHead key={index} className="text-center min-w-[70px]">
-                                    <div className="flex flex-col items-center">
-                                      <span className="font-semibold">{DAYS[index]}</span>
-                                      <span className="text-xs text-muted-foreground">{format(date, "d MMM")}</span>
-                                    </div>
-                                  </TableHead>
-                                ))}
+                                {weekDates.map((date, index) => {
+                                  const holiday = isHoliday(date);
+                                  const customSess = getCustomSessions(date);
+                                  return (
+                                    <TableHead key={index} className={cn(
+                                      "text-center min-w-[70px]",
+                                      holiday && "bg-destructive/10"
+                                    )}>
+                                      <div className="flex flex-col items-center">
+                                        <span className="font-semibold">{DAYS[index]}</span>
+                                        <span className="text-xs text-muted-foreground">{format(date, "d MMM")}</span>
+                                        {holiday && (
+                                          <Badge variant="destructive" className="text-[10px] px-1 py-0 mt-1">
+                                            Holiday
+                                          </Badge>
+                                        )}
+                                        {customSess !== null && !holiday && (
+                                          <Badge variant="outline" className="text-[10px] px-1 py-0 mt-1">
+                                            {customSess} sess
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </TableHead>
+                                  );
+                                })}
                                 <TableHead className="text-center min-w-[80px]">Weekly %</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -532,15 +639,28 @@ const Attendance = () => {
                                       </div>
                                     </TableCell>
                                     {weekDates.map((date, index) => {
+                                      const holiday = isHoliday(date);
                                       const sessionCount = getSessionCount(student.id, date);
-                                      const isFullAttendance = sessionCount === maxSessionsPerDay;
+                                      const effectiveMax = getEffectiveMaxSessions(date);
+                                      const isFullAttendance = sessionCount === effectiveMax;
                                       const isZero = sessionCount === 0;
+                                      
+                                      if (holiday) {
+                                        return (
+                                          <TableCell key={index} className="text-center p-1 bg-destructive/10">
+                                            <div className="w-14 h-9 flex items-center justify-center mx-auto text-xs text-muted-foreground">
+                                              —
+                                            </div>
+                                          </TableCell>
+                                        );
+                                      }
+                                      
                                       return (
                                         <TableCell key={index} className="text-center p-1">
                                           <Input
                                             type="number"
                                             min={0}
-                                            max={maxSessionsPerDay}
+                                            max={effectiveMax}
                                             value={sessionCount}
                                             onChange={(e) => updateSessionCount(student.id, date, e.target.value)}
                                             className={cn(
