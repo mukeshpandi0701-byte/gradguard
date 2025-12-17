@@ -30,7 +30,7 @@ const AcademicCalendar = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [department, setDepartment] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   
@@ -86,12 +86,12 @@ const AcademicCalendar = () => {
     setDescription("");
     setCustomSessions(0);
     setEditingEvent(null);
-    setSelectedDate(new Date());
+    setSelectedDates([]);
   };
 
   const openEditDialog = (event: CalendarEvent) => {
     setEditingEvent(event);
-    setSelectedDate(new Date(event.event_date));
+    setSelectedDates([new Date(event.event_date)]);
     setEventType(event.event_type as "holiday" | "custom_sessions");
     setDescription(event.description || "");
     setCustomSessions(event.custom_sessions || 0);
@@ -99,8 +99,8 @@ const AcademicCalendar = () => {
   };
 
   const handleSaveEvent = async () => {
-    if (!selectedDate) {
-      toast.error("Please select a date");
+    if (selectedDates.length === 0) {
+      toast.error("Please select at least one date");
       return;
     }
 
@@ -114,17 +114,17 @@ const AcademicCalendar = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const eventData = {
-        department,
-        event_date: format(selectedDate, "yyyy-MM-dd"),
-        event_type: eventType,
-        description: description.trim() || null,
-        custom_sessions: eventType === "custom_sessions" ? customSessions : null,
-        created_by: user.id,
-      };
-
       if (editingEvent) {
-        // Update existing
+        // Update existing (single date)
+        const eventData = {
+          department,
+          event_date: format(selectedDates[0], "yyyy-MM-dd"),
+          event_type: eventType,
+          description: description.trim() || null,
+          custom_sessions: eventType === "custom_sessions" ? customSessions : null,
+          created_by: user.id,
+        };
+        
         const { error } = await supabase
           .from("academic_calendar")
           .update(eventData)
@@ -133,13 +133,23 @@ const AcademicCalendar = () => {
         if (error) throw error;
         toast.success("Calendar event updated");
       } else {
-        // Insert new (upsert to handle same date)
+        // Insert multiple dates
+        const eventsToInsert = selectedDates.map(date => ({
+          department,
+          event_date: format(date, "yyyy-MM-dd"),
+          event_type: eventType,
+          description: description.trim() || null,
+          custom_sessions: eventType === "custom_sessions" ? customSessions : null,
+          created_by: user.id,
+        }));
+
+        // Upsert to handle conflicts
         const { error } = await supabase
           .from("academic_calendar")
-          .upsert(eventData, { onConflict: "department,event_date" });
+          .upsert(eventsToInsert, { onConflict: "department,event_date" });
 
         if (error) throw error;
-        toast.success("Calendar event added");
+        toast.success(`${selectedDates.length} calendar event(s) added`);
       }
 
       setDialogOpen(false);
@@ -226,19 +236,47 @@ const AcademicCalendar = () => {
 
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Date</Label>
-                  <div className="border rounded-md p-3">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      className="mx-auto"
-                    />
+                  <Label>{editingEvent ? "Date" : "Select Date(s)"}</Label>
+                  <div className="border rounded-md p-3 max-h-[320px] overflow-auto">
+                    {editingEvent ? (
+                      <Calendar
+                        mode="single"
+                        selected={selectedDates[0]}
+                        onSelect={(date) => setSelectedDates(date ? [date] : [])}
+                        className="mx-auto"
+                      />
+                    ) : (
+                      <Calendar
+                        mode="multiple"
+                        selected={selectedDates}
+                        onSelect={(dates) => setSelectedDates(dates || [])}
+                        className="mx-auto"
+                      />
+                    )}
                   </div>
-                  {selectedDate && (
-                    <p className="text-sm text-muted-foreground text-center">
-                      Selected: {format(selectedDate, "EEEE, MMMM d, yyyy")}
-                    </p>
+                  {selectedDates.length > 0 && (
+                    <div className="text-sm text-muted-foreground text-center">
+                      {editingEvent 
+                        ? `Selected: ${format(selectedDates[0], "EEEE, MMMM d, yyyy")}`
+                        : (
+                          <div className="space-y-1">
+                            <p className="font-medium">{selectedDates.length} date(s) selected</p>
+                            <div className="flex flex-wrap gap-1 justify-center max-h-16 overflow-auto">
+                              {selectedDates.slice(0, 5).map((d, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {format(d, "MMM d")}
+                                </Badge>
+                              ))}
+                              {selectedDates.length > 5 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{selectedDates.length - 5} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      }
+                    </div>
                   )}
                 </div>
 
@@ -314,8 +352,8 @@ const AcademicCalendar = () => {
             <CardContent>
               <Calendar
                 mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
+                selected={undefined}
+                onSelect={() => {}}
                 modifiers={{
                   holiday: holidayDates,
                   customSession: customSessionDates,
