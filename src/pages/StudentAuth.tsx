@@ -175,7 +175,7 @@ const StudentAuth = () => {
                     <Input
                       id="login-email"
                       type="email"
-                      placeholder="71052402066@ciet.in"
+                      placeholder="rollnumber@collegename.in"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -224,7 +224,7 @@ const StudentAuth = () => {
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="71052402066@ciet.in"
+                      placeholder="rollnumber@collegename.in"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required

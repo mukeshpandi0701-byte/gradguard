@@ -138,7 +138,7 @@ const HODAuth = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="name@cietcbe.hod.edu.in"
+                    placeholder="name@collegenameplace.hod.edu.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -191,7 +191,7 @@ const HODAuth = () => {
                   <Input
                     id="signupEmail"
                     type="email"
-                    placeholder="name@cietcbe.hod.edu.in"
+                    placeholder="name@collegenameplace.hod.edu.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
