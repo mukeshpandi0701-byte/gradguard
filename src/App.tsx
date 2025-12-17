@@ -33,6 +33,7 @@ import SocialProfiles from "./pages/SocialProfiles";
 import History from "./pages/History";
 import AssignmentScores from "./pages/AssignmentScores";
 import SubjectManagementPage from "./pages/SubjectManagement";
+import AcademicCalendar from "./pages/AcademicCalendar";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ function AnimatedRoutes() {
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/hod/user-management" element={<HODUserManagement />} />
         <Route path="/hod/subjects" element={<SubjectManagementPage />} />
+        <Route path="/hod/calendar" element={<AcademicCalendar />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/upload" element={<Upload />} />
