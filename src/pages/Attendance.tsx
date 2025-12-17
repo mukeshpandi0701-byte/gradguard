@@ -625,7 +625,7 @@ const Attendance = () => {
                                           </Badge>
                                         )}
                                         {customSess !== null && !holidayInfo.isHoliday && (
-                                          <Badge variant="outline" className="text-[10px] px-1 py-0 mt-1">
+                                          <Badge variant="outline" className="text-[10px] px-1 py-0 mt-1 border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-900/20">
                                             {customSess} sess
                                           </Badge>
                                         )}
