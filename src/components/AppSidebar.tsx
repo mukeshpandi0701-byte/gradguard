@@ -30,6 +30,7 @@ const mainItems = [
   { title: "Students", url: "/students", icon: Users },
   { title: "Export Student PDFs", url: "/students-export", icon: FileDown },
   { title: "Reports & Analytics", url: "/reports", icon: BarChart3 },
+  { title: "Academic Calendar", url: "/calendar", icon: CalendarDays },
 ];
 
 const settingsItems = [

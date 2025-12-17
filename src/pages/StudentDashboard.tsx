@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, BookOpen, CreditCard, TrendingUp, LogOut, AlertTriangle, CheckCircle } from "lucide-react";
+import { Loader2, User, BookOpen, CreditCard, TrendingUp, LogOut, AlertTriangle, CheckCircle, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logo from "@/assets/logo.png";
@@ -269,7 +269,14 @@ const StudentDashboard = () => {
               <p className="text-xs text-muted-foreground">Student Portal</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/student-calendar")} className="hidden sm:flex">
+              <CalendarDays className="w-4 h-4 mr-2" />
+              Calendar
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/student-calendar")} className="sm:hidden">
+              <CalendarDays className="w-5 h-5" />
+            </Button>
             <ThemeToggle />
             <Button variant="ghost" size="icon" onClick={handleLogout}>
               <LogOut className="w-5 h-5" />

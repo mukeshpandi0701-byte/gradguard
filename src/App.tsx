@@ -34,6 +34,8 @@ import History from "./pages/History";
 import AssignmentScores from "./pages/AssignmentScores";
 import SubjectManagementPage from "./pages/SubjectManagement";
 import AcademicCalendar from "./pages/AcademicCalendar";
+import StaffCalendar from "./pages/StaffCalendar";
+import StudentCalendar from "./pages/StudentCalendar";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +54,8 @@ function AnimatedRoutes() {
         <Route path="/hod/user-management" element={<HODUserManagement />} />
         <Route path="/hod/subjects" element={<SubjectManagementPage />} />
         <Route path="/hod/calendar" element={<AcademicCalendar />} />
+        <Route path="/calendar" element={<StaffCalendar />} />
+        <Route path="/student-calendar" element={<StudentCalendar />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/upload" element={<Upload />} />
