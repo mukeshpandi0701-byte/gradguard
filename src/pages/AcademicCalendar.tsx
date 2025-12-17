@@ -55,6 +55,47 @@ const formatDateRange = (range: { start: Date; end: Date }): string => {
 // Check if a date is Sunday
 const isSunday = (date: Date): boolean => getDay(date) === 0;
 
+// Glossy/glassy style classes for calendar markers
+const glossyStyles = {
+  sunday: "bg-gradient-to-br from-indigo-400/80 via-indigo-500/70 to-indigo-600/80 text-white shadow-lg shadow-indigo-500/30 backdrop-blur-sm border border-indigo-300/50 ring-1 ring-white/20",
+  holiday: "bg-gradient-to-br from-rose-400/80 via-rose-500/70 to-rose-600/80 text-white shadow-lg shadow-rose-500/30 backdrop-blur-sm border border-rose-300/50 ring-1 ring-white/20",
+  customSession: "bg-gradient-to-br from-emerald-400/80 via-emerald-500/70 to-emerald-600/80 text-white shadow-lg shadow-emerald-500/30 backdrop-blur-sm border border-emerald-300/50 ring-1 ring-white/20",
+};
+
+// Group events by description and return with date ranges
+interface GroupedEvent {
+  description: string;
+  dates: Date[];
+  eventType: "holiday" | "custom_sessions";
+  customSessions?: number;
+  eventIds: string[];
+}
+
+const groupEventsByDescription = (events: CalendarEvent[]): GroupedEvent[] => {
+  const groups: { [key: string]: GroupedEvent } = {};
+  
+  events.forEach(event => {
+    const key = `${event.event_type}-${event.description || 'No description'}-${event.custom_sessions || 0}`;
+    if (!groups[key]) {
+      groups[key] = {
+        description: event.description || 'No description',
+        dates: [],
+        eventType: event.event_type as "holiday" | "custom_sessions",
+        customSessions: event.custom_sessions || undefined,
+        eventIds: [],
+      };
+    }
+    groups[key].dates.push(new Date(event.event_date));
+    groups[key].eventIds.push(event.id);
+  });
+  
+  return Object.values(groups).sort((a, b) => {
+    const aMin = Math.min(...a.dates.map(d => d.getTime()));
+    const bMin = Math.min(...b.dates.map(d => d.getTime()));
+    return bMin - aMin;
+  });
+};
+
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
@@ -467,6 +508,10 @@ const AcademicCalendar = () => {
   const holidays = nonSundayEvents.filter(e => e.event_type === "holiday");
   const customSessionEvents = nonSundayEvents.filter(e => e.event_type === "custom_sessions");
 
+  // Grouped events for table display
+  const groupedHolidays = groupEventsByDescription(holidays);
+  const groupedCustomSessions = groupEventsByDescription(customSessionEvents);
+
   // Render a single month calendar for the view
   const renderMonthCalendar = (monthDate: Date, size: "small" | "large" = "large") => {
     const grid = generateMonthGrid(monthDate);
@@ -494,20 +539,24 @@ const AcademicCalendar = () => {
             const isHoliday = sunday || (event && event.event_type === "holiday");
             const isCustomSession = event && event.event_type === "custom_sessions";
             
+            // Determine the style class based on event type
+            let cellClass = "bg-background border-border";
+            if (sunday) {
+              cellClass = glossyStyles.sunday;
+            } else if (event && event.event_type === "holiday") {
+              cellClass = glossyStyles.holiday;
+            } else if (isCustomSession) {
+              cellClass = glossyStyles.customSession;
+            }
+            
             return (
               <div
                 key={day.toISOString()}
-                className={`${cellSize} border rounded-sm p-1 ${fontSize} ${
-                  isHoliday 
-                    ? "bg-destructive/20 text-destructive border-destructive/30" 
-                    : isCustomSession 
-                      ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700"
-                      : "bg-background border-border"
-                }`}
+                className={`${cellSize} rounded-lg p-1 ${fontSize} ${cellClass} transition-all duration-200`}
               >
                 <div className="font-medium">{format(day, "d")}</div>
                 {size === "large" && (
-                  <div className="text-[10px] truncate">
+                  <div className="text-[10px] truncate opacity-90">
                     {sunday && "Sunday"}
                     {!sunday && event?.description}
                     {!sunday && isCustomSession && !event?.description && `${event.custom_sessions}s`}
@@ -812,30 +861,40 @@ const AcademicCalendar = () => {
                     }}
                     modifiersStyles={{
                       sunday: { 
-                        backgroundColor: "hsl(var(--destructive))", 
-                        color: "hsl(var(--destructive-foreground))",
-                        borderRadius: "50%" 
+                        background: "linear-gradient(135deg, rgba(129, 140, 248, 0.8), rgba(99, 102, 241, 0.9))",
+                        color: "white",
+                        borderRadius: "50%",
+                        boxShadow: "0 4px 14px -3px rgba(99, 102, 241, 0.4)",
+                        border: "1px solid rgba(165, 180, 252, 0.5)"
                       },
                       holiday: { 
-                        backgroundColor: "hsl(var(--destructive))", 
-                        color: "hsl(var(--destructive-foreground))",
-                        borderRadius: "50%" 
+                        background: "linear-gradient(135deg, rgba(251, 113, 133, 0.8), rgba(244, 63, 94, 0.9))",
+                        color: "white",
+                        borderRadius: "50%",
+                        boxShadow: "0 4px 14px -3px rgba(244, 63, 94, 0.4)",
+                        border: "1px solid rgba(253, 164, 175, 0.5)"
                       },
                       customSession: { 
-                        backgroundColor: "hsl(45 93% 47% / 0.3)", 
-                        color: "hsl(45 93% 30%)",
-                        borderRadius: "50%" 
+                        background: "linear-gradient(135deg, rgba(52, 211, 153, 0.8), rgba(16, 185, 129, 0.9))",
+                        color: "white",
+                        borderRadius: "50%",
+                        boxShadow: "0 4px 14px -3px rgba(16, 185, 129, 0.4)",
+                        border: "1px solid rgba(110, 231, 183, 0.5)"
                       },
                     }}
                     className="mx-auto"
                   />
-                  <div className="flex flex-wrap gap-3 mt-4 justify-center text-sm">
+                  <div className="flex flex-wrap gap-4 mt-4 justify-center text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-destructive" />
-                      <span>Holiday/Sunday</span>
+                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/30" />
+                      <span>Sunday</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-amber-400" />
+                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/30" />
+                      <span>Holiday</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-500/30" />
                       <span>Custom Sessions</span>
                     </div>
                   </div>
@@ -879,7 +938,7 @@ const AcademicCalendar = () => {
                     </TabsList>
 
                     <TabsContent value="holidays">
-                      {holidays.length === 0 ? (
+                      {groupedHolidays.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           <p>No additional holidays configured</p>
                           <p className="text-xs mt-1">Sundays are automatically marked as holidays</p>
@@ -894,56 +953,59 @@ const AcademicCalendar = () => {
                                   onCheckedChange={() => toggleSelectAll(holidays)}
                                 />
                               </TableHead>
-                              <TableHead>Date</TableHead>
+                              <TableHead>Date Range</TableHead>
                               <TableHead>Description</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
+                              <TableHead className="text-right">Count</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {holidays.map((event) => (
-                              <TableRow key={event.id}>
-                                <TableCell>
-                                  <Checkbox
-                                    checked={selectedEventIds.has(event.id)}
-                                    onCheckedChange={() => toggleEventSelection(event.id)}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="destructive">
-                                      {format(new Date(event.event_date), "MMM d, yyyy")}
+                            {groupedHolidays.map((group, idx) => {
+                              const ranges = groupConsecutiveDates(group.dates);
+                              const allSelected = group.eventIds.every(id => selectedEventIds.has(id));
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={allSelected}
+                                      onCheckedChange={() => {
+                                        const newSelection = new Set(selectedEventIds);
+                                        if (allSelected) {
+                                          group.eventIds.forEach(id => newSelection.delete(id));
+                                        } else {
+                                          group.eventIds.forEach(id => newSelection.add(id));
+                                        }
+                                        setSelectedEventIds(newSelection);
+                                      }}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                      {ranges.map((range, i) => (
+                                        <Badge 
+                                          key={i} 
+                                          className="bg-gradient-to-r from-rose-400 to-rose-600 text-white shadow-sm shadow-rose-500/30 border-0"
+                                        >
+                                          {formatDateRange(range)}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-medium">{group.description}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant="outline" className="border-rose-300 text-rose-600">
+                                      {group.dates.length} day(s)
                                     </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {format(new Date(event.event_date), "EEEE")}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>{event.description || "—"}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => openEditDialog(event)}
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDeleteEvent(event.id)}
-                                  >
-                                    <Trash2 className="w-4 h-4 text-destructive" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       )}
                     </TabsContent>
 
                     <TabsContent value="custom">
-                      {customSessionEvents.length === 0 ? (
+                      {groupedCustomSessions.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           No custom sessions configured yet
                         </div>
@@ -957,55 +1019,58 @@ const AcademicCalendar = () => {
                                   onCheckedChange={() => toggleSelectAll(customSessionEvents)}
                                 />
                               </TableHead>
-                              <TableHead>Date</TableHead>
+                              <TableHead>Date Range</TableHead>
                               <TableHead>Sessions</TableHead>
                               <TableHead>Description</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
+                              <TableHead className="text-right">Count</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {customSessionEvents.map((event) => (
-                              <TableRow key={event.id}>
-                                <TableCell>
-                                  <Checkbox
-                                    checked={selectedEventIds.has(event.id)}
-                                    onCheckedChange={() => toggleEventSelection(event.id)}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <Badge className="bg-amber-500 hover:bg-amber-600">
-                                      {format(new Date(event.event_date), "MMM d, yyyy")}
+                            {groupedCustomSessions.map((group, idx) => {
+                              const ranges = groupConsecutiveDates(group.dates);
+                              const allSelected = group.eventIds.every(id => selectedEventIds.has(id));
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={allSelected}
+                                      onCheckedChange={() => {
+                                        const newSelection = new Set(selectedEventIds);
+                                        if (allSelected) {
+                                          group.eventIds.forEach(id => newSelection.delete(id));
+                                        } else {
+                                          group.eventIds.forEach(id => newSelection.add(id));
+                                        }
+                                        setSelectedEventIds(newSelection);
+                                      }}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                      {ranges.map((range, i) => (
+                                        <Badge 
+                                          key={i} 
+                                          className="bg-gradient-to-r from-emerald-400 to-emerald-600 text-white shadow-sm shadow-emerald-500/30 border-0"
+                                        >
+                                          {formatDateRange(range)}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className="border-emerald-500 text-emerald-600">
+                                      {group.customSessions} sessions
                                     </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {format(new Date(event.event_date), "EEEE")}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className="border-amber-500 text-amber-600">
-                                    {event.custom_sessions} sessions
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>{event.description || "—"}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => openEditDialog(event)}
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDeleteEvent(event.id)}
-                                  >
-                                    <Trash2 className="w-4 h-4 text-destructive" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                                  </TableCell>
+                                  <TableCell className="font-medium">{group.description}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant="outline" className="border-emerald-300 text-emerald-600">
+                                      {group.dates.length} day(s)
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       )}
@@ -1037,13 +1102,17 @@ const AcademicCalendar = () => {
               </CardHeader>
               <CardContent>
                 {renderMonthCalendar(currentMonth, "large")}
-                <div className="flex gap-4 mt-4 justify-center text-sm">
+                <div className="flex flex-wrap gap-4 mt-4 justify-center text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-destructive/20 border border-destructive/30" />
-                    <span>Holiday/Sunday</span>
+                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/30" />
+                    <span>Sunday</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-amber-100 border border-amber-300 dark:bg-amber-900/30 dark:border-amber-700" />
+                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/30" />
+                    <span>Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-500/30" />
                     <span>Custom Sessions</span>
                   </div>
                 </div>
@@ -1078,13 +1147,17 @@ const AcademicCalendar = () => {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-4 mt-6 justify-center text-sm">
+                <div className="flex flex-wrap gap-4 mt-6 justify-center text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-destructive/20 border border-destructive/30" />
-                    <span>Holiday/Sunday</span>
+                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/30" />
+                    <span>Sunday</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-amber-100 border border-amber-300 dark:bg-amber-900/30 dark:border-amber-700" />
+                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/30" />
+                    <span>Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-500/30" />
                     <span>Custom Sessions</span>
                   </div>
                 </div>
