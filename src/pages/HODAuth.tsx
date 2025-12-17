@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { HelpCircle } from "lucide-react";
@@ -16,8 +17,6 @@ import logo from "@/assets/logo.png";
 
 const COLLEGES = [
   { value: "CIET", label: "Coimbatore Institute of Engineering and Technology (CIET)" },
-  { value: "SRIT", label: "Sri Ramakrishna Institute of Technology (SRIT)" },
-  { value: "KPRIET", label: "KPR Institute of Engineering and Technology (KPRIET)" },
 ];
 
 const DEPARTMENTS = [
@@ -34,6 +33,7 @@ const HODAuth = () => {
   const [fullName, setFullName] = useState("");
   const [college, setCollege] = useState("");
   const [department, setDepartment] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
   const validateEmail = (email: string) => {
     const hodEmailPattern = /^[a-zA-Z]+@cietcbe\.hod\.edu\.in$/;
@@ -153,7 +153,7 @@ const HODAuth = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="name@collegenameplace.hod.edu.in"
+                    placeholder="name@cietcbe.hod.edu.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -169,6 +169,16 @@ const HODAuth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  />
+                  <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer">
+                    Remember me
+                  </Label>
                 </div>
               </CardContent>
               <CardFooter className="flex-col gap-4">
@@ -218,7 +228,7 @@ const HODAuth = () => {
                   <Input
                     id="signupEmail"
                     type="email"
-                    placeholder="name@collegenameplace.hod.edu.in"
+                    placeholder="name@cietcbe.hod.edu.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
