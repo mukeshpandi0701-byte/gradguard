@@ -533,6 +533,31 @@ const Attendance = () => {
                         onSelect={(date) => date && setWeekStart(startOfWeek(date, { weekStartsOn: 1 }))}
                         initialFocus
                         className="pointer-events-auto"
+                        modifiers={{
+                          sunday: (date) => getDay(date) === 0,
+                          holiday: calendarEvents.filter(e => e.event_type === "holiday").map(e => new Date(e.event_date)),
+                          customSession: calendarEvents.filter(e => e.event_type === "custom_sessions").map(e => new Date(e.event_date)),
+                        }}
+                        modifiersStyles={{
+                          sunday: { 
+                            background: "rgba(99, 102, 241, 0.15)",
+                            color: "rgb(129, 140, 248)",
+                            borderRadius: "6px",
+                            border: "1px solid rgba(99, 102, 241, 0.3)"
+                          },
+                          holiday: { 
+                            background: "rgba(244, 63, 94, 0.15)",
+                            color: "rgb(251, 113, 133)",
+                            borderRadius: "6px",
+                            border: "1px solid rgba(244, 63, 94, 0.3)"
+                          },
+                          customSession: { 
+                            background: "rgba(16, 185, 129, 0.15)",
+                            color: "rgb(52, 211, 153)",
+                            borderRadius: "6px",
+                            border: "1px solid rgba(16, 185, 129, 0.3)"
+                          },
+                        }}
                       />
                     </PopoverContent>
                   </Popover>

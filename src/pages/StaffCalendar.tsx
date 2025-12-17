@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Calendar as CalendarIcon, Download, ChevronLeft, ChevronRight, PartyPopper, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, Download, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import { format, getDay, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from "date-fns";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ interface CalendarEvent {
 }
 
 const StaffCalendar = () => {
+  const navigate = useNavigate();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [department, setDepartment] = useState<string>("");
@@ -283,14 +285,19 @@ const StaffCalendar = () => {
     <DashboardLayout>
       <div className="space-y-6 w-full">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-3xl font-bold flex items-center gap-2">
-              <CalendarIcon className="h-8 w-8" />
-              Academic Calendar
-            </h2>
-            <p className="text-muted-foreground mt-2">
-              View holidays and session schedules for {department}
-            </p>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h2 className="text-3xl font-bold flex items-center gap-2">
+                <CalendarIcon className="h-8 w-8" />
+                Academic Calendar
+              </h2>
+              <p className="text-muted-foreground mt-2">
+                View holidays and session schedules for {department}
+              </p>
+            </div>
           </div>
           <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
             <DialogTrigger asChild>
