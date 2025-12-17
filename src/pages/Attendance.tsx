@@ -535,8 +535,14 @@ const Attendance = () => {
                         className="pointer-events-auto"
                         modifiers={{
                           sunday: (date) => getDay(date) === 0,
-                          holiday: calendarEvents.filter(e => e.event_type === "holiday").map(e => new Date(e.event_date)),
-                          customSession: calendarEvents.filter(e => e.event_type === "custom_sessions").map(e => new Date(e.event_date)),
+                          holiday: (date) => {
+                            const dateStr = format(date, "yyyy-MM-dd");
+                            return calendarEvents.some(e => e.event_date === dateStr && e.event_type === "holiday");
+                          },
+                          customSession: (date) => {
+                            const dateStr = format(date, "yyyy-MM-dd");
+                            return calendarEvents.some(e => e.event_date === dateStr && e.event_type === "custom_sessions");
+                          },
                         }}
                         modifiersStyles={{
                           sunday: { 
