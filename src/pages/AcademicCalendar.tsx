@@ -955,13 +955,15 @@ const AcademicCalendar = () => {
                               </TableHead>
                               <TableHead>Date Range</TableHead>
                               <TableHead>Description</TableHead>
-                              <TableHead className="text-right">Count</TableHead>
+                              <TableHead>Count</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {groupedHolidays.map((group, idx) => {
                               const ranges = groupConsecutiveDates(group.dates);
                               const allSelected = group.eventIds.every(id => selectedEventIds.has(id));
+                              const firstEvent = holidays.find(h => h.id === group.eventIds[0]);
                               return (
                                 <TableRow key={idx}>
                                   <TableCell>
@@ -991,10 +993,43 @@ const AcademicCalendar = () => {
                                     </div>
                                   </TableCell>
                                   <TableCell className="font-medium">{group.description}</TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell>
                                     <Badge variant="outline" className="border-rose-300 text-rose-600">
                                       {group.dates.length} day(s)
                                     </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                      {firstEvent && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => openEditDialog(firstEvent)}
+                                        >
+                                          <Edit2 className="w-4 h-4" />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={async () => {
+                                          if (!confirm(`Delete ${group.dates.length} holiday(s)?`)) return;
+                                          try {
+                                            const { error } = await supabase
+                                              .from("academic_calendar")
+                                              .delete()
+                                              .in("id", group.eventIds);
+                                            if (error) throw error;
+                                            toast.success(`${group.dates.length} holiday(s) deleted`);
+                                            fetchDepartmentAndEvents();
+                                          } catch (error: any) {
+                                            toast.error("Failed to delete");
+                                          }
+                                        }}
+                                      >
+                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                      </Button>
+                                    </div>
                                   </TableCell>
                                 </TableRow>
                               );
@@ -1022,13 +1057,15 @@ const AcademicCalendar = () => {
                               <TableHead>Date Range</TableHead>
                               <TableHead>Sessions</TableHead>
                               <TableHead>Description</TableHead>
-                              <TableHead className="text-right">Count</TableHead>
+                              <TableHead>Count</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {groupedCustomSessions.map((group, idx) => {
                               const ranges = groupConsecutiveDates(group.dates);
                               const allSelected = group.eventIds.every(id => selectedEventIds.has(id));
+                              const firstEvent = customSessionEvents.find(e => e.id === group.eventIds[0]);
                               return (
                                 <TableRow key={idx}>
                                   <TableCell>
@@ -1063,10 +1100,43 @@ const AcademicCalendar = () => {
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="font-medium">{group.description}</TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell>
                                     <Badge variant="outline" className="border-emerald-300 text-emerald-600">
                                       {group.dates.length} day(s)
                                     </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                      {firstEvent && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => openEditDialog(firstEvent)}
+                                        >
+                                          <Edit2 className="w-4 h-4" />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={async () => {
+                                          if (!confirm(`Delete ${group.dates.length} custom session(s)?`)) return;
+                                          try {
+                                            const { error } = await supabase
+                                              .from("academic_calendar")
+                                              .delete()
+                                              .in("id", group.eventIds);
+                                            if (error) throw error;
+                                            toast.success(`${group.dates.length} custom session(s) deleted`);
+                                            fetchDepartmentAndEvents();
+                                          } catch (error: any) {
+                                            toast.error("Failed to delete");
+                                          }
+                                        }}
+                                      >
+                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                      </Button>
+                                    </div>
                                   </TableCell>
                                 </TableRow>
                               );
