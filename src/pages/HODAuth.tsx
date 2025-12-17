@@ -7,8 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { HelpCircle } from "lucide-react";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import logo from "@/assets/logo.png";
 
 const COLLEGES = [
@@ -134,7 +137,19 @@ const HODAuth = () => {
             <form onSubmit={handleLogin}>
               <CardContent className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">HOD Email</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="email">HOD Email</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[250px]">
+                          <p>Use your institutional HOD email in the format: <strong>name@cietcbe.hod.edu.in</strong></p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     id="email"
                     type="email"
@@ -187,7 +202,19 @@ const HODAuth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signupEmail">HOD Email *</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="signupEmail">HOD Email *</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[250px]">
+                          <p>Use your institutional HOD email in the format: <strong>name@cietcbe.hod.edu.in</strong></p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     id="signupEmail"
                     type="email"
@@ -207,6 +234,7 @@ const HODAuth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                  <PasswordStrengthIndicator password={password} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="college">College *</Label>

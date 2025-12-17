@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { GraduationCap, Users } from "lucide-react";
+import { HelpCircle } from "lucide-react";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import logo from "@/assets/logo.png";
 
 const COLLEGES = [
@@ -132,7 +134,19 @@ const StaffAuth = () => {
               <form onSubmit={handleLogin}>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="login-email">Email</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[250px]">
+                            <p>Use your institutional staff email in the format: <strong>name@cietcbe.edu.in</strong></p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <Input
                       id="login-email"
                       type="email"
@@ -181,7 +195,19 @@ const StaffAuth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email *</Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="signup-email">Email *</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[250px]">
+                            <p>Use your institutional staff email in the format: <strong>name@cietcbe.edu.in</strong></p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <Input
                       id="signup-email"
                       type="email"
@@ -203,6 +229,7 @@ const StaffAuth = () => {
                       required
                       minLength={6}
                     />
+                    <PasswordStrengthIndicator password={password} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="college">College *</Label>
