@@ -6,8 +6,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Calendar as CalendarIcon, Plus, Trash2, Edit2, PartyPopper, Clock, RotateCcw, X, CheckSquare } from "lucide-react";
-import { format, differenceInDays, eachDayOfInterval, getDay, addMonths, startOfMonth, endOfMonth } from "date-fns";
+import { Calendar as CalendarIcon, Plus, Trash2, Edit2, PartyPopper, Clock, X } from "lucide-react";
+import { format, differenceInDays, getDay } from "date-fns";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -51,11 +51,8 @@ const formatDateRange = (range: { start: Date; end: Date }): string => {
   return `${format(range.start, "MMM d")} - ${format(range.end, "MMM d")}`;
 };
 
-// Get all Sundays in a date range
-const getSundaysInRange = (startDate: Date, endDate: Date): Date[] => {
-  const days = eachDayOfInterval({ start: startDate, end: endDate });
-  return days.filter(day => getDay(day) === 0); // 0 = Sunday
-};
+// Check if a date is Sunday
+const isSunday = (date: Date): boolean => getDay(date) === 0;
 
 interface CalendarEvent {
   id: string;
@@ -75,8 +72,6 @@ const AcademicCalendar = () => {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
-  const [recurringMonths, setRecurringMonths] = useState<number>(3);
   
   // Bulk selection state
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
@@ -150,6 +145,13 @@ const AcademicCalendar = () => {
       return;
     }
 
+    // Filter out Sundays - they're default holidays
+    const nonSundayDates = selectedDates.filter(d => !isSunday(d));
+    if (nonSundayDates.length === 0) {
+      toast.error("Sundays are already marked as default holidays");
+      return;
+    }
+
     if (eventType === "custom_sessions" && (customSessions < 0 || customSessions > 10)) {
       toast.error("Sessions must be between 0 and 10");
       return;
@@ -163,7 +165,7 @@ const AcademicCalendar = () => {
       if (editingEvent) {
         const eventData = {
           department,
-          event_date: format(selectedDates[0], "yyyy-MM-dd"),
+          event_date: format(nonSundayDates[0], "yyyy-MM-dd"),
           event_type: eventType,
           description: description.trim() || null,
           custom_sessions: eventType === "custom_sessions" ? customSessions : null,
@@ -178,7 +180,7 @@ const AcademicCalendar = () => {
         if (error) throw error;
         toast.success("Calendar event updated");
       } else {
-        const eventsToInsert = selectedDates.map(date => ({
+        const eventsToInsert = nonSundayDates.map(date => ({
           department,
           event_date: format(date, "yyyy-MM-dd"),
           event_type: eventType,
@@ -192,7 +194,7 @@ const AcademicCalendar = () => {
           .upsert(eventsToInsert, { onConflict: "department,event_date" });
 
         if (error) throw error;
-        toast.success(`${selectedDates.length} calendar event(s) added`);
+        toast.success(`${nonSundayDates.length} calendar event(s) added`);
       }
 
       setDialogOpen(false);
@@ -201,46 +203,6 @@ const AcademicCalendar = () => {
     } catch (error: any) {
       console.error("Error saving event:", error);
       toast.error(error.message || "Failed to save event");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddRecurringSundays = async () => {
-    setSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const startDate = new Date();
-      const endDate = addMonths(endOfMonth(startDate), recurringMonths - 1);
-      const sundays = getSundaysInRange(startDate, endDate);
-
-      if (sundays.length === 0) {
-        toast.error("No Sundays found in the selected range");
-        return;
-      }
-
-      const eventsToInsert = sundays.map(date => ({
-        department,
-        event_date: format(date, "yyyy-MM-dd"),
-        event_type: "holiday" as const,
-        description: "Sunday (Weekly Holiday)",
-        custom_sessions: null,
-        created_by: user.id,
-      }));
-
-      const { error } = await supabase
-        .from("academic_calendar")
-        .upsert(eventsToInsert, { onConflict: "department,event_date" });
-
-      if (error) throw error;
-      toast.success(`${sundays.length} Sundays marked as holidays`);
-      setRecurringDialogOpen(false);
-      fetchDepartmentAndEvents();
-    } catch (error: any) {
-      console.error("Error adding recurring holidays:", error);
-      toast.error(error.message || "Failed to add recurring holidays");
     } finally {
       setSaving(false);
     }
@@ -314,16 +276,22 @@ const AcademicCalendar = () => {
     setSelectedEventIds(newSelection);
   };
 
-  const holidayDates = events
+  // Filter out Sunday events from display (Sundays are default holidays)
+  const nonSundayEvents = events.filter(e => {
+    const eventDate = new Date(e.event_date);
+    return !isSunday(eventDate);
+  });
+
+  const holidayDates = nonSundayEvents
     .filter(e => e.event_type === "holiday")
     .map(e => new Date(e.event_date));
   
-  const customSessionDates = events
+  const customSessionDates = nonSundayEvents
     .filter(e => e.event_type === "custom_sessions")
     .map(e => new Date(e.event_date));
 
-  const holidays = events.filter(e => e.event_type === "holiday");
-  const customSessionEvents = events.filter(e => e.event_type === "custom_sessions");
+  const holidays = nonSundayEvents.filter(e => e.event_type === "holiday");
+  const customSessionEvents = nonSundayEvents.filter(e => e.event_type === "custom_sessions");
 
   if (loading) {
     return (
@@ -348,125 +316,111 @@ const AcademicCalendar = () => {
               Manage holidays and customize session hours for {department}
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {/* Recurring Sundays Dialog */}
-            <Dialog open={recurringDialogOpen} onOpenChange={setRecurringDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Add All Sundays
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Recurring Sunday Holidays</DialogTitle>
-                  <DialogDescription>
-                    Mark all Sundays as holidays for the next few months
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="py-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label>Number of Months</Label>
-                    <Select value={recurringMonths.toString()} onValueChange={(v) => setRecurringMonths(parseInt(v))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 Month</SelectItem>
-                        <SelectItem value="3">3 Months</SelectItem>
-                        <SelectItem value="6">6 Months</SelectItem>
-                        <SelectItem value="12">12 Months</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Starting from today, mark all Sundays as holidays
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setRecurringDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddRecurringSundays} disabled={saving}>
-                    {saving ? "Adding..." : "Add Sundays"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+          
+          {/* Add Event Dialog */}
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Event
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>{editingEvent ? "Edit Event" : "Add Calendar Event"}</DialogTitle>
+                <DialogDescription>
+                  Mark holidays or set custom session hours. Sundays are default holidays.
+                </DialogDescription>
+              </DialogHeader>
 
-            {/* Add Event Dialog */}
-            <Dialog open={dialogOpen} onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) resetForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Event
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{editingEvent ? "Edit Event" : "Add Calendar Event"}</DialogTitle>
-                  <DialogDescription>
-                    Mark holidays or set custom session hours for specific days
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>{editingEvent ? "Date" : "Select Date(s)"}</Label>
-                      {!editingEvent && selectedDates.length > 0 && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setSelectedDates([])}
-                          className="h-7 px-2 text-xs"
-                        >
-                          <X className="w-3 h-3 mr-1" />
-                          Clear All
-                        </Button>
-                      )}
-                    </div>
-                    <div className="border rounded-md p-3 max-h-[320px] overflow-auto">
-                      {editingEvent ? (
-                        <Calendar
-                          mode="single"
-                          selected={selectedDates[0]}
-                          onSelect={(date) => setSelectedDates(date ? [date] : [])}
-                          className="mx-auto"
-                        />
-                      ) : (
-                        <Calendar
-                          mode="multiple"
-                          selected={selectedDates}
-                          onSelect={(dates) => setSelectedDates(dates || [])}
-                          className="mx-auto"
-                        />
-                      )}
-                    </div>
-                    {selectedDates.length > 0 && (
-                      <div className="text-sm text-muted-foreground text-center">
-                        {editingEvent 
-                          ? `Selected: ${format(selectedDates[0], "EEEE, MMMM d, yyyy")}`
-                          : (
-                            <div className="space-y-1">
-                              <p className="font-medium">{selectedDates.length} date(s) selected</p>
-                              <div className="flex flex-wrap gap-1 justify-center max-h-20 overflow-auto">
-                                {groupConsecutiveDates(selectedDates).map((range, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs">
-                                    {formatDateRange(range)}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )
-                        }
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                {/* Left side - Calendar */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>{editingEvent ? "Date" : "Select Date(s)"}</Label>
+                    {!editingEvent && selectedDates.length > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setSelectedDates([])}
+                        className="h-7 px-2 text-xs"
+                      >
+                        <X className="w-3 h-3 mr-1" />
+                        Clear All
+                      </Button>
                     )}
                   </div>
+                  <div className="border rounded-md p-3">
+                    {editingEvent ? (
+                      <Calendar
+                        mode="single"
+                        selected={selectedDates[0]}
+                        onSelect={(date) => setSelectedDates(date ? [date] : [])}
+                        className="mx-auto pointer-events-auto"
+                        modifiers={{
+                          sunday: (date) => isSunday(date),
+                        }}
+                        modifiersStyles={{
+                          sunday: { 
+                            backgroundColor: "hsl(var(--destructive))", 
+                            color: "hsl(var(--destructive-foreground))",
+                            borderRadius: "50%" 
+                          },
+                        }}
+                        disabled={(date) => isSunday(date)}
+                      />
+                    ) : (
+                      <Calendar
+                        mode="multiple"
+                        selected={selectedDates}
+                        onSelect={(dates) => setSelectedDates(dates || [])}
+                        className="mx-auto pointer-events-auto"
+                        modifiers={{
+                          sunday: (date) => isSunday(date),
+                        }}
+                        modifiersStyles={{
+                          sunday: { 
+                            backgroundColor: "hsl(var(--destructive))", 
+                            color: "hsl(var(--destructive-foreground))",
+                            borderRadius: "50%" 
+                          },
+                        }}
+                        disabled={(date) => isSunday(date)}
+                      />
+                    )}
+                  </div>
+                  {selectedDates.length > 0 && (
+                    <div className="text-sm text-muted-foreground text-center">
+                      {editingEvent 
+                        ? `Selected: ${format(selectedDates[0], "EEEE, MMMM d, yyyy")}`
+                        : (
+                          <div className="space-y-1">
+                            <p className="font-medium">{selectedDates.length} date(s) selected</p>
+                            <div className="flex flex-wrap gap-1 justify-center max-h-16 overflow-auto">
+                              {groupConsecutiveDates(selectedDates).map((range, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {formatDateRange(range)}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      }
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground text-center">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-destructive" />
+                      Sundays = Default holidays (no attendance)
+                    </span>
+                  </p>
+                </div>
 
+                {/* Right side - Form fields */}
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Event Type</Label>
                     <Select value={eventType} onValueChange={(v) => setEventType(v as "holiday" | "custom_sessions")}>
@@ -516,18 +470,18 @@ const AcademicCalendar = () => {
                     />
                   </div>
                 </div>
+              </div>
 
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSaveEvent} disabled={saving}>
-                    {saving ? "Saving..." : editingEvent ? "Update" : "Add Event"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEvent} disabled={saving}>
+                  {saving ? "Saving..." : editingEvent ? "Update" : "Add Event"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -543,10 +497,16 @@ const AcademicCalendar = () => {
                 selected={undefined}
                 onSelect={() => {}}
                 modifiers={{
+                  sunday: (date) => isSunday(date),
                   holiday: holidayDates,
                   customSession: customSessionDates,
                 }}
                 modifiersStyles={{
+                  sunday: { 
+                    backgroundColor: "hsl(var(--destructive))", 
+                    color: "hsl(var(--destructive-foreground))",
+                    borderRadius: "50%" 
+                  },
                   holiday: { 
                     backgroundColor: "hsl(var(--destructive))", 
                     color: "hsl(var(--destructive-foreground))",
@@ -560,14 +520,14 @@ const AcademicCalendar = () => {
                 }}
                 className="mx-auto"
               />
-              <div className="flex gap-4 mt-4 justify-center text-sm">
+              <div className="flex flex-wrap gap-3 mt-4 justify-center text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-destructive" />
-                  <span>Holiday</span>
+                  <span>Holiday/Sunday</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-primary" />
-                  <span>Custom</span>
+                  <span>Custom Sessions</span>
                 </div>
               </div>
             </CardContent>
@@ -579,7 +539,9 @@ const AcademicCalendar = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">Calendar Events</CardTitle>
-                  <CardDescription>{events.length} event(s) configured</CardDescription>
+                  <CardDescription>
+                    {nonSundayEvents.length} event(s) configured (Sundays excluded)
+                  </CardDescription>
                 </div>
                 {selectedEventIds.size > 0 && (
                   <Button 
@@ -610,7 +572,8 @@ const AcademicCalendar = () => {
                 <TabsContent value="holidays">
                   {holidays.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      No holidays configured yet
+                      <p>No additional holidays configured</p>
+                      <p className="text-xs mt-1">Sundays are automatically marked as holidays</p>
                     </div>
                   ) : (
                     <Table>
