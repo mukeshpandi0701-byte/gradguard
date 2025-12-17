@@ -3,13 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { FileDown } from "lucide-react";
+import { FileDown, Filter } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { generateStudentReportPDF, StudentReportData } from "@/lib/pdfExport";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PDFPreviewModal } from "@/components/PDFPreviewModal";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+
+type RiskLevel = "high" | "medium" | "low" | "unknown";
 
 const StudentsWithSelection = () => {
   const [students, setStudents] = useState<any[]>([]);
@@ -19,6 +23,7 @@ const StudentsWithSelection = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [departments, setDepartments] = useState<string[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [riskFilters, setRiskFilters] = useState<Set<RiskLevel>>(new Set(["high", "medium", "low", "unknown"]));
 
   useEffect(() => {
     fetchStudents();
@@ -293,9 +298,48 @@ const StudentsWithSelection = () => {
     setSelectedStudents(newSelection);
   };
 
-  const filteredStudents = selectedDepartment === "all" 
+  const toggleRiskFilter = (risk: RiskLevel) => {
+    const newFilters = new Set(riskFilters);
+    if (newFilters.has(risk)) {
+      newFilters.delete(risk);
+    } else {
+      newFilters.add(risk);
+    }
+    setRiskFilters(newFilters);
+  };
+
+  const selectByRisk = (risk: RiskLevel) => {
+    const newSelection = new Set(selectedStudents);
+    const studentsWithRisk = filteredStudents.filter(s => {
+      const studentRisk = (s.predictions?.[0]?.final_risk_level?.toLowerCase() || "unknown") as RiskLevel;
+      return studentRisk === risk;
+    });
+    studentsWithRisk.forEach(s => newSelection.add(s.id));
+    setSelectedStudents(newSelection);
+    toast.success(`Selected ${studentsWithRisk.length} ${risk} risk students`);
+  };
+
+  const getRiskLevel = (student: any): RiskLevel => {
+    return (student.predictions?.[0]?.final_risk_level?.toLowerCase() || "unknown") as RiskLevel;
+  };
+
+  // Apply both department and risk filters
+  const departmentFiltered = selectedDepartment === "all" 
     ? students 
     : students.filter(s => s.department === selectedDepartment);
+
+  const filteredStudents = departmentFiltered.filter(s => {
+    const risk = getRiskLevel(s);
+    return riskFilters.has(risk);
+  });
+
+  // Count by risk level for the current department filter
+  const riskCounts = {
+    high: departmentFiltered.filter(s => getRiskLevel(s) === "high").length,
+    medium: departmentFiltered.filter(s => getRiskLevel(s) === "medium").length,
+    low: departmentFiltered.filter(s => getRiskLevel(s) === "low").length,
+    unknown: departmentFiltered.filter(s => getRiskLevel(s) === "unknown").length,
+  };
 
   if (loading) {
     return (
@@ -310,12 +354,69 @@ const StudentsWithSelection = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 w-full">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-2">
           <h2 className="text-2xl font-bold">Export Student Reports</h2>
-          <Button onClick={handleExportClick} disabled={exporting || selectedStudents.size === 0} size="sm">
-            <FileDown className="w-4 h-4 mr-2" />
-            Export Selected ({selectedStudents.size})
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Risk Filter Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filter by Risk
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Filter by Risk Level</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={riskFilters.has("high")}
+                  onCheckedChange={() => toggleRiskFilter("high")}
+                >
+                  <Badge variant="destructive" className="mr-2">High</Badge>
+                  ({riskCounts.high})
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={riskFilters.has("medium")}
+                  onCheckedChange={() => toggleRiskFilter("medium")}
+                >
+                  <Badge className="bg-yellow-500 mr-2">Medium</Badge>
+                  ({riskCounts.medium})
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={riskFilters.has("low")}
+                  onCheckedChange={() => toggleRiskFilter("low")}
+                >
+                  <Badge className="bg-green-500 mr-2">Low</Badge>
+                  ({riskCounts.low})
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={riskFilters.has("unknown")}
+                  onCheckedChange={() => toggleRiskFilter("unknown")}
+                >
+                  <Badge variant="secondary" className="mr-2">Unknown</Badge>
+                  ({riskCounts.unknown})
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Quick Select</DropdownMenuLabel>
+                <div className="p-2 flex flex-wrap gap-1">
+                  <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => selectByRisk("high")}>
+                    Select High
+                  </Button>
+                  <Button size="sm" className="h-7 text-xs bg-yellow-500 hover:bg-yellow-600" onClick={() => selectByRisk("medium")}>
+                    Select Medium
+                  </Button>
+                  <Button size="sm" className="h-7 text-xs bg-green-500 hover:bg-green-600" onClick={() => selectByRisk("low")}>
+                    Select Low
+                  </Button>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Button onClick={handleExportClick} disabled={exporting || selectedStudents.size === 0} size="sm">
+              <FileDown className="w-4 h-4 mr-2" />
+              Export Selected ({selectedStudents.size})
+            </Button>
+          </div>
         </div>
 
         <PDFPreviewModal
