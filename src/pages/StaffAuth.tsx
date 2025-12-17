@@ -136,7 +136,7 @@ const StaffAuth = () => {
                     <Input
                       id="login-email"
                       type="email"
-                      placeholder="name@cietcbe.edu.in"
+                      placeholder="name@collegenameplace.edu.in"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -185,7 +185,7 @@ const StaffAuth = () => {
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="name@cietcbe.edu.in"
+                      placeholder="name@collegenameplace.edu.in"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
