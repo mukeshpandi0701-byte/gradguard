@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Save, Calendar as CalendarIcon, CheckCheck } from "lucide-react";
-import { format, startOfWeek, addDays } from "date-fns";
+import { format, startOfWeek, addDays, getDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -120,10 +120,22 @@ const Attendance = () => {
     }
   };
 
-  // Helper to check if a date is a holiday
-  const isHoliday = (date: Date): CalendarEvent | null => {
+  // Helper to check if a date is a Sunday
+  const isSunday = (date: Date): boolean => getDay(date) === 0;
+
+  // Helper to check if a date is a holiday (including Sundays as default holidays)
+  const isHoliday = (date: Date): { isHoliday: boolean; description: string | null } => {
+    // Sundays are always holidays
+    if (isSunday(date)) {
+      return { isHoliday: true, description: "Sunday (Default Holiday)" };
+    }
+    
     const dateStr = format(date, "yyyy-MM-dd");
-    return calendarEvents.find(e => e.event_date === dateStr && e.event_type === "holiday") || null;
+    const event = calendarEvents.find(e => e.event_date === dateStr && e.event_type === "holiday");
+    if (event) {
+      return { isHoliday: true, description: event.description };
+    }
+    return { isHoliday: false, description: null };
   };
 
   // Helper to get custom sessions for a date
@@ -222,8 +234,8 @@ const Attendance = () => {
   }, [maxSessionsPerDay]);
 
   const updateSessionCount = (studentId: string, date: Date, value: string) => {
-    // Don't allow updates on holidays
-    if (isHoliday(date)) return;
+    // Don't allow updates on holidays (including Sundays)
+    if (isHoliday(date).isHoliday) return;
     
     const dateStr = format(date, "yyyy-MM-dd");
     const key: AttendanceKey = `${studentId}_${dateStr}`;
@@ -238,8 +250,8 @@ const Attendance = () => {
   };
 
   const getSessionCount = (studentId: string, date: Date): number => {
-    // Holidays always return 0
-    if (isHoliday(date)) return 0;
+    // Holidays (including Sundays) always return 0
+    if (isHoliday(date).isHoliday) return 0;
     
     const dateStr = format(date, "yyyy-MM-dd");
     const key: AttendanceKey = `${studentId}_${dateStr}`;
@@ -254,8 +266,8 @@ const Attendance = () => {
       const newMap = new Map(prev);
       filteredStudents.forEach(student => {
         weekDates.forEach(date => {
-          // Skip holidays
-          if (isHoliday(date)) return;
+          // Skip holidays (including Sundays)
+          if (isHoliday(date).isHoliday) return;
           
           const dateStr = format(date, "yyyy-MM-dd");
           const effectiveMax = getEffectiveMaxSessions(date);
@@ -371,8 +383,8 @@ const Attendance = () => {
       const records: any[] = [];
       filteredStudents.forEach(student => {
         weekDates.forEach(date => {
-          // Skip holidays - don't save attendance records for holidays
-          if (isHoliday(date)) return;
+          // Skip holidays (including Sundays) - don't save attendance records for holidays
+          if (isHoliday(date).isHoliday) return;
           
           const dateStr = format(date, "yyyy-MM-dd");
           const key: AttendanceKey = `${student.id}_${dateStr}`;
@@ -428,8 +440,8 @@ const Attendance = () => {
     let daysWithInput = 0;
 
     weekDates.forEach(date => {
-      // Skip holidays in calculations
-      if (isHoliday(date)) return;
+      // Skip holidays (including Sundays) in calculations
+      if (isHoliday(date).isHoliday) return;
       
       const sessions = getSessionCount(student.id, date);
       const effectiveMax = getEffectiveMaxSessions(date);
@@ -446,9 +458,9 @@ const Attendance = () => {
     return { attendedSessions, totalSessions, percentage, daysWithInput };
   };
 
-  // Calculate weekly total sessions (excluding holidays)
+  // Calculate weekly total sessions (excluding holidays and Sundays)
   const weeklyTotalSessions = weekDates.reduce((sum, date) => {
-    if (isHoliday(date)) return sum;
+    if (isHoliday(date).isHoliday) return sum;
     return sum + getEffectiveMaxSessions(date);
   }, 0);
 
@@ -597,22 +609,22 @@ const Attendance = () => {
                                 <TableHead className="sticky left-0 bg-background z-10 min-w-[80px]">Roll No</TableHead>
                                 <TableHead className="sticky left-[80px] bg-background z-10 min-w-[120px]">Name</TableHead>
                                 {weekDates.map((date, index) => {
-                                  const holiday = isHoliday(date);
+                                  const holidayInfo = isHoliday(date);
                                   const customSess = getCustomSessions(date);
                                   return (
                                     <TableHead key={index} className={cn(
                                       "text-center min-w-[70px]",
-                                      holiday && "bg-destructive/10"
+                                      holidayInfo.isHoliday && "bg-destructive/10"
                                     )}>
                                       <div className="flex flex-col items-center">
                                         <span className="font-semibold">{DAYS[index]}</span>
                                         <span className="text-xs text-muted-foreground">{format(date, "d MMM")}</span>
-                                        {holiday && (
+                                        {holidayInfo.isHoliday && (
                                           <Badge variant="destructive" className="text-[10px] px-1 py-0 mt-1">
-                                            Holiday
+                                            {isSunday(date) ? "Sunday" : "Holiday"}
                                           </Badge>
                                         )}
-                                        {customSess !== null && !holiday && (
+                                        {customSess !== null && !holidayInfo.isHoliday && (
                                           <Badge variant="outline" className="text-[10px] px-1 py-0 mt-1">
                                             {customSess} sess
                                           </Badge>
@@ -639,13 +651,13 @@ const Attendance = () => {
                                       </div>
                                     </TableCell>
                                     {weekDates.map((date, index) => {
-                                      const holiday = isHoliday(date);
+                                      const holidayInfo = isHoliday(date);
                                       const sessionCount = getSessionCount(student.id, date);
                                       const effectiveMax = getEffectiveMaxSessions(date);
                                       const isFullAttendance = sessionCount === effectiveMax;
                                       const isZero = sessionCount === 0;
                                       
-                                      if (holiday) {
+                                      if (holidayInfo.isHoliday) {
                                         return (
                                           <TableCell key={index} className="text-center p-1 bg-destructive/10">
                                             <div className="w-14 h-9 flex items-center justify-center mx-auto text-xs text-muted-foreground">
