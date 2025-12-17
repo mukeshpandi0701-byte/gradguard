@@ -6,8 +6,15 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Calendar as CalendarIcon, Plus, Trash2, Edit2, PartyPopper, Clock } from "lucide-react";
-import { format, differenceInDays } from "date-fns";
+import { Calendar as CalendarIcon, Plus, Trash2, Edit2, PartyPopper, Clock, RotateCcw, X, CheckSquare } from "lucide-react";
+import { format, differenceInDays, eachDayOfInterval, getDay, addMonths, startOfMonth, endOfMonth } from "date-fns";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Helper to group consecutive dates into ranges
 const groupConsecutiveDates = (dates: Date[]): { start: Date; end: Date }[] => {
@@ -22,16 +29,13 @@ const groupConsecutiveDates = (dates: Date[]): { start: Date; end: Date }[] => {
   for (let i = 1; i < sorted.length; i++) {
     const diff = differenceInDays(sorted[i], rangeEnd);
     if (diff === 1) {
-      // Consecutive, extend range
       rangeEnd = sorted[i];
     } else {
-      // Gap found, push current range and start new
       ranges.push({ start: rangeStart, end: rangeEnd });
       rangeStart = sorted[i];
       rangeEnd = sorted[i];
     }
   }
-  // Push final range
   ranges.push({ start: rangeStart, end: rangeEnd });
   
   return ranges;
@@ -41,19 +45,17 @@ const formatDateRange = (range: { start: Date; end: Date }): string => {
   if (range.start.getTime() === range.end.getTime()) {
     return format(range.start, "MMM d");
   }
-  // Same month
   if (range.start.getMonth() === range.end.getMonth()) {
     return `${format(range.start, "MMM d")} - ${format(range.end, "d")}`;
   }
-  // Different months
   return `${format(range.start, "MMM d")} - ${format(range.end, "MMM d")}`;
 };
-import { DashboardLayout } from "@/components/DashboardLayout";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Get all Sundays in a date range
+const getSundaysInRange = (startDate: Date, endDate: Date): Date[] => {
+  const days = eachDayOfInterval({ start: startDate, end: endDate });
+  return days.filter(day => getDay(day) === 0); // 0 = Sunday
+};
 
 interface CalendarEvent {
   id: string;
@@ -73,6 +75,12 @@ const AcademicCalendar = () => {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
+  const [recurringMonths, setRecurringMonths] = useState<number>(3);
+  
+  // Bulk selection state
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   
   // Form state
   const [eventType, setEventType] = useState<"holiday" | "custom_sessions">("holiday");
@@ -89,7 +97,6 @@ const AcademicCalendar = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get HOD's department
       const { data: profile } = await supabase
         .from("profiles")
         .select("department")
@@ -104,7 +111,6 @@ const AcademicCalendar = () => {
 
       setDepartment(profile.department);
 
-      // Fetch calendar events
       const { data: calendarEvents, error } = await supabase
         .from("academic_calendar")
         .select("*")
@@ -155,7 +161,6 @@ const AcademicCalendar = () => {
       if (!user) throw new Error("Not authenticated");
 
       if (editingEvent) {
-        // Update existing (single date)
         const eventData = {
           department,
           event_date: format(selectedDates[0], "yyyy-MM-dd"),
@@ -173,7 +178,6 @@ const AcademicCalendar = () => {
         if (error) throw error;
         toast.success("Calendar event updated");
       } else {
-        // Insert multiple dates
         const eventsToInsert = selectedDates.map(date => ({
           department,
           event_date: format(date, "yyyy-MM-dd"),
@@ -183,7 +187,6 @@ const AcademicCalendar = () => {
           created_by: user.id,
         }));
 
-        // Upsert to handle conflicts
         const { error } = await supabase
           .from("academic_calendar")
           .upsert(eventsToInsert, { onConflict: "department,event_date" });
@@ -198,6 +201,46 @@ const AcademicCalendar = () => {
     } catch (error: any) {
       console.error("Error saving event:", error);
       toast.error(error.message || "Failed to save event");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddRecurringSundays = async () => {
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const startDate = new Date();
+      const endDate = addMonths(endOfMonth(startDate), recurringMonths - 1);
+      const sundays = getSundaysInRange(startDate, endDate);
+
+      if (sundays.length === 0) {
+        toast.error("No Sundays found in the selected range");
+        return;
+      }
+
+      const eventsToInsert = sundays.map(date => ({
+        department,
+        event_date: format(date, "yyyy-MM-dd"),
+        event_type: "holiday" as const,
+        description: "Sunday (Weekly Holiday)",
+        custom_sessions: null,
+        created_by: user.id,
+      }));
+
+      const { error } = await supabase
+        .from("academic_calendar")
+        .upsert(eventsToInsert, { onConflict: "department,event_date" });
+
+      if (error) throw error;
+      toast.success(`${sundays.length} Sundays marked as holidays`);
+      setRecurringDialogOpen(false);
+      fetchDepartmentAndEvents();
+    } catch (error: any) {
+      console.error("Error adding recurring holidays:", error);
+      toast.error(error.message || "Failed to add recurring holidays");
     } finally {
       setSaving(false);
     }
@@ -221,7 +264,56 @@ const AcademicCalendar = () => {
     }
   };
 
-  // Get dates with events for calendar highlighting
+  const handleBulkDelete = async () => {
+    if (selectedEventIds.size === 0) {
+      toast.error("No events selected");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedEventIds.size} event(s)?`)) return;
+
+    setBulkDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("academic_calendar")
+        .delete()
+        .in("id", Array.from(selectedEventIds));
+
+      if (error) throw error;
+      toast.success(`${selectedEventIds.size} event(s) deleted`);
+      setSelectedEventIds(new Set());
+      fetchDepartmentAndEvents();
+    } catch (error: any) {
+      console.error("Error bulk deleting:", error);
+      toast.error("Failed to delete events");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const toggleEventSelection = (eventId: string) => {
+    const newSelection = new Set(selectedEventIds);
+    if (newSelection.has(eventId)) {
+      newSelection.delete(eventId);
+    } else {
+      newSelection.add(eventId);
+    }
+    setSelectedEventIds(newSelection);
+  };
+
+  const toggleSelectAll = (eventList: CalendarEvent[]) => {
+    const allIds = eventList.map(e => e.id);
+    const allSelected = allIds.every(id => selectedEventIds.has(id));
+    
+    const newSelection = new Set(selectedEventIds);
+    if (allSelected) {
+      allIds.forEach(id => newSelection.delete(id));
+    } else {
+      allIds.forEach(id => newSelection.add(id));
+    }
+    setSelectedEventIds(newSelection);
+  };
+
   const holidayDates = events
     .filter(e => e.event_type === "holiday")
     .map(e => new Date(e.event_date));
@@ -246,7 +338,7 @@ const AcademicCalendar = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 w-full">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-3xl font-bold flex items-center gap-2">
               <CalendarIcon className="h-8 w-8" />
@@ -256,125 +348,186 @@ const AcademicCalendar = () => {
               Manage holidays and customize session hours for {department}
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Event
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingEvent ? "Edit Event" : "Add Calendar Event"}</DialogTitle>
-                <DialogDescription>
-                  Mark holidays or set custom session hours for specific days
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>{editingEvent ? "Date" : "Select Date(s)"}</Label>
-                  <div className="border rounded-md p-3 max-h-[320px] overflow-auto">
-                    {editingEvent ? (
-                      <Calendar
-                        mode="single"
-                        selected={selectedDates[0]}
-                        onSelect={(date) => setSelectedDates(date ? [date] : [])}
-                        className="mx-auto"
-                      />
-                    ) : (
-                      <Calendar
-                        mode="multiple"
-                        selected={selectedDates}
-                        onSelect={(dates) => setSelectedDates(dates || [])}
-                        className="mx-auto"
-                      />
-                    )}
-                  </div>
-                  {selectedDates.length > 0 && (
-                    <div className="text-sm text-muted-foreground text-center">
-                      {editingEvent 
-                        ? `Selected: ${format(selectedDates[0], "EEEE, MMMM d, yyyy")}`
-                        : (
-                          <div className="space-y-1">
-                            <p className="font-medium">{selectedDates.length} date(s) selected</p>
-                            <div className="flex flex-wrap gap-1 justify-center max-h-20 overflow-auto">
-                              {groupConsecutiveDates(selectedDates).map((range, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {formatDateRange(range)}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      }
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Event Type</Label>
-                  <Select value={eventType} onValueChange={(v) => setEventType(v as "holiday" | "custom_sessions")}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="holiday">
-                        <span className="flex items-center gap-2">
-                          <PartyPopper className="w-4 h-4 text-destructive" />
-                          Holiday (No attendance)
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="custom_sessions">
-                        <span className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-primary" />
-                          Custom Sessions
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {eventType === "custom_sessions" && (
+          <div className="flex gap-2 flex-wrap">
+            {/* Recurring Sundays Dialog */}
+            <Dialog open={recurringDialogOpen} onOpenChange={setRecurringDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Add All Sundays
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Recurring Sunday Holidays</DialogTitle>
+                  <DialogDescription>
+                    Mark all Sundays as holidays for the next few months
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
                   <div className="space-y-2">
-                    <Label>Number of Sessions</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={10}
-                      value={customSessions}
-                      onChange={(e) => setCustomSessions(parseInt(e.target.value) || 0)}
-                      placeholder="Enter sessions (0-10)"
-                    />
+                    <Label>Number of Months</Label>
+                    <Select value={recurringMonths.toString()} onValueChange={(v) => setRecurringMonths(parseInt(v))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Month</SelectItem>
+                        <SelectItem value="3">3 Months</SelectItem>
+                        <SelectItem value="6">6 Months</SelectItem>
+                        <SelectItem value="12">12 Months</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <p className="text-xs text-muted-foreground">
-                      Override the default sessions for this day (0-10)
+                      Starting from today, mark all Sundays as holidays
                     </p>
                   </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label>Description (Optional)</Label>
-                  <Input
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={eventType === "holiday" ? "e.g., Diwali, Christmas" : "e.g., Half-day, Special event"}
-                  />
                 </div>
-              </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRecurringDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddRecurringSundays} disabled={saving}>
+                    {saving ? "Adding..." : "Add Sundays"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
+            {/* Add Event Dialog */}
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Event
                 </Button>
-                <Button onClick={handleSaveEvent} disabled={saving}>
-                  {saving ? "Saving..." : editingEvent ? "Update" : "Add Event"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingEvent ? "Edit Event" : "Add Calendar Event"}</DialogTitle>
+                  <DialogDescription>
+                    Mark holidays or set custom session hours for specific days
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>{editingEvent ? "Date" : "Select Date(s)"}</Label>
+                      {!editingEvent && selectedDates.length > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setSelectedDates([])}
+                          className="h-7 px-2 text-xs"
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Clear All
+                        </Button>
+                      )}
+                    </div>
+                    <div className="border rounded-md p-3 max-h-[320px] overflow-auto">
+                      {editingEvent ? (
+                        <Calendar
+                          mode="single"
+                          selected={selectedDates[0]}
+                          onSelect={(date) => setSelectedDates(date ? [date] : [])}
+                          className="mx-auto"
+                        />
+                      ) : (
+                        <Calendar
+                          mode="multiple"
+                          selected={selectedDates}
+                          onSelect={(dates) => setSelectedDates(dates || [])}
+                          className="mx-auto"
+                        />
+                      )}
+                    </div>
+                    {selectedDates.length > 0 && (
+                      <div className="text-sm text-muted-foreground text-center">
+                        {editingEvent 
+                          ? `Selected: ${format(selectedDates[0], "EEEE, MMMM d, yyyy")}`
+                          : (
+                            <div className="space-y-1">
+                              <p className="font-medium">{selectedDates.length} date(s) selected</p>
+                              <div className="flex flex-wrap gap-1 justify-center max-h-20 overflow-auto">
+                                {groupConsecutiveDates(selectedDates).map((range, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {formatDateRange(range)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        }
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Event Type</Label>
+                    <Select value={eventType} onValueChange={(v) => setEventType(v as "holiday" | "custom_sessions")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="holiday">
+                          <span className="flex items-center gap-2">
+                            <PartyPopper className="w-4 h-4 text-destructive" />
+                            Holiday (No attendance)
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="custom_sessions">
+                          <span className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-primary" />
+                            Custom Sessions
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {eventType === "custom_sessions" && (
+                    <div className="space-y-2">
+                      <Label>Number of Sessions</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={10}
+                        value={customSessions}
+                        onChange={(e) => setCustomSessions(parseInt(e.target.value) || 0)}
+                        placeholder="Enter sessions (0-10)"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Override the default sessions for this day (0-10)
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Description (Optional)</Label>
+                    <Input
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder={eventType === "holiday" ? "e.g., Diwali, Christmas" : "e.g., Half-day, Special event"}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveEvent} disabled={saving}>
+                    {saving ? "Saving..." : editingEvent ? "Update" : "Add Event"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -423,8 +576,23 @@ const AcademicCalendar = () => {
           {/* Events List */}
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-lg">Calendar Events</CardTitle>
-              <CardDescription>{events.length} event(s) configured</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Calendar Events</CardTitle>
+                  <CardDescription>{events.length} event(s) configured</CardDescription>
+                </div>
+                {selectedEventIds.size > 0 && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {bulkDeleting ? "Deleting..." : `Delete (${selectedEventIds.size})`}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="holidays">
@@ -448,6 +616,12 @@ const AcademicCalendar = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={holidays.length > 0 && holidays.every(h => selectedEventIds.has(h.id))}
+                              onCheckedChange={() => toggleSelectAll(holidays)}
+                            />
+                          </TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Description</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
@@ -456,6 +630,12 @@ const AcademicCalendar = () => {
                       <TableBody>
                         {holidays.map((event) => (
                           <TableRow key={event.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedEventIds.has(event.id)}
+                                onCheckedChange={() => toggleEventSelection(event.id)}
+                              />
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Badge variant="destructive">
@@ -499,6 +679,12 @@ const AcademicCalendar = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={customSessionEvents.length > 0 && customSessionEvents.every(e => selectedEventIds.has(e.id))}
+                              onCheckedChange={() => toggleSelectAll(customSessionEvents)}
+                            />
+                          </TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Sessions</TableHead>
                           <TableHead>Description</TableHead>
@@ -508,6 +694,12 @@ const AcademicCalendar = () => {
                       <TableBody>
                         {customSessionEvents.map((event) => (
                           <TableRow key={event.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedEventIds.has(event.id)}
+                                onCheckedChange={() => toggleEventSelection(event.id)}
+                              />
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Badge variant="default">
