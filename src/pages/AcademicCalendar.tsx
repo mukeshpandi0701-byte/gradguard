@@ -7,7 +7,47 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Calendar as CalendarIcon, Plus, Trash2, Edit2, PartyPopper, Clock } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
+
+// Helper to group consecutive dates into ranges
+const groupConsecutiveDates = (dates: Date[]): { start: Date; end: Date }[] => {
+  if (dates.length === 0) return [];
+  
+  const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
+  const ranges: { start: Date; end: Date }[] = [];
+  
+  let rangeStart = sorted[0];
+  let rangeEnd = sorted[0];
+  
+  for (let i = 1; i < sorted.length; i++) {
+    const diff = differenceInDays(sorted[i], rangeEnd);
+    if (diff === 1) {
+      // Consecutive, extend range
+      rangeEnd = sorted[i];
+    } else {
+      // Gap found, push current range and start new
+      ranges.push({ start: rangeStart, end: rangeEnd });
+      rangeStart = sorted[i];
+      rangeEnd = sorted[i];
+    }
+  }
+  // Push final range
+  ranges.push({ start: rangeStart, end: rangeEnd });
+  
+  return ranges;
+};
+
+const formatDateRange = (range: { start: Date; end: Date }): string => {
+  if (range.start.getTime() === range.end.getTime()) {
+    return format(range.start, "MMM d");
+  }
+  // Same month
+  if (range.start.getMonth() === range.end.getMonth()) {
+    return `${format(range.start, "MMM d")} - ${format(range.end, "d")}`;
+  }
+  // Different months
+  return `${format(range.start, "MMM d")} - ${format(range.end, "MMM d")}`;
+};
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -261,17 +301,12 @@ const AcademicCalendar = () => {
                         : (
                           <div className="space-y-1">
                             <p className="font-medium">{selectedDates.length} date(s) selected</p>
-                            <div className="flex flex-wrap gap-1 justify-center max-h-16 overflow-auto">
-                              {selectedDates.slice(0, 5).map((d, i) => (
+                            <div className="flex flex-wrap gap-1 justify-center max-h-20 overflow-auto">
+                              {groupConsecutiveDates(selectedDates).map((range, i) => (
                                 <Badge key={i} variant="outline" className="text-xs">
-                                  {format(d, "MMM d")}
+                                  {formatDateRange(range)}
                                 </Badge>
                               ))}
-                              {selectedDates.length > 5 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  +{selectedDates.length - 5} more
-                                </Badge>
-                              )}
                             </div>
                           </div>
                         )
