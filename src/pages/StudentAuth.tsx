@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { HelpCircle } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
@@ -15,8 +16,6 @@ import logo from "@/assets/logo.png";
 
 const COLLEGES = [
   { value: "CIET", label: "Coimbatore Institute of Engineering and Technology (CIET)" },
-  { value: "SRIT", label: "Sri Ramakrishna Institute of Technology (SRIT)" },
-  { value: "KPRIET", label: "KPR Institute of Engineering and Technology (KPRIET)" },
 ];
 
 const YEARS = [
@@ -58,6 +57,7 @@ const StudentAuth = () => {
   const [year, setYear] = useState("");
   const [department, setDepartment] = useState("");
   const [branch, setBranch] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
   const validateEmail = (email: string) => {
     // Student email format: rollnumber@ciet.in
@@ -190,7 +190,7 @@ const StudentAuth = () => {
                     <Input
                       id="login-email"
                       type="email"
-                      placeholder="rollnumber@collegename.in"
+                      placeholder="rollnumber@ciet.in"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -207,6 +207,16 @@ const StudentAuth = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                     />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="remember-me"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    />
+                    <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer">
+                      Remember me
+                    </Label>
                   </div>
                 </CardContent>
                 <CardFooter className="flex-col gap-4">
@@ -251,7 +261,7 @@ const StudentAuth = () => {
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="rollnumber@collegename.in"
+                      placeholder="rollnumber@ciet.in"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
