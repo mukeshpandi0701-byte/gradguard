@@ -64,6 +64,7 @@ const StudentDetail = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [maxInternalMarks, setMaxInternalMarks] = useState(100);
 
   useEffect(() => {
     if (id) {
@@ -76,6 +77,13 @@ const StudentDetail = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
+
+      // Fetch HOD criteria for accurate total_hours
+      const { data: hodCriteriaData } = await supabase.rpc("get_department_hod_criteria");
+      const hodCriteria = hodCriteriaData?.[0];
+      const hodTotalHours = hodCriteria?.total_hours ?? 100;
+      const hodMaxInternalMarks = hodCriteria?.max_internal_marks ?? 100;
+      const hodTotalFees = hodCriteria?.total_fees ?? 100000;
 
       // Try to fetch from student_profiles first (for HOD/Staff viewing logged-in students)
       const { data: profileData } = await supabase
@@ -110,13 +118,25 @@ const StudentDetail = () => {
         attendanceRowCount = attendanceRecords?.length ?? 0;
 
         let attendancePercentage = academicData?.attendance_percentage ?? 0;
+        let calculatedAttendedHours = academicData?.attended_hours ?? 0;
+        
         if (attendanceRecords && attendanceRecords.length > 0) {
           const totalAttended = attendanceRecords.reduce((sum, r) => sum + r.sessions_attended, 0);
           const totalMax = attendanceRecords.reduce((sum, r) => sum + r.max_sessions, 0);
           if (totalMax > 0) {
             attendancePercentage = Math.min(100, (totalAttended / totalMax) * 100);
+            // Calculate attended_hours based on session ratio applied to HOD's total_hours
+            calculatedAttendedHours = Math.round((totalAttended / totalMax) * hodTotalHours * 10) / 10;
           }
         }
+
+        // Use HOD's criteria for total values if student's values are 0
+        const displayTotalHours = academicData?.total_hours && academicData.total_hours > 0 
+          ? academicData.total_hours 
+          : hodTotalHours;
+        const displayTotalFees = academicData?.total_fees && academicData.total_fees > 0 
+          ? academicData.total_fees 
+          : hodTotalFees;
 
         studentData = {
           ...(academicData ?? ({} as any)),
@@ -131,10 +151,10 @@ const StudentDetail = () => {
           fee_paid_percentage: academicData?.fee_paid_percentage ?? 0,
           pending_fees: academicData?.pending_fees ?? 0,
           internal_marks: academicData?.internal_marks ?? 0,
-          attended_hours: academicData?.attended_hours ?? 0,
-          total_hours: academicData?.total_hours ?? 0,
+          attended_hours: calculatedAttendedHours,
+          total_hours: displayTotalHours,
           paid_fees: academicData?.paid_fees ?? 0,
-          total_fees: academicData?.total_fees ?? 0,
+          total_fees: displayTotalFees,
         };
       } else {
         // Fallback: try students table directly
@@ -160,6 +180,8 @@ const StudentDetail = () => {
         profileId = profileByRoll?.id ?? null;
 
         let attendancePercentage = directStudentData.attendance_percentage ?? 0;
+        let calculatedAttendedHours = directStudentData.attended_hours ?? 0;
+        
         if (profileByRoll) {
           const { data: attendanceRecords } = await supabase
             .from("attendance_records")
@@ -173,18 +195,31 @@ const StudentDetail = () => {
             const totalMax = attendanceRecords.reduce((sum, r) => sum + r.max_sessions, 0);
             if (totalMax > 0) {
               attendancePercentage = Math.min(100, (totalAttended / totalMax) * 100);
+              calculatedAttendedHours = Math.round((totalAttended / totalMax) * hodTotalHours * 10) / 10;
             }
           }
         }
+
+        // Use HOD's criteria for total values if student's values are 0
+        const displayTotalHours = directStudentData.total_hours && directStudentData.total_hours > 0 
+          ? directStudentData.total_hours 
+          : hodTotalHours;
+        const displayTotalFees = directStudentData.total_fees && directStudentData.total_fees > 0 
+          ? directStudentData.total_fees 
+          : hodTotalFees;
 
         studentData = {
           ...directStudentData,
           profileId: profileId ?? undefined,
           attendance_percentage: attendancePercentage,
+          attended_hours: calculatedAttendedHours,
+          total_hours: displayTotalHours,
+          total_fees: displayTotalFees,
         };
       }
 
       setStudent(studentData);
+      setMaxInternalMarks(hodMaxInternalMarks);
 
       // Use students.id for predictions and history (canonical ID)
       const canonicalId = studentsId ?? studentData.id;
@@ -538,7 +573,7 @@ const StudentDetail = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">{student.internal_marks}</div>
-                <p className="text-xs text-muted-foreground mt-1">out of 100</p>
+                <p className="text-xs text-muted-foreground mt-1">out of {maxInternalMarks}</p>
               </CardContent>
             </Card>
 
