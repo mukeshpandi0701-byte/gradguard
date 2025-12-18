@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { initializeModel, predictDropout } from "@/lib/mlModel";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SubjectMark = {
   subject_code: string;
@@ -45,104 +46,51 @@ const Students = () => {
   const [predicting, setPredicting] = useState(false);
   const [departments, setDepartments] = useState<string[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
-  const [assignedBranches, setAssignedBranches] = useState<string[]>([]);
-  const [isHOD, setIsHOD] = useState(false);
-  const [roleChecked, setRoleChecked] = useState(false);
+  const [isHOD, setIsHOD] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    checkUserRole();
-  }, []);
-
-  useEffect(() => {
-    if (!roleChecked) return;
-    
-    if (!isHOD) {
-      // Initialize model in background only for staff (non-blocking)
-      initializeModel().catch(console.error);
-    }
-    fetchStudents();
-  }, [roleChecked, isHOD]);
-
-  const checkUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .eq("role", "hod")
-          .maybeSingle();
-        
-        if (roleData) {
-          setIsHOD(true);
-          setRoleChecked(true);
-          return;
-        }
-        
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("panel_type")
-          .eq("id", user.id)
-          .maybeSingle();
-        setIsHOD(profile?.panel_type === "hod");
-      }
-      setRoleChecked(true);
-    } catch (error) {
-      console.error("Error checking user role:", error);
-      setRoleChecked(true);
-    }
-  };
-
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async (userIsHOD: boolean) => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Check if HOD - if so, fetch from student_profiles (logged-in students)
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "hod")
-        .maybeSingle();
-      
-      const userIsHOD = !!roleData;
-
       if (userIsHOD) {
-        // HOD: Get HOD's department first
-        const { data: hodProfile } = await supabase
-          .from("profiles")
-          .select("department")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        const hodDepartment = hodProfile?.department;
-
-        // HOD: Fetch logged-in students from student_profiles filtered by department
-        let studentProfilesQuery = supabase
-          .from("student_profiles")
-          .select("*")
-          .order('roll_number', { ascending: true, nullsFirst: false });
-
-        // Filter by department if HOD has one set
-        if (hodDepartment) {
-          studentProfilesQuery = studentProfilesQuery.eq("department", hodDepartment);
-        }
-
-        const { data: studentProfiles, error: profilesError } = await studentProfilesQuery;
+        // HOD: Get department and student profiles in parallel
+        const [{ data: hodProfile }, { data: studentProfiles, error: profilesError }] = await Promise.all([
+          supabase.from("profiles").select("department").eq("id", user.id).maybeSingle(),
+          supabase.from("student_profiles").select("*").order('roll_number', { ascending: true, nullsFirst: false })
+        ]);
 
         if (profilesError) throw profilesError;
 
-        // Fetch attendance records aggregated by student_id
-        const profileIds = (studentProfiles || []).map(sp => sp.id);
-        const { data: attendanceRecords } = await supabase
-          .from("attendance_records")
-          .select("student_id, sessions_attended, max_sessions")
-          .in("student_id", profileIds);
+        const hodDepartment = hodProfile?.department;
+        const filteredProfiles = hodDepartment 
+          ? (studentProfiles || []).filter(sp => sp.department === hodDepartment)
+          : (studentProfiles || []);
 
-        // Aggregate attendance per student
+        if (filteredProfiles.length === 0) {
+          setStudents([]);
+          setDepartments([]);
+          return;
+        }
+
+        const profileIds = filteredProfiles.map(sp => sp.id);
+        const rollNumbers = filteredProfiles.map(sp => sp.roll_number).filter(Boolean);
+
+        // Fetch all related data in parallel
+        const [
+          { data: attendanceRecords },
+          { data: studentsData },
+          { data: predictionsData },
+          { data: subjectMarksData }
+        ] = await Promise.all([
+          supabase.from("attendance_records").select("student_id, sessions_attended, max_sessions").in("student_id", profileIds),
+          supabase.from("students").select("roll_number, attendance_percentage, fee_paid_percentage, pending_fees, internal_marks").in("roll_number", rollNumbers),
+          supabase.from("predictions").select("student_id, ml_probability, final_risk_level").in("student_id", profileIds),
+          supabase.from("student_subject_marks").select(`student_id, internal_marks, branch_subjects (subject_code, subject_name)`).in("student_id", profileIds)
+        ]);
+
+        // Process data with maps
         const attendanceMap = new Map<string, { attended: number; total: number }>();
         (attendanceRecords || []).forEach((record: any) => {
           const current = attendanceMap.get(record.student_id) || { attended: 0, total: 0 };
@@ -151,42 +99,9 @@ const Students = () => {
           attendanceMap.set(record.student_id, current);
         });
 
-        // Fetch student academic data from students table
-        const rollNumbers = (studentProfiles || []).map(sp => sp.roll_number).filter(Boolean);
-        const { data: studentsData } = await supabase
-          .from("students")
-          .select("roll_number, attendance_percentage, fee_paid_percentage, pending_fees, internal_marks")
-          .in("roll_number", rollNumbers);
+        const studentsDataMap = new Map((studentsData || []).map(s => [s.roll_number, s]));
+        const predictionsMap = new Map((predictionsData || []).map(p => [p.student_id, p]));
 
-        // Create a map of student data by roll_number
-        const studentsDataMap = new Map(
-          (studentsData || []).map(s => [s.roll_number, s])
-        );
-
-        // Fetch all predictions for display
-        const { data: predictionsData } = await supabase
-          .from("predictions")
-          .select("student_id, ml_probability, final_risk_level")
-          .in("student_id", profileIds);
-
-        const predictionsMap = new Map(
-          (predictionsData || []).map(p => [p.student_id, p])
-        );
-
-        // Fetch subject marks for all students
-        const { data: subjectMarksData } = await supabase
-          .from("student_subject_marks")
-          .select(`
-            student_id,
-            internal_marks,
-            branch_subjects (
-              subject_code,
-              subject_name
-            )
-          `)
-          .in("student_id", profileIds);
-
-        // Group subject marks by student_id
         const subjectMarksMap = new Map<string, SubjectMark[]>();
         (subjectMarksData || []).forEach((sm: any) => {
           const current = subjectMarksMap.get(sm.student_id) || [];
@@ -198,14 +113,12 @@ const Students = () => {
           subjectMarksMap.set(sm.student_id, current);
         });
 
-        // Map student_profiles to Student type for display
-        const studentsFromProfiles = (studentProfiles || []).map(sp => {
+        const studentsFromProfiles = filteredProfiles.map(sp => {
           const attendanceData = attendanceMap.get(sp.id);
           const academicData = studentsDataMap.get(sp.roll_number);
           const predictionData = predictionsMap.get(sp.id);
           const subjectMarks = subjectMarksMap.get(sp.id) || [];
           
-          // Calculate attendance from records, fallback to students table
           let attendancePercentage = 0;
           if (attendanceData && attendanceData.total > 0) {
             attendancePercentage = Math.min(100, (attendanceData.attended / attendanceData.total) * 100);
@@ -213,7 +126,6 @@ const Students = () => {
             attendancePercentage = Number(academicData.attendance_percentage);
           }
 
-          // Calculate average marks from subject marks, fallback to stored value
           let averageMarks = academicData?.internal_marks ?? 0;
           if (subjectMarks.length > 0) {
             averageMarks = subjectMarks.reduce((sum, sm) => sum + sm.marks, 0) / subjectMarks.length;
@@ -236,19 +148,16 @@ const Students = () => {
         });
 
         setStudents(studentsFromProfiles);
-        
-        // Extract unique departments/branches
         const uniqueDepts = Array.from(new Set(studentsFromProfiles.map(s => s.department).filter(Boolean))) as string[];
         setDepartments(uniqueDepts);
       } else {
-        // Staff: Fetch from student_profiles, filtered by assigned branches
+        // Staff: Fetch branches first
         const { data: branchData } = await supabase
           .from("staff_branch_assignments")
           .select("branch")
           .eq("staff_user_id", user.id);
 
         const branches = (branchData || []).map(b => b.branch);
-        setAssignedBranches(branches);
 
         if (branches.length === 0) {
           setStudents([]);
@@ -256,7 +165,7 @@ const Students = () => {
           return;
         }
 
-        // Fetch student profiles from assigned branches
+        // Fetch student profiles
         const { data: studentProfiles, error: profilesError } = await supabase
           .from("student_profiles")
           .select("*")
@@ -265,26 +174,31 @@ const Students = () => {
 
         if (profilesError) throw profilesError;
 
-        // Fetch student academic data from students table
-        const rollNumbers = (studentProfiles || []).map(sp => sp.roll_number).filter(Boolean);
-        const { data: studentsData } = await supabase
-          .from("students")
-          .select("roll_number, attendance_percentage, fee_paid_percentage, pending_fees, internal_marks")
-          .in("roll_number", rollNumbers);
+        if (!studentProfiles || studentProfiles.length === 0) {
+          setStudents([]);
+          setDepartments([]);
+          return;
+        }
 
-        // Create a map of student data by roll_number
-        const studentsDataMap = new Map(
-          (studentsData || []).map(s => [s.roll_number, s])
-        );
+        const profileIds = studentProfiles.map(sp => sp.id);
+        const rollNumbers = studentProfiles.map(sp => sp.roll_number).filter(Boolean);
 
-        // Fetch attendance records aggregated by student_id (student_profiles.id)
-        const profileIds = (studentProfiles || []).map(sp => sp.id);
-        const { data: attendanceRecords } = await supabase
-          .from("attendance_records")
-          .select("student_id, sessions_attended, max_sessions")
-          .in("student_id", profileIds);
+        // Fetch all related data in parallel
+        const [
+          { data: studentsData },
+          { data: attendanceRecords },
+          { data: predictionsData },
+          { data: subjectMarksData }
+        ] = await Promise.all([
+          supabase.from("students").select("roll_number, attendance_percentage, fee_paid_percentage, pending_fees, internal_marks").in("roll_number", rollNumbers),
+          supabase.from("attendance_records").select("student_id, sessions_attended, max_sessions").in("student_id", profileIds),
+          supabase.from("predictions").select("student_id, ml_probability, final_risk_level").eq("user_id", user.id),
+          supabase.from("student_subject_marks").select(`student_id, internal_marks, branch_subjects (subject_code, subject_name)`).in("student_id", profileIds)
+        ]);
 
-        // Aggregate attendance per student
+        // Process data with maps
+        const studentsDataMap = new Map((studentsData || []).map(s => [s.roll_number, s]));
+
         const attendanceMap = new Map<string, { attended: number; total: number }>();
         (attendanceRecords || []).forEach((record: any) => {
           const current = attendanceMap.get(record.student_id) || { attended: 0, total: 0 };
@@ -293,33 +207,8 @@ const Students = () => {
           attendanceMap.set(record.student_id, current);
         });
 
-        // Fetch all predictions for this user
-        const { data: predictionsData, error: predictionsError } = await supabase
-          .from("predictions")
-          .select("student_id, ml_probability, final_risk_level")
-          .eq("user_id", user.id);
+        const predictionsMap = new Map((predictionsData || []).map(p => [p.student_id, p]));
 
-        if (predictionsError) throw predictionsError;
-
-        // Create a map of predictions by student_id
-        const predictionsMap = new Map(
-          (predictionsData || []).map(p => [p.student_id, p])
-        );
-
-        // Fetch subject marks for staff's students
-        const { data: subjectMarksData } = await supabase
-          .from("student_subject_marks")
-          .select(`
-            student_id,
-            internal_marks,
-            branch_subjects (
-              subject_code,
-              subject_name
-            )
-          `)
-          .in("student_id", profileIds);
-
-        // Group subject marks by student_id
         const subjectMarksMap = new Map<string, SubjectMark[]>();
         (subjectMarksData || []).forEach((sm: any) => {
           const current = subjectMarksMap.get(sm.student_id) || [];
@@ -331,18 +220,15 @@ const Students = () => {
           subjectMarksMap.set(sm.student_id, current);
         });
 
-        // Map student_profiles to Student type with predictions and academic data
-        const studentsFromProfiles = (studentProfiles || []).map(sp => {
+        const studentsFromProfiles = studentProfiles.map(sp => {
           const academicData = studentsDataMap.get(sp.roll_number);
           const attendanceData = attendanceMap.get(sp.id);
           const subjectMarks = subjectMarksMap.get(sp.id) || [];
           
-          // Calculate attendance percentage from attendance_records
           const attendancePercentage = attendanceData && attendanceData.total > 0
             ? Math.min(100, (attendanceData.attended / attendanceData.total) * 100)
             : (academicData?.attendance_percentage || 0);
 
-          // Calculate average marks from subject marks, fallback to stored value
           let averageMarks = academicData?.internal_marks || 0;
           if (subjectMarks.length > 0) {
             averageMarks = subjectMarks.reduce((sum, sm) => sum + sm.marks, 0) / subjectMarks.length;
@@ -365,8 +251,6 @@ const Students = () => {
         });
 
         setStudents(studentsFromProfiles);
-        
-        // Extract unique departments/branches
         const uniqueDepts = Array.from(new Set(studentsFromProfiles.map(s => s.department).filter(Boolean))) as string[];
         setDepartments(uniqueDepts);
       }
@@ -376,7 +260,40 @@ const Students = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Single role check
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "hod")
+          .maybeSingle();
+
+        const userIsHOD = !!roleData;
+        setIsHOD(userIsHOD);
+
+        // Initialize model in background for staff only
+        if (!userIsHOD) {
+          initializeModel().catch(console.error);
+        }
+
+        // Fetch students with known role
+        await fetchStudents(userIsHOD);
+      } catch (error) {
+        console.error("Error initializing:", error);
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, [fetchStudents]);
 
   const runPredictions = async () => {
     if (students.length === 0) {
@@ -413,7 +330,6 @@ const Students = () => {
             fees_weightage: c.fees_weightage,
             assignment_weightage: c.assignment_weightage,
           };
-          console.log("Using HOD criteria:", criteria);
         }
       }
 
@@ -424,17 +340,12 @@ const Students = () => {
         return;
       }
 
-      await supabase
-        .from("predictions")
-        .delete()
-        .eq("user_id", user.id);
-
-      // Fetch assignment scores for all students
+      // Delete old predictions and fetch assignment marks in parallel
       const studentIds = students.map(s => s.id);
-      const { data: assignmentMarks } = await supabase
-        .from("student_branch_assignment_marks")
-        .select("student_id, marks_obtained")
-        .in("student_id", studentIds);
+      const [, { data: assignmentMarks }] = await Promise.all([
+        supabase.from("predictions").delete().eq("user_id", user.id),
+        supabase.from("student_branch_assignment_marks").select("student_id, marks_obtained").in("student_id", studentIds)
+      ]);
 
       // Calculate average assignment score per student
       const assignmentScoreMap: Record<string, number> = {};
@@ -531,11 +442,29 @@ const Students = () => {
     ? students 
     : students.filter(s => s.department === selectedDepartment);
 
-  if (loading) {
+  if (loading || isHOD === null) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="space-y-4 w-full">
+          <div className="flex justify-between items-center">
+            <div>
+              <Skeleton className="h-9 w-48 mb-2" />
+              <Skeleton className="h-5 w-72" />
+            </div>
+            <Skeleton className="h-10 w-36" />
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </DashboardLayout>
     );
