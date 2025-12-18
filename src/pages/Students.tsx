@@ -11,7 +11,7 @@ import { initializeModel, predictDropout } from "@/lib/mlModel";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { TableSkeleton, TabsSkeleton } from "@/components/ui/data-skeleton";
+
 type SubjectMark = {
   subject_code: string;
   subject_name: string | null;
@@ -534,16 +534,8 @@ const Students = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="space-y-4 w-full">
-          <div className="flex justify-between items-center">
-            <div className="space-y-2">
-              <div className="h-8 w-56 rounded-md bg-muted animate-pulse" />
-              <div className="h-4 w-80 rounded-md bg-muted animate-pulse" />
-            </div>
-            <div className="h-10 w-36 rounded-md bg-muted animate-pulse" />
-          </div>
-          <TabsSkeleton tabs={4} />
-          <TableSkeleton rows={8} columns={9} />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       </DashboardLayout>
     );

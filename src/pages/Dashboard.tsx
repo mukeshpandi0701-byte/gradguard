@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, AlertCircle, CheckCircle2, AlertTriangle, Upload, BarChart3 } from "lucide-react";
+import { Users, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Upload, BarChart3 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ParallaxWrapper } from "@/components/ParallaxWrapper";
-import { DashboardStatsSkeleton } from "@/components/ui/data-skeleton";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -109,12 +108,8 @@ const Dashboard = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="space-y-4 w-full max-w-7xl">
-          <div className="space-y-2">
-            <div className="h-8 w-48 rounded-md bg-muted animate-pulse" />
-            <div className="h-4 w-72 rounded-md bg-muted animate-pulse" />
-          </div>
-          <DashboardStatsSkeleton />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </DashboardLayout>
     );
