@@ -115,12 +115,14 @@ const StudentDashboard = () => {
           attendanceRecords = recordsByUser;
         }
 
-        let computedAttendance = 0;
+        let computedAttendance: number | null = null;
         if (attendanceRecords && attendanceRecords.length > 0) {
           const totalAttended = attendanceRecords.reduce((sum, r) => sum + (r.sessions_attended || 0), 0);
           const totalMax = attendanceRecords.reduce((sum, r) => sum + (r.max_sessions || 0), 0);
           if (totalMax > 0) {
             computedAttendance = Math.min(100, (totalAttended / totalMax) * 100);
+          } else {
+            computedAttendance = 0;
           }
         }
 
@@ -136,14 +138,14 @@ const StudentDashboard = () => {
         }
 
         if (studentDataResult) {
-          // Use computed attendance if available, otherwise fall back to students table
-          const finalAttendance = computedAttendance > 0 
-            ? computedAttendance 
+          // Use computed attendance if attendance records exist; otherwise fall back to students table
+          const finalAttendance = computedAttendance !== null
+            ? computedAttendance
             : (studentDataResult.attendance_percentage ?? 0);
-          
+
           setStudentData({
             ...studentDataResult,
-            attendance_percentage: finalAttendance
+            attendance_percentage: finalAttendance,
           });
 
           // Fetch prediction for this student
