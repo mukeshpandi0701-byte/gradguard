@@ -64,9 +64,22 @@ const StudentDashboard = () => {
         return;
       }
 
-      // Check if user is a student
-      const panelType = session.user.user_metadata?.panel_type;
-      if (panelType !== "student") {
+      // Verify user role from database (server-side verification)
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (roleError) {
+        console.error("Error verifying user role:", roleError);
+      }
+
+      // Check if user is a student using database role (primary) or metadata (fallback)
+      const isStudent = roleData?.role === "student" || 
+        (!roleData && session.user.user_metadata?.panel_type === "student");
+      
+      if (!isStudent) {
         toast.error("Access denied. This dashboard is for students only.");
         navigate("/dashboard");
         return;
