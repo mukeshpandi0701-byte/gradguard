@@ -10,17 +10,35 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check if user is already logged in and verify role from database
+    const checkAuthAndRedirect = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       if (session) {
-        const panelType = session.user.user_metadata?.panel_type;
-        if (panelType === "student") {
+        // Verify role from database (server-side) instead of relying solely on user_metadata
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (roleData?.role === "student") {
           navigate("/student-dashboard");
-        } else {
+        } else if (roleData?.role === "hod" || roleData?.role === "staff") {
           navigate("/dashboard");
+        } else {
+          // Fallback to user_metadata for backwards compatibility
+          const panelType = session.user.user_metadata?.panel_type;
+          if (panelType === "student") {
+            navigate("/student-dashboard");
+          } else {
+            navigate("/dashboard");
+          }
         }
       }
-    });
+    };
+
+    checkAuthAndRedirect();
   }, [navigate]);
 
   return (
