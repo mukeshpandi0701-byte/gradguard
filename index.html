@@ -22,7 +22,45 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Initial loading screen with theme-aware styling -->
+      <div id="initial-loader" style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 9999;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+          <div style="width: 48px; height: 48px; border: 3px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <span style="font-family: 'Inter', sans-serif; font-size: 14px; opacity: 0.7;">Loading...</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Theme detection script - runs before React hydrates -->
+    <script>
+      (function() {
+        var theme = localStorage.getItem('theme');
+        if (!theme) {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+        // Apply theme-aware colors to loader
+        var loader = document.getElementById('initial-loader');
+        if (loader) {
+          loader.style.backgroundColor = theme === 'dark' ? 'hsl(222.2, 47.4%, 8%)' : 'hsl(240, 20%, 99%)';
+          loader.style.color = theme === 'dark' ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 47.4%, 11.2%)';
+        }
+      })();
+    </script>
+    
+    <style>
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      /* Hide initial loader once React mounts */
+      #root:not(:empty) #initial-loader {
+        display: none !important;
+      }
+    </style>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
