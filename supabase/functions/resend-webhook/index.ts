@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { Webhook } from "https://esm.sh/svix@1.61.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const webhookSecret = Deno.env.get("RESEND_WEBHOOK_SECRET");
 
 interface ResendWebhookEvent {
   type: string; // email.sent, email.delivered, email.opened, email.clicked, email.bounced, email.delivery_delayed
@@ -27,10 +29,74 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const event: ResendWebhookEvent = await req.json();
+    // Verify webhook signature
+    if (!webhookSecret) {
+      console.error("RESEND_WEBHOOK_SECRET is not configured");
+      return new Response(
+        JSON.stringify({ error: "Webhook secret not configured" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-    console.log("Received Resend webhook event:", event.type, "for email:", event.data.email_id);
+    const svixId = req.headers.get("svix-id");
+    const svixTimestamp = req.headers.get("svix-timestamp");
+    const svixSignature = req.headers.get("svix-signature");
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      console.error("Missing svix headers for webhook verification");
+      return new Response(
+        JSON.stringify({ error: "Missing webhook signature headers" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Check for replay attacks - reject requests older than 5 minutes
+    const timestampSeconds = parseInt(svixTimestamp, 10);
+    const currentSeconds = Math.floor(Date.now() / 1000);
+    if (Math.abs(currentSeconds - timestampSeconds) > 300) {
+      console.error("Webhook timestamp is too old, possible replay attack");
+      return new Response(
+        JSON.stringify({ error: "Webhook timestamp is too old" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Get the raw body for signature verification
+    const payload = await req.text();
+
+    // Verify the webhook signature using Svix
+    const wh = new Webhook(webhookSecret);
+    let event: ResendWebhookEvent;
+    
+    try {
+      event = wh.verify(payload, {
+        "svix-id": svixId,
+        "svix-timestamp": svixTimestamp,
+        "svix-signature": svixSignature,
+      }) as ResendWebhookEvent;
+    } catch (verifyError) {
+      console.error("Webhook signature verification failed:", verifyError);
+      return new Response(
+        JSON.stringify({ error: "Invalid webhook signature" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    console.log("Verified Resend webhook event:", event.type, "for email:", event.data.email_id);
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Map event type to status and timestamp field
     let status: string | null = null;
@@ -72,12 +138,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Update notification log
     if (status && timestampField) {
-      const updateData: any = {
+      const updateData: Record<string, string> = {
         status,
         [timestampField]: new Date().toISOString(),
       };
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("notification_logs")
         .update(updateData)
         .eq("resend_email_id", event.data.email_id);
@@ -97,10 +163,11 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error: any) {
-    console.error("Error in resend-webhook function:", error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    console.error("Error in resend-webhook function:", errorMessage);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "Internal server error" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
