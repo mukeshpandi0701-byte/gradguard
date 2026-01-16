@@ -7,8 +7,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { FloatingOrbs } from "@/components/FloatingOrbs";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { BackendWakingUp } from "@/components/BackendWakingUp";
-import { useSupabaseHealth } from "@/hooks/useSupabaseHealth";
+import { useKeepAlive } from "@/hooks/useKeepAlive";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthSelector from "./pages/AuthSelector";
@@ -82,16 +81,11 @@ function AnimatedRoutes() {
 }
 
 function AppContent() {
-  const { isWakingUp, isHealthy, retryCount, wakeUp } = useSupabaseHealth();
+  // Keep backend alive by pinging every 4 minutes
+  useKeepAlive();
 
   return (
     <>
-      <BackendWakingUp
-        isWakingUp={isWakingUp}
-        isHealthy={isHealthy}
-        retryCount={retryCount}
-        onRetry={wakeUp}
-      />
       <FloatingOrbs />
       <Toaster />
       <Sonner />
