@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { FloatingOrbs } from "@/components/FloatingOrbs";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { BackendWakingUp } from "@/components/BackendWakingUp";
+import { useSupabaseHealth } from "@/hooks/useSupabaseHealth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthSelector from "./pages/AuthSelector";
@@ -79,17 +81,33 @@ function AnimatedRoutes() {
   );
 }
 
+function AppContent() {
+  const { isWakingUp, isHealthy, retryCount, wakeUp } = useSupabaseHealth();
+
+  return (
+    <>
+      <BackendWakingUp
+        isWakingUp={isWakingUp}
+        isHealthy={isHealthy}
+        retryCount={retryCount}
+        onRetry={wakeUp}
+      />
+      <FloatingOrbs />
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AnimatedRoutes />
+      </BrowserRouter>
+    </>
+  );
+}
+
 const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <TooltipProvider>
-          <FloatingOrbs />
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AnimatedRoutes />
-          </BrowserRouter>
+          <AppContent />
         </TooltipProvider>
       </ErrorBoundary>
     </QueryClientProvider>
